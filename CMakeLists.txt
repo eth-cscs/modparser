@@ -5,8 +5,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(TEST_SOURCES
-    test.cpp
     gtest-all.cpp
+    test.cpp
+    lex.cpp
 )
 
 add_executable(unittests.exe ${TEST_SOURCES})
