@@ -23,3 +23,17 @@
 *.exe
 *.out
 *.app
+
+# cmake detritus
+compile_commands.json
+cmake_install*
+CMakeCache.txt
+CMakeFiles
+Makefile
+
+# vim swap files
+*.swp
+*.swq
+*.swn
+*.swo
+
