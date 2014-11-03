@@ -1,11 +1,23 @@
+#include <cassert>
 #include <cstdio>
+
+#include <iostream>
 #include <string>
 
 #include "lex.h"
 
+inline bool in_range(const char &c, char first, char last) {
+    return c>=first && c<=last;
+}
 // helpers for identifying character types
 inline bool is_numeric(const char &c) {
-    return (c>='0' && c<='9');
+    return in_range(c, '0', '9');
+}
+inline bool is_alpha(const char &c) {
+    return (in_range(c, 'a', 'z') || in_range(c, 'A', 'Z') );
+}
+inline bool is_alphanumeric(const char &c) {
+    return (is_numeric(c) || is_alpha(c) );
 }
 inline bool is_whitespace(const char &c) {
     return (c==' ' || c=='\t' || c=='\v' || c=='\f');
@@ -33,7 +45,7 @@ Token Lexer::parse() {
             // end of file
             case 0      :       // end of string
             case EOF    :       // end of file
-                t.token = tok_eof;
+                t.type = tok_eof;
                 return t;
 
             // white space
@@ -48,13 +60,14 @@ Token Lexer::parse() {
             case '\n'   :
                 current_++;
                 line_ = current_;
+                location.line++;
                 continue;   // skip to next line
 
             // number
             case '0': case '1' : case '2' : case '3' : case '4':
             case '5': case '6' : case '7' : case '8' : case '9':
             case '.':
-                t.token = tok_number;
+                t.type = tok_number;
                 t.value = number();
                 return t;
 
@@ -70,36 +83,50 @@ Token Lexer::parse() {
             case '_':
                 // get std::string of the identifier
                 // TODO handle keywords
-                t.name name = identifier();
-                //if(is_keyword(name))
-                break;
+                t.name = identifier();
+                t.type = tok_identifier;
+                return t;
             case '(':
-                t.token = tok_lparen;
-                break;
+                t.type = tok_lparen;
+                t.name += character();
+                return t;
             case ')':
-                t.token = tok_rparen;
-                break;
+                t.type = tok_rparen;
+                t.name += character();
+                return t;
             case '{':
-                t.token = tok_lbrace;
-                break;
+                t.type = tok_lbrace;
+                t.name += character();
+                return t;
             case '}':
-                t.token = tok_rbrace;
-                break;
+                t.type = tok_rbrace;
+                t.name += character();
+                return t;
             case '+':
-                t.token = tok_plus;
-                break;
+                t.type = tok_plus;
+                t.name += character();
+                return t;
             case '-':
-                t.token = tok_minus;
-                break;
+                t.type = tok_minus;
+                t.name += character();
+                return t;
             case '/':
-                t.token = tok_divide;
-                break;
+                t.type = tok_divide;
+                t.name += character();
+                return t;
             case '*':
-                t.token = tok_times;
-                break;
+                t.type = tok_times;
+                t.name += character();
+                return t;
             case ',':
-                t.token = tok_comma;
-                break;
+                t.type = tok_comma;
+                t.name += character();
+                return t;
+            default:
+                std::cerr << "error: unexpected character "
+                          << (uint8_t)(*current_)
+                          << " in input" << std::endl;
+                assert(0);
         }
     }
 
@@ -109,15 +136,15 @@ Token Lexer::parse() {
 
 // scan floating point number from stream
 double Lexer::number() {
-    std::string num_str;
+    std::string str;
     char c = *current_;
 
     // assert that current position is at the start of a number
     assert( is_numeric(c) || c=='.' );
-    uint8_t num_point = c=='.' ? 1 : 0;
+    uint8_t num_point = (c=='.' ? 1 : 0);
 
     // shouldn't we return a string too?
-    num_str += c;
+    str += c;
     current_++;
     while(1) {
         c = *current_;
@@ -133,12 +160,12 @@ double Lexer::number() {
             break;
         }
         else if(is_numeric(c)) {
-            num_str += c;
+            str += c;
             current_++;
         }
         else if(c=='.') {
             num_point++;
-            num_str += c;
+            str += c;
             current_++;
         }
         // found an unexpected value
@@ -150,12 +177,13 @@ double Lexer::number() {
             assert(0);
         }
     }
+
     // check that there is at most one decimal point
     // i.e. disallow values like 2.2324.323
     assert(num_point<2);
 
     // convert string to double
-    return std::stod(num_str);
+    return std::stod(str);
 }
 
 // scan identifier from stream
@@ -168,9 +196,9 @@ std::string Lexer::identifier() {
     char c = *current_;
 
     // assert that current position is at the start of a number
-    assert( is_alphanumeric(c) || c=='_' );
+    // note that the first character can't be numeric
+    assert( is_alpha(c) || c=='_' );
 
-    // shouldn't we return a string too?
     name += c;
     current_++;
     while(1) {
@@ -203,9 +231,12 @@ std::string Lexer::identifier() {
             assert(0);
         }
     }
-    // TODO : add check that name contains something other than underscores
-    assert(num_point<2);
 
-    // convert string to double
-    return std::stod(num_str);
+    return name;
 }
+
+// scan a single character from the buffer
+char Lexer::character() {
+    return *current_++;
+}
+

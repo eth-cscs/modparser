@@ -39,17 +39,15 @@ enum TOK {
 };
 
 struct Location {
-    int line_number;
-    int column_number;
+    int line;
+    int column;
 
-    Location()
-    :   line_number(1),
-        column_number(1)
+    Location() : Location(1, 1)
     {}
 
-    Location(int line_number, int column_number)
-    :   line_number(line_number),
-        column_number(column_number)
+    Location(int ln, int col)
+    :   line(ln),
+        column(col)
     {}
 };
 
@@ -59,7 +57,7 @@ struct Location {
 //  value information if it is 
 struct Token {
     Location location;
-    TOK token;
+    TOK type;
 
     // don't bother using a union or an abstract base class for storing metadata associated
     // with different tokens, because the .mod files are very small, so memory constraints are
@@ -76,15 +74,14 @@ public:
     :   begin_(begin),
         end_(end),
         current_(begin),
-        size_(end-begin),
         location(),
-        current_line(begin)
+        line_(begin)
     {
         assert(begin_<=end_);
     }
 
     // get the next token
-    TOK parse();
+    Token parse();
 
     // scan a number from the stream
     double number();
@@ -92,10 +89,12 @@ public:
     // scan an identifier string from the stream
     std::string identifier();
 
+    // scan a character from the stream
+    char character();
+
 private:
     char *begin_, *end_;// pointer to start and 1 past the end of the buffer
     char *current_;     // pointer to current character
     char *line_;        // pointer to start of current line
-    size_t size_;       // size of the buffer
     Location location;  // current location (line,column) in buffer
 };
