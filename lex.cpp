@@ -92,7 +92,7 @@ Token Lexer::parse() {
                 // get std::string of the identifier
                 // TODO handle keywords
                 t.name = identifier();
-                t.type = tok_identifier;
+                t.type = get_identifier_type(t.name);
                 return t;
             case '(':
                 t.type = tok_lparen;
@@ -256,10 +256,6 @@ char Lexer::character() {
     return *current_++;
 }
 
-//*********************
-// Keywords
-//*********************
-
 struct Keyword {
     const char *name;
     TOK type;
@@ -293,12 +289,28 @@ std::unordered_map<std::string, TOK> Lexer::keyword_map;
 
 void Lexer::keywords_init() {
     // check whether the map has already been initialized
-    if(this->keyword_map.size()>0)
+    if(keyword_map.size()>0)
         return;
 
     for(int i = 0; keywords[i].name!=nullptr; ++i) {
         keyword_map.insert( {keywords[i].name, keywords[i].type} );
     }
+    //std::cout << "there are " << keyword_map.size() << " keywords in the DSL" << std::endl;
 }
 
+// pre  : identifier is a valid identifier ([_a-zA-Z][_a-zA-Z0-9]*)
+// post : if(identifier is a keyword) return tok_<keyword>
+//        else                        return tok_identifier
+TOK Lexer::get_identifier_type(std::string const& identifier) {
+    auto pos = keyword_map.find(identifier);
+    return pos==keyword_map.end() ? tok_identifier : pos->second;
+}
+
+//*********************
+// Token
+//*********************
+
+bool is_keyword(Token const& t) {
+    return t.type != tok_identifier;
+}
 

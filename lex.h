@@ -74,6 +74,9 @@ struct Token {
     std::string name;
 };
 
+bool is_keyword(Token const& t);
+
+
 // class that implements the lexer
 // takes a range of characters as input parameters
 class Lexer {
@@ -105,9 +108,12 @@ public:
 
     // lookup table used for checking if an identifier matches a keyword
     static std::unordered_map<std::string, TOK> keyword_map;
+
 private:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
+    // helper for determining if an identifier string matches a keyword
+    TOK get_identifier_type(std::string const& identifier);
 
     char *begin_, *end_;// pointer to start and 1 past the end of the buffer
     char *current_;     // pointer to current character

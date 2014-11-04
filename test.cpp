@@ -20,6 +20,8 @@ TEST(Lexer, identifiers) {
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_identifier);
     EXPECT_EQ(t1.name, "_foo");
+    // odds are _foo will never be a keyword
+    EXPECT_EQ(is_keyword(t1), false);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_identifier);
@@ -38,6 +40,34 @@ TEST(Lexer, identifiers) {
 
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok_eof);
+}
+
+// test keywords
+TEST(Lexer, keywords) {
+    char string[] = "NEURON UNITS SOLVE else";
+    PRINT_LEX_STRING
+    Lexer lexer(string, string+sizeof(string));
+
+    // should skip all white space and go straight to eof
+    auto t1 = lexer.parse();
+    EXPECT_EQ(t1.type, tok_neuron);
+    EXPECT_EQ(is_keyword(t1), true);
+    EXPECT_EQ(t1.name, "NEURON");
+
+    auto t2 = lexer.parse();
+    EXPECT_EQ(t2.type, tok_units);
+    EXPECT_EQ(t2.name, "UNITS");
+
+    auto t3 = lexer.parse();
+    EXPECT_EQ(t3.type, tok_solve);
+    EXPECT_EQ(t3.name, "SOLVE");
+
+    auto t4 = lexer.parse();
+    EXPECT_EQ(t4.type, tok_else);
+    EXPECT_EQ(t4.name, "else");
+
+    auto t5 = lexer.parse();
+    EXPECT_EQ(t5.type, tok_eof);
 }
 
 // test white space
