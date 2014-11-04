@@ -1,6 +1,13 @@
 Write the lexer
-    - define all the tokens
+    - support for block comments
+    - ability to parse VERBATIM blocks
+        - VERBATIM is a major code stink
+        - ... so do a review of all use cases for VERBATIM and generalize them
+          into the DSL
     - elegant handling of errors in the lexer
-        - return an error token and a provide callback for the parser to extract error message?
-          the parser could also insert errors on top of lexer errors
-    - keyword loopup table
+        + implemented
+        - need some unit tests
+
+write the Parser
+    - design the AST structure
+        - I don't know what the root node looks like...

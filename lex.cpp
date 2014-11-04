@@ -5,6 +5,7 @@
 #include <string>
 
 #include "lex.h"
+#include "util.h"
 
 inline bool in_range(const char &c, char first, char last) {
     return c>=first && c<=last;
@@ -75,8 +76,9 @@ Token Lexer::parse() {
             case '0': case '1' : case '2' : case '3' : case '4':
             case '5': case '6' : case '7' : case '8' : case '9':
             case '.':
-                t.type = tok_number;
                 t.value = number();
+                // test for error when reading number
+                t.type = (status_==ls_error) ? tok_reserved : tok_number;
                 return t;
 
             // identifier or keyword
@@ -91,7 +93,7 @@ Token Lexer::parse() {
             case '_':
                 // get std::string of the identifier
                 t.name = identifier();
-                t.type = get_identifier_type(t.name);
+                t.type = (status_==ls_error) ? tok_reserved : get_identifier_type(t.name);
                 return t;
             case '(':
                 t.type = tok_lparen;
@@ -130,10 +132,11 @@ Token Lexer::parse() {
                 t.name += character();
                 return t;
             default:
-                std::cerr << "error: unexpected character "
-                          << (uint8_t)(*current_)
-                          << " in input" << std::endl;
-                assert(0);
+                error_string_ = pprintf("found undexpected character '%' when trying to find next token", *current_);
+                status_ = ls_error;
+                t.name += character();
+                t.type = tok_reserved;
+                break;
         }
     }
 
@@ -146,8 +149,7 @@ double Lexer::number() {
     std::string str;
     char c = *current_;
 
-    // assert that current position is at the start of a number
-    assert( is_numeric(c) || c=='.' );
+    // start counting the number of points in the number
     uint8_t num_point = (c=='.' ? 1 : 0);
 
     // shouldn't we return a string too?
@@ -182,16 +184,20 @@ double Lexer::number() {
         // found an unexpected value
         // e.g. the following [a-zA-Z]
         else {
-            std::cerr << "error : found unexpected character "
-                      << c << " when reading a number"
-                      << std::endl;
-            assert(0);
+            str += c;
+            error_string_ = pprintf("found undexpected character '%' when reading a number '%'", c, str);
+            status_ = ls_error;
+            break;
         }
     }
 
     // check that there is at most one decimal point
     // i.e. disallow values like 2.2324.323
-    assert(num_point<2);
+    if(num_point>1) {
+        error_string_ = pprintf("too many .'s when reading the number '%'", str);
+        status_ = ls_error;
+        return 0.;
+    }
 
     // convert string to double
     return std::stod(str);
@@ -240,10 +246,10 @@ std::string Lexer::identifier() {
         // found an unexpected value
         // e.g. the following [a-zA-Z]
         else {
-            std::cerr << "error : found unexpected character '"
-                      << c << "' when reading a number"
-                      << std::endl;
-            assert(0);
+            name += c;
+            error_string_ = pprintf("found undexpected character '%' when reading an identifier '%'", c, name);
+            status_ = ls_error;
+            break;
         }
     }
 

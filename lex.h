@@ -1,3 +1,5 @@
+#pragma once
+
 // inspiration was taken from the Digital Mars D compiler
 //      github.com/D-Programming-Language/dmd
 #include <cassert>
@@ -44,6 +46,12 @@ enum TOK {
     tok_if, tok_else,
 
     tok_reserved, // placeholder for generating keyword lookup
+};
+
+// status of the lexer
+enum LStat {
+    ls_error,  // lexer has encounterd a problem
+    ls_happy   // lexer is in a good place
 };
 
 struct Location {
@@ -109,6 +117,8 @@ public:
     // lookup table used for checking if an identifier matches a keyword
     static std::unordered_map<std::string, TOK> keyword_map;
 
+    LStat status() {return status_;}
+
 private:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
@@ -119,4 +129,7 @@ private:
     char *current_;     // pointer to current character
     char *line_;        // pointer to start of current line
     Location location_;  // current location (line,column) in buffer
+
+    LStat status_ = ls_happy;
+    std::string error_string_;
 };

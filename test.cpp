@@ -7,6 +7,7 @@
  * lexer tests
  **************************************************************/
 #include "lex.h"
+#include "util.h"
 
 //#define PRINT_LEX_STRING std::cout << "________________\n" << string << "\n________________\n";
 #define PRINT_LEX_STRING
@@ -179,6 +180,7 @@ TEST(Lexer, numbers) {
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok_eof);
 }
+
 /**************************************************************
  * main
  **************************************************************/
