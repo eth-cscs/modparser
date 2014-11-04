@@ -289,14 +289,16 @@ static Keyword keywords[] = {
     {nullptr,       tok_reserved},
 };
 
+std::unordered_map<std::string, TOK> Lexer::keyword_map;
+
 void Lexer::keywords_init() {
     // check whether the map has already been initialized
     if(this->keyword_map.size()>0)
         return;
 
-    //for(int i = 0; keywords[i].name!=nullptr; ++i) {
-        //keyword_map.insert( {keywords[i].name, keywords[i].type} );
-    //}
+    for(int i = 0; keywords[i].name!=nullptr; ++i) {
+        keyword_map.insert( {keywords[i].name, keywords[i].type} );
+    }
 }
 
 
