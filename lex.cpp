@@ -90,7 +90,6 @@ Token Lexer::parse() {
             case 'V': case 'W': case 'X': case 'Y': case 'Z':
             case '_':
                 // get std::string of the identifier
-                // TODO handle keywords
                 t.name = identifier();
                 t.type = get_identifier_type(t.name);
                 return t;
