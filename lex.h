@@ -119,6 +119,7 @@ public:
 
     LStat status() {return status_;}
 
+    const std::string& error_message() {return error_string_;};
 private:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();

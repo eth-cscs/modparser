@@ -7,10 +7,10 @@
 #include "lex.h"
 #include "util.h"
 
+// helpers for identifying character types
 inline bool in_range(const char &c, char first, char last) {
     return c>=first && c<=last;
 }
-// helpers for identifying character types
 inline bool is_numeric(const char &c) {
     return in_range(c, '0', '9');
 }

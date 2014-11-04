@@ -181,6 +181,26 @@ TEST(Lexer, numbers) {
     EXPECT_EQ(t6.type, tok_eof);
 }
 
+// test errors
+TEST(Lexer, errors) {
+    char string[] = "foo 1a";
+    PRINT_LEX_STRING
+    Lexer lexer(string, string+sizeof(string));
+
+    // first read a valid token
+    auto t1 = lexer.parse();
+    EXPECT_EQ(t1.type, tok_identifier);
+    EXPECT_EQ(lexer.status(), ls_happy);
+
+    // try to scan '1a' which is invalid and check that an error is generated
+    auto t2 = lexer.parse();
+    EXPECT_EQ(t2.type, tok_reserved); // tok_reserved is a placeholder that indicates an error
+    EXPECT_EQ(lexer.status(), ls_error);
+
+    // assert that the correct error message was generated
+    EXPECT_EQ(lexer.error_message(), "found undexpected character 'a' when reading a number '1a'");
+}
+
 /**************************************************************
  * main
  **************************************************************/
