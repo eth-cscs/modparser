@@ -29,17 +29,17 @@ inline bool is_operator(const char &c) {
     return (c=='+' || c=='-' || c=='*' || c=='/');
 }
 
-/**********************
- * Lexer
- **********************/
+//*********************
+// Lexer
+//*********************
 
 Token Lexer::parse() {
     Token t;
 
     // the while loop strips white space/new lines in front of the next token
     while(1) {
-        location.column = line_-current_;
-        t.location = location;
+        location_.column = current_-line_+1;
+        t.location = location_;
 
         switch(*current_) {
             // end of file
@@ -60,8 +60,16 @@ Token Lexer::parse() {
             case '\n'   :
                 current_++;
                 line_ = current_;
-                location.line++;
+                location_.line++;
                 continue;   // skip to next line
+
+            // comment (everything after : on a line is a comment)
+            case ':'    :
+                // strip characters until either end of file or end of line
+                while( !is_eof(*current_) && *current_ != '\n') {
+                    ++current_;
+                }
+                continue;
 
             // number
             case '0': case '1' : case '2' : case '3' : case '4':
@@ -159,6 +167,10 @@ double Lexer::number() {
         else if(is_operator(c)) {
             break;
         }
+        // a number can be followed by parenthesis or a comma or a comment
+        else if(c=='(' || c==',' || c==':') {
+            break;
+        }
         else if(is_numeric(c)) {
             str += c;
             current_++;
@@ -214,8 +226,12 @@ std::string Lexer::identifier() {
         else if(is_operator(c)) {
             break;
         }
-        // a number can be followed by a parenthesis
+        // an identifier can be followed by open or closed parenthesis
         else if(c=='(' || c ==')') {
+            break;
+        }
+        // an identifier can be followed by a comma or a comment
+        else if(c==',' || c==':') {
             break;
         }
         else if(is_alphanumeric(c) || c=='_') {
@@ -225,8 +241,8 @@ std::string Lexer::identifier() {
         // found an unexpected value
         // e.g. the following [a-zA-Z]
         else {
-            std::cerr << "error : found unexpected character "
-                      << c << " when reading a number"
+            std::cerr << "error : found unexpected character '"
+                      << c << "' when reading a number"
                       << std::endl;
             assert(0);
         }
@@ -239,4 +255,48 @@ std::string Lexer::identifier() {
 char Lexer::character() {
     return *current_++;
 }
+
+//*********************
+// Keywords
+//*********************
+
+struct Keyword {
+    const char *name;
+    TOK type;
+};
+
+static Keyword keywords[] = {
+    {"NEURON",      tok_neuron},
+    {"UNITS",       tok_units},
+    {"PARAMETER",   tok_parameter},
+    {"ASSIGNED",    tok_assigned},
+    {"STATE",       tok_state},
+    {"BREAKPOINT",  tok_breakpoint},
+    {"DERIVATIVE",  tok_derivative},
+    {"PROCEDURE",   tok_procedure},
+    {"UNITSOFF",    tok_unitsoff},
+    {"UNITSON",     tok_unitson},
+    {"SUFFIX",      tok_suffix},
+    {"NONSPECIFIC_CURRENT", tok_nonspecific_current},
+    {"USEION",      tok_useion},
+    {"READ",        tok_read},
+    {"WRITE",       tok_write},
+    {"RANGE",       tok_range},
+    {"SOLVE",       tok_solve},
+    {"METHOD",      tok_method},
+    {"if",          tok_if},
+    {"else",        tok_else},
+    {nullptr,       tok_reserved},
+};
+
+void Lexer::keywords_init() {
+    // check whether the map has already been initialized
+    if(this->keyword_map.size()>0)
+        return;
+
+    //for(int i = 0; keywords[i].name!=nullptr; ++i) {
+        //keyword_map.insert( {keywords[i].name, keywords[i].type} );
+    //}
+}
+
 

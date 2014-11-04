@@ -2,6 +2,9 @@
 //      github.com/D-Programming-Language/dmd
 #include <cassert>
 
+#include <string>
+#include <unordered_map>
+
 enum TOK {
     tok_eof, // end of file
 
@@ -35,7 +38,12 @@ enum TOK {
     tok_suffix, tok_nonspecific_current, tok_useion,
     tok_read, tok_write,
     tok_range,
-    tok_solve, tok_method
+    tok_solve, tok_method,
+
+    // logical keywords
+    tok_if, tok_else,
+
+    tok_reserved, // placeholder for generating keyword lookup
 };
 
 struct Location {
@@ -74,10 +82,11 @@ public:
     :   begin_(begin),
         end_(end),
         current_(begin),
-        location(),
+        location_(),
         line_(begin)
     {
         assert(begin_<=end_);
+        keywords_init();
     }
 
     // get the next token
@@ -92,9 +101,16 @@ public:
     // scan a character from the stream
     char character();
 
+    Location location() {return location_;}
+
+    // lookup table used for checking if an identifier matches a keyword
+    static std::unordered_map<std::string, TOK> keyword_map;
 private:
+    // generate lookup tables (hash maps) for keywords
+    void keywords_init();
+
     char *begin_, *end_;// pointer to start and 1 past the end of the buffer
     char *current_;     // pointer to current character
     char *line_;        // pointer to start of current line
-    Location location;  // current location (line,column) in buffer
+    Location location_;  // current location (line,column) in buffer
 };

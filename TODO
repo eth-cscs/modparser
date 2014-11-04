@@ -1,38 +1,6 @@
 Write the lexer
     - define all the tokens
-
-Parser
-    - start by reading in token and checking whether it is a block
-        - blocks are NEURON, UNITS, etc
-    - handle each block with block specific parsing
-        - NEURON block will parse for SUFFIX, NONSPECIFIC_CURRENT, etc
-        
-
-
-# comments start with :
-:Comment :
-:Reference : :      Reuveni, Friedman, Amitai, and Gutnick, J.Neurosci. 1993
-
-# blocks enclosed with {}
-NEURON {}
-UNITS {}
-PARAMETER {}
-ASSIGNED {}
-STATE {}
-BREAKPOINT {}
-DERIVATIVE {}
-PROCEDURE rates() {}        # rates is always used in this context?
-PROCEDURE foo() {}          # foo is any name
-
-# other keywords
-UNITSOFF UNITSON            # used to enclose blocks
-SUFFIX
-NONSPECIFIC_CURRENT
-USEION
-READ
-WRITE
-RANGE
-SOLVE
-METHOD
-
-
+    - elegant handling of errors in the lexer
+        - return an error token and a provide callback for the parser to extract error message?
+          the parser could also insert errors on top of lexer errors
+    - keyword loopup table
