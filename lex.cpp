@@ -111,6 +111,10 @@ Token Lexer::parse() {
                 t.type = tok_rbrace;
                 t.name += character();
                 return t;
+            case '=':
+                t.type = tok_eq;
+                t.name += character();
+                return t;
             case '+':
                 t.type = tok_plus;
                 t.name += character();
