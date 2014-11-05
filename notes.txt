@@ -1,0 +1,90 @@
+class Module {
+    // every module is composed of blocks that mimic the higher level
+    NeuronAST neuron_block_;
+    UnitsAST units_block_;
+    ParameterAST parameter_block_;
+    AssignedAST assigned_block_;
+    StateAST state_block_;
+    BreakpointAST break_block_;
+    DerivativeAST derivative_block_;
+    InitialAST    initial_block_;
+    std::vector<ProcedureAST*> procedures_;
+};
+
+struct IonDep {
+    std::string name_;
+    std::vector<string> read_;
+    std::vector<string> write_;
+};
+
+struct NeuronAST {
+    std::string suffix_;
+    std::vector<IonDep> ions_;
+    std::vector<Range> ranges_;
+};
+
+struct UnitDefinition {
+    std::unordered_map<std::string, std::string> units;
+};
+
+struct UnitsAST {
+    std::vector<UnitDefinition> units_;
+};
+
+NEURON  {
+    SUFFIX Ca
+    USEION ca READ eca WRITE ica
+    RANGE gCabar, gCa, ica 
+}
+
+UNITS   {
+    (S) = (siemens)
+    (mV) = (millivolt)
+    (mA) = (milliamp)
+}
+
+PARAMETER   {
+    gCabar = 0.00001 (S/cm2) 
+}
+
+ASSIGNED    {
+    v   (mV)
+    eca (mV)
+    ica (mA/cm2)
+    gCa (S/cm2)
+    mInf
+    ...
+}
+
+STATE   {
+    m
+    h
+}
+
+BREAKPOINT  {
+    SOLVE states METHOD cnexp
+    gCa = gCabar*m*m*h
+    ica = gCa*(v-eca)
+}
+
+DERIVATIVE states   {
+    rates()
+    m' = (mInf-m)/mTau
+    h' = (hInf-h)/hTau
+}
+
+INITIAL{
+    rates()
+    m = mInf
+    h = hInf
+}
+
+PROCEDURE rates(){
+    UNITSOFF
+        if((v == -27) ){
+            v = v+0.0001
+        }
+        mAlpha =  (0.055*(-27-v))/(exp((-27-v)/3.8) - 1)
+        ...
+    UNITSON
+}

@@ -8,6 +8,7 @@ set(TEST_SOURCES
     gtest-all.cpp
     test.cpp
     lex.cpp
+    module.cpp
 )
 
 add_executable(unittests.exe ${TEST_SOURCES})

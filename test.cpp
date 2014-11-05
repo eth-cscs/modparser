@@ -6,6 +6,7 @@
 /**************************************************************
  * lexer tests
  **************************************************************/
+#include "module.h"
 #include "lex.h"
 #include "util.h"
 
@@ -187,7 +188,7 @@ TEST(Lexer, errors) {
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
-    // first read a valid token
+    // first read a valid token 'foo'
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_identifier);
     EXPECT_EQ(lexer.status(), ls_happy);
@@ -199,6 +200,21 @@ TEST(Lexer, errors) {
 
     // assert that the correct error message was generated
     EXPECT_EQ(lexer.error_message(), "found undexpected character 'a' when reading a number '1a'");
+}
+
+TEST(Module, open) {
+    Module m("./modfiles/test.mod");
+    std::vector<char> buffer = m.buffer();
+    //Lexer lexer(buffer.data(), buffer.data()+buffer.size());
+    const char* data = m.buffer().data();
+    Lexer lexer(data, data+m.buffer().size());
+    auto t = lexer.parse();
+    while(t.type != tok_eof) {
+        //std::cout << t.name << " ";
+        std::cout << t.name << std::endl;
+        t = lexer.parse();
+    }
+    std::cout << std::endl;
 }
 
 /**************************************************************
