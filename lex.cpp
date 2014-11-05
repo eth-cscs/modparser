@@ -150,14 +150,16 @@ Token Lexer::parse() {
 
 Token Lexer::peek() {
     // save the current position
-    const char *oldpos = current_;
-    Location    oldloc = location_;
+    const char *oldpos  = current_;
+    const char *oldlin  = line_;
+    Location    oldloc  = location_;
 
     Token t = parse(); // read the next token
 
     // reset position
     current_  = oldpos;
     location_ = oldloc;
+    line_     = oldlin;
 
     return t;
 }
