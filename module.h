@@ -2,7 +2,7 @@
 
 #include <string>
 
-//#include "blocks.h"
+#include "blocks.h"
 
 // wrapper around a .mod file
 class Module {
@@ -13,7 +13,14 @@ public :
         return buffer_;
     }
 
+    std::string const& name() {return fname_;}
+
+    NeuronBlock &neuron_block() {return neuron_block_;}
+    void neuron_block(NeuronBlock const &n) {neuron_block_ = n;}
 private :
     std::string fname_;
-    std::vector<char> buffer_;
+    std::vector<char> buffer_; // character buffer loaded from file
+
+    // blocks
+    NeuronBlock neuron_block_;
 };

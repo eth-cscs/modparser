@@ -148,6 +148,20 @@ Token Lexer::parse() {
     return t;
 }
 
+Token Lexer::peek() {
+    // save the current position
+    const char *oldpos = current_;
+    Location    oldloc = location_;
+
+    Token t = parse(); // read the next token
+
+    // reset position
+    current_  = oldpos;
+    location_ = oldloc;
+
+    return t;
+}
+
 // scan floating point number from stream
 double Lexer::number() {
     std::string str;

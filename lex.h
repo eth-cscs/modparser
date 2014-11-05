@@ -6,6 +6,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 enum TOK {
     tok_eof, // end of file
@@ -100,8 +101,17 @@ public:
         keywords_init();
     }
 
+    Lexer(std::vector<char> const& v)
+    :   Lexer(v.data(), v.data()+v.size())
+    {}
+
     // get the next token
     Token parse();
+
+    void get_token() { token_ = parse(); }
+
+    // return the next token in the stream without advancing the current position
+    Token peek();
 
     // scan a number from the stream
     double number();
@@ -133,4 +143,6 @@ private:
 
     LStat status_ = ls_happy;
     std::string error_string_;
+
+    Token token_;
 };

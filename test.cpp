@@ -3,13 +3,14 @@
  **************************************************************/
 #include "gtest.h"
 
+#include "lex.h"
+#include "module.h"
+#include "parser.h"
+#include "util.h"
+
 /**************************************************************
  * lexer tests
  **************************************************************/
-#include "module.h"
-#include "lex.h"
-#include "util.h"
-
 //#define PRINT_LEX_STRING std::cout << "________________\n" << string << "\n________________\n";
 #define PRINT_LEX_STRING
 
@@ -202,19 +203,25 @@ TEST(Lexer, errors) {
     EXPECT_EQ(lexer.error_message(), "found undexpected character 'a' when reading a number '1a'");
 }
 
+/**************************************************************
+ * module tests
+ **************************************************************/
 TEST(Module, open) {
     Module m("./modfiles/test.mod");
-    std::vector<char> buffer = m.buffer();
-    //Lexer lexer(buffer.data(), buffer.data()+buffer.size());
-    const char* data = m.buffer().data();
-    Lexer lexer(data, data+m.buffer().size());
+    Lexer lexer(m.buffer());
     auto t = lexer.parse();
     while(t.type != tok_eof) {
-        //std::cout << t.name << " ";
-        std::cout << t.name << std::endl;
+        //std::cout << t.name << std::endl;
         t = lexer.parse();
     }
-    std::cout << std::endl;
+}
+
+/**************************************************************
+ * parser tests
+ **************************************************************/
+TEST(Parser, open) {
+    Module m("./modfiles/test.mod");
+    Parser p(m);
 }
 
 /**************************************************************
