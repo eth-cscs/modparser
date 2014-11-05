@@ -89,7 +89,7 @@ bool is_keyword(Token const& t);
 // takes a range of characters as input parameters
 class Lexer {
 public:
-    Lexer(char* begin, char* end)
+    Lexer(const char * begin, const char* end)
     :   begin_(begin),
         end_(end),
         current_(begin),
@@ -126,9 +126,9 @@ private:
     // helper for determining if an identifier string matches a keyword
     TOK get_identifier_type(std::string const& identifier);
 
-    char *begin_, *end_;// pointer to start and 1 past the end of the buffer
-    char *current_;     // pointer to current character
-    char *line_;        // pointer to start of current line
+    const char *begin_, *end_;// pointer to start and 1 past the end of the buffer
+    const char *current_;     // pointer to current character
+    const char *line_;        // pointer to start of current line
     Location location_;  // current location (line,column) in buffer
 
     LStat status_ = ls_happy;
