@@ -3,7 +3,7 @@
  **************************************************************/
 #include "gtest.h"
 
-#include "lex.h"
+#include "lexer.h"
 #include "module.h"
 #include "parser.h"
 #include "util.h"

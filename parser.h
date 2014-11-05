@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "lexer.h"
 #include "module.h"
 
 class Parser : public Lexer {

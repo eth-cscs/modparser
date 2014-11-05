@@ -7,7 +7,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 set(TEST_SOURCES
     gtest-all.cpp
     test.cpp
-    lex.cpp
+    lexer.cpp
     module.cpp
 )
 

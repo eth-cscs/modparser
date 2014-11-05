@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-#include "lex.h"
+#include "lexer.h"
 #include "util.h"
 
 // helpers for identifying character types
