@@ -8,3 +8,7 @@ NEURON  {
    GLOBAL minf, mtau, hinf, htau
 }
 
+STATE {
+    h m
+}
+

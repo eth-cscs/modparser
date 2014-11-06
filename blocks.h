@@ -19,6 +19,11 @@ struct NeuronBlock {
     std::vector<std::string> globals;
 };
 
+// information stored in a NEURON {} block in mod file
+struct StateBlock {
+    std::vector<std::string> state_variables;
+};
+
 ////////////////////////////////////////////////
 // helpers for pretty printing block information
 ////////////////////////////////////////////////
@@ -50,6 +55,16 @@ static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
     for(auto const& ion : N.ions) {
         os << " [" << ion << "]";
     }
+    os << std::endl;
+
+    return os;
+}
+
+static std::ostream& operator<< (std::ostream& os, StateBlock const& B) {
+    os << "StateBlock" << std::endl;
+    os << "  variables  :";
+    for(auto const& v: B.state_variables)
+        os << " " << v;
     os << std::endl;
 
     return os;

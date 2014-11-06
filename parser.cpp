@@ -15,6 +15,9 @@ Parser::Parser(Module& m)
             case tok_neuron :
                 parse_neuron_block();
                 break;
+            case tok_state :
+                parse_state_block();
+                break;
             default :
                 error_string_ +=
                     pprintf("% at % expected block type, found '%'",
@@ -31,8 +34,10 @@ Parser::Parser(Module& m)
 
 // consume a comma separated list of identifiers
 // IMPORTANT: leaves the current location at begining of the last identifier in the list
-// empty list ""
-// list with one identifier "a"
+// OK:  empty list ""
+// OK:  list with one identifier "a"
+// OK:  list with mutiple identifier "a, b, c, d"
+// BAD: list with keyword "a, b, else, d"
 // list with trailing comma "a, b,\n"
 // list with keyword "a, if, b"
 std::vector<Token> Parser::comma_separated_identifiers() {
@@ -220,10 +225,47 @@ void Parser::parse_neuron_block() {
         get_token();
     }
 
-    std::cout << neuron_block;
-
     // copy neuron block into module
     module_.neuron_block(neuron_block);
+
+    std::cout << neuron_block;
+
+    // now we have a curly brace, so prime the next token
+    get_token();
+}
+
+void Parser::parse_state_block() {
+    StateBlock state_block;
+
+    get_token();
+
+    // assert that the block starts with a curly brace
+    if(token_.type != tok_lbrace) {
+        error_string_ = pprintf("% at % NEURON block must start with a curly brace {, found '%'",
+                                module_.name(), token_.location, token_.name);
+        status_ = ls_error;
+        return;
+    }
+
+    // there are no use cases for curly brace in a NEURON block, so we don't have to count them
+    // we have to get the next token before entering the loop to handle the case of
+    // an empty block {}
+    get_token();
+    while(token_.type!=tok_rbrace) {
+        if(token_.type != tok_identifier) {
+            error_string_ = pprintf("% at % this is not a valid name for a state variable '%'",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return;
+        }
+        state_block.state_variables.push_back(token_.name);
+        get_token();
+    }
+
+    std::cout << state_block;
+
+    // add this state block information to the module
+    module_.state_block(state_block);
 
     // now we have a curly brace, so prime the next token
     get_token();
