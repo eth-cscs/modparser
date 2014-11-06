@@ -11,7 +11,9 @@
 enum TOK {
     tok_eof, // end of file
 
+    /////////////////////////////
     // symbols
+    /////////////////////////////
     // = + - * /
     tok_eq, tok_plus, tok_minus, tok_times, tok_divide,
     // ,
@@ -42,6 +44,7 @@ enum TOK {
     tok_read, tok_write,
     tok_range,
     tok_solve, tok_method,
+    tok_threadsafe, tok_global,
 
     // logical keywords
     tok_if, tok_else,
@@ -67,6 +70,10 @@ struct Location {
         column(col)
     {}
 };
+
+static std::ostream& operator<< (std::ostream& os, Location const& L) {
+    return os << L.line << ":" << L.column;
+}
 
 // what is in a token?
 //  TOK indicating type of token
@@ -130,7 +137,7 @@ public:
     LStat status() {return status_;}
 
     const std::string& error_message() {return error_string_;};
-private:
+protected:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
     // helper for determining if an identifier string matches a keyword

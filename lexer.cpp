@@ -304,6 +304,8 @@ static Keyword keywords[] = {
     {"WRITE",       tok_write},
     {"RANGE",       tok_range},
     {"SOLVE",       tok_solve},
+    {"THREADSAFE",  tok_threadsafe},
+    {"GLOBAL",      tok_global},
     {"METHOD",      tok_method},
     {"if",          tok_if},
     {"else",        tok_else},
@@ -320,7 +322,6 @@ void Lexer::keywords_init() {
     for(int i = 0; keywords[i].name!=nullptr; ++i) {
         keyword_map.insert( {keywords[i].name, keywords[i].type} );
     }
-    //std::cout << "there are " << keyword_map.size() << " keywords in the DSL" << std::endl;
 }
 
 // pre  : identifier is a valid identifier ([_a-zA-Z][_a-zA-Z0-9]*)

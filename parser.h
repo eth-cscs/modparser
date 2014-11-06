@@ -1,16 +1,18 @@
+#pragma once
+
 #include "lexer.h"
 #include "module.h"
 
 class Parser : public Lexer {
 public:
-    Parser(Module& m)
-    :   module_(m),
-        Lexer(m.buffer())
-    {
-        // prime the first token
-        get_token();
-    }
+    explicit Parser(Module& m);
 
 private:
     Module &module_;
+
+    void parse_neuron_block();
+
+    // disable default and copy assignment
+    Parser();
+    Parser(Parser const &);
 };

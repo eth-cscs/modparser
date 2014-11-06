@@ -15,7 +15,9 @@ public :
 
     std::string const& name() {return fname_;}
 
-    NeuronBlock &neuron_block() {return neuron_block_;}
+    NeuronBlock &      neuron_block()       {return neuron_block_;}
+    NeuronBlock const& neuron_block() const {return neuron_block_;}
+
     void neuron_block(NeuronBlock const &n) {neuron_block_ = n;}
 private :
     std::string fname_;

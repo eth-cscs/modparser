@@ -8,6 +8,7 @@ set(TEST_SOURCES
     gtest-all.cpp
     test.cpp
     lexer.cpp
+    parser.cpp
     module.cpp
 )
 
