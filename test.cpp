@@ -143,7 +143,6 @@ TEST(Lexer, braces) {
 
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_identifier);
-    std::cout << t1.name << std::endl;
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_rbrace);
@@ -228,8 +227,8 @@ TEST(Module, open) {
     Lexer lexer(m.buffer());
     auto t = lexer.parse();
     while(t.type != tok_eof) {
-        //std::cout << t.name << std::endl;
         t = lexer.parse();
+        EXPECT_NE(t.type, tok_reserved);
     }
 }
 

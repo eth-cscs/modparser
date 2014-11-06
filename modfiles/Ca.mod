@@ -4,7 +4,7 @@
 NEURON  {
     SUFFIX Ca
     USEION ca READ eca WRITE ica
-    RANGE gCabar, gCa, ica 
+    RANGE gCabar, gCa, ica
 }
 
 UNITS   {
@@ -14,7 +14,7 @@ UNITS   {
 }
 
 PARAMETER   {
-    gCabar = 0.00001 (S/cm2) 
+    gCabar = 0.00001 (S/cm2)
 }
 
 ASSIGNED    {
@@ -56,10 +56,10 @@ INITIAL{
 }
 
 PROCEDURE rates(){
-    UNITSOFF
         if((v == -27) ){
             v = v+0.0001
         }
+    UNITSOFF
         mAlpha =  (0.055*(-27-v))/(exp((-27-v)/3.8) - 1)
         mBeta  =  (0.94*exp((-75-v)/17))
         mInf = mAlpha/(mAlpha + mBeta)

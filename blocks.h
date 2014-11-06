@@ -27,7 +27,7 @@ static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
     for(auto const& r: I.read)
         os << r << " ";
     os << "), write (";
-    for(auto const& w: I.read)
+    for(auto const& w: I.write)
         os << w << " ";
     os << ")";
 
@@ -48,7 +48,7 @@ static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
     os << std::endl
        << "  ions       :";
     for(auto const& ion : N.ions) {
-        os << " [[" << ion << "]]";
+        os << " [" << ion << "]";
     }
     os << std::endl;
 

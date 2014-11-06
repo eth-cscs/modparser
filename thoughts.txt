@@ -14,4 +14,33 @@ To understand:
     - what does threadsafe mean in this context?
     - do we even need it, if we ensure that the generated code is threadsafe?
 
+--------------------------------
+retaining positional info
+--------------------------------
 
+in the first pass over the source, identifiers are stored as std::string
+
+should these be stored as Token instead, so that the file position information
+is available for the second pass, where errors might be discovered?
+
+--------------------------------
+error handling
+--------------------------------
+
+at the moment the lexer and parser set an error string and return whenever
+they encounter an error in user code. This requires that all errors are
+caught on returning from every function call
+    - should we just throw an excpetion and catch at a higher level?
+
+--------------------------------
+pretty printing errors
+--------------------------------
+
+It would be sexy to print lines and hilight errors
+It would not be too time consuming to implement
+
+--------------------------------
+warnings
+--------------------------------
+
+output warnings as we go along?

@@ -178,12 +178,41 @@ void Parser::parse_neuron_block() {
                 break;
 
             case tok_useion :
+                {
+                    IonDep ion;
+                    // we have to parse the name of the ion first
+                    // we assume that the user has asked for a valid ion channel name.
+                    get_token();
+                    if(token_.type != tok_identifier) {
+                        // todo: extended to test for valid ion names (k, Ca, ... others)
+                        error_string_ = pprintf("% at %  | this is an invalid name for an ion chanel '%'",
+                                                module_.name(), token_.location, token_.name);
+                        status_ = ls_error;
+                        return;
+                    }
+                    ion.name = token_.name;
+
+                    // this loop ensures that we don't gobble any tokens past the end of the USEION clause
+                    while(peek().type == tok_read || peek().type == tok_write) {
+                        get_token(); // consume the READ or WRITE
+                        auto& target = (token_.type == tok_read) ? ion.read : ion.write;
+                        std::vector<Token> identifiers = comma_separated_identifiers();
+                        if(status_==ls_error) { // bail if there was an error reading the list
+                            return;
+                        }
+                        for(auto const &id : identifiers) {
+                            target.push_back(id.name);
+                        }
+                    }
+                    // add the ion dependency to the NEURON block
+                    neuron_block.ions.push_back(ion);
+                }
                 break;
 
 
             // the parser encountered an invalid symbol
             default         :
-                error_string_ = pprintf("% at % NEURON found innapropriate symbol '%'",
+                error_string_ = pprintf("% at % there was an innapropriate symbol '%' in NEURON block",
                                         module_.name(), token_.location, token_.name);
                 status_ = ls_error;
                 return;
