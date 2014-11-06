@@ -29,6 +29,79 @@ Parser::Parser(Module& m)
     }
 }
 
+// consume a comma separated list of identifiers
+// IMPORTANT: leaves the current location at begining of the last identifier in the list
+// empty list ""
+// list with one identifier "a"
+// list with trailing comma "a, b,\n"
+// list with keyword "a, if, b"
+std::vector<Token> Parser::comma_separated_identifiers() {
+    std::vector<Token> tokens;
+    int startline = location_.line;
+    // handle is an empty list at the end of a line
+    if(peek().location.line > startline) {
+        // should this be an error?
+        // it is the sort of thing that would happen when scanning WRITE below:
+        //  USEION k READ a, b WRITE
+        // probably best left to the caller to decide whether an empty list is an error
+        return tokens;
+    }
+    while(1) {
+        get_token();
+
+        // first check if a new line was encounterd
+        if(location_.line > startline) {
+            return tokens;
+        }
+        else if(token_.type == tok_reserved) {
+            error_string_ = pprintf("% at % read badly formed symbol '%', expected a variable name",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return tokens;
+        }
+        else if(token_.type == tok_identifier) {
+            tokens.push_back(token_);
+        }
+        else if(is_keyword(token_)) {
+            error_string_ = pprintf("% at % found keyword '%', expected a variable name",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return tokens;
+        }
+        else if(token_.type == tok_number) {
+            error_string_ = pprintf("% at % found number '%', expected a variable name",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return tokens;
+        }
+        else {
+            error_string_ = pprintf("% at % found '%', expected a variable name",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return tokens;
+        }
+
+        // look ahead to check for a comma.  This approach ensures that the
+        // first token after the end of the list is not consumed
+        if( peek().type == tok_comma ) {
+            // consume the comma
+            get_token();
+            // assert that the list can't run off the end of a line
+            if(peek().location.line > startline) {
+                error_string_ = pprintf("% at % previous line ended with a ','",
+                                        module_.name(), token_.location);
+                status_ = ls_error;
+                return tokens;
+            }
+        }
+        else {
+            break;
+        }
+    }
+
+    return tokens;
+}
+
 /*
 NEURON {
    THREADSAFE
@@ -37,12 +110,6 @@ NEURON {
    RANGE  gkbar, ik, ek
    GLOBAL minf, mtau, hinf, htau
 }
-keywords : THREADSAFE SUFFIX USEION RANGE GLOBAL (WRITE READ)
-THREADSAFE
-SUFFIX
-USEION (WRITE READ)
-RANGE
-GLOBAL
 */
 void Parser::parse_neuron_block() {
     NeuronBlock neuron_block;
@@ -51,8 +118,8 @@ void Parser::parse_neuron_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        pprintf("% at % NEURON block must start with a curly brace {, found '%'",
-                module_.name(), token_.location, token_.name);
+        error_string_ = pprintf("% at % NEURON block must start with a curly brace {, found '%'",
+                                module_.name(), token_.location, token_.name);
         status_ = ls_error;
         return;
     }
@@ -82,16 +149,37 @@ void Parser::parse_neuron_block() {
                 neuron_block.suffix = token_.name;
                 break;
 
-            case tok_useion :
+            // this will be a comma-separated list of identifiers
+            case tok_global :
+                // the ranges are a comma-seperated list of identifiers
+                {
+                    std::vector<Token> identifiers = comma_separated_identifiers();
+                    if(status_==ls_error) { // bail if there was an error reading the list
+                        return;
+                    }
+                    for(auto const &id : identifiers) {
+                        neuron_block.globals.push_back(id.name);
+                    }
+                }
                 break;
 
             // this will be a comma-separated list of identifiers
             case tok_range  :
+                // the ranges are a comma-seperated list of identifiers
+                {
+                    std::vector<Token> identifiers = comma_separated_identifiers();
+                    if(status_==ls_error) { // bail if there was an error reading the list
+                        return;
+                    }
+                    for(auto const &id : identifiers) {
+                        neuron_block.ranges.push_back(id.name);
+                    }
+                }
                 break;
 
-            // this will be a comma-separated list of identifiers
-            case tok_global :
+            case tok_useion :
                 break;
+
 
             // the parser encountered an invalid symbol
             default         :

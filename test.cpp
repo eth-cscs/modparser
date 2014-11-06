@@ -135,6 +135,23 @@ TEST(Lexer, symbols) {
     EXPECT_EQ(t6.type, tok_eof);
 }
 
+// test braces
+TEST(Lexer, braces) {
+    char string[] = "foo}";
+    PRINT_LEX_STRING
+    Lexer lexer(string, string+sizeof(string));
+
+    auto t1 = lexer.parse();
+    EXPECT_EQ(t1.type, tok_identifier);
+    std::cout << t1.name << std::endl;
+
+    auto t2 = lexer.parse();
+    EXPECT_EQ(t2.type, tok_rbrace);
+
+    auto t3 = lexer.parse();
+    EXPECT_EQ(t3.type, tok_eof);
+}
+
 // test comments
 TEST(Lexer, comments) {
     char string[] = "foo:this is one line\nbar : another comment\n";

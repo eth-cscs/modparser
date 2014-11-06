@@ -188,8 +188,8 @@ double Lexer::number() {
         else if(is_operator(c)) {
             break;
         }
-        // a number can be followed by parenthesis or a comma or a comment
-        else if(c=='(' || c==',' || c==':') {
+        // a number can be followed by closed parenthesis, comma, comment, or closed brace }
+        else if(c==')' || c==',' || c==':' || c=='}') {
             break;
         }
         else if(is_numeric(c)) {
@@ -253,6 +253,10 @@ std::string Lexer::identifier() {
         }
         // an identifier can be followed by open or closed parenthesis
         else if(c=='(' || c ==')') {
+            break;
+        }
+        // an identifier can be followed by open or closed brace
+        else if(c=='{' || c =='}') {
             break;
         }
         // an identifier can be followed by a comma or a comment
@@ -337,6 +341,9 @@ TOK Lexer::get_identifier_type(std::string const& identifier) {
 //*********************
 
 bool is_keyword(Token const& t) {
-    return t.type != tok_identifier;
+    for(Keyword *k=keywords; k->name!=nullptr; ++k)
+        if(t.type == k->type)
+            return true;
+    return false;
 }
 

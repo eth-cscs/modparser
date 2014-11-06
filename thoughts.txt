@@ -1,0 +1,17 @@
+--------------------------------
+threadsafe
+--------------------------------
+
+currently users have to specify that the module is thread safe, by adding the
+THREADSAFE keyword to the NEURON block.
+
+In some .mod files I see comments like "no idea if this is threadsafe, doing
+this so that bluron works"
+
+Instead of leaving this up to users this should be determined by analysis.
+
+To understand:
+    - what does threadsafe mean in this context?
+    - do we even need it, if we ensure that the generated code is threadsafe?
+
+

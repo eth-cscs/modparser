@@ -10,9 +10,12 @@ public:
 private:
     Module &module_;
 
+    std::vector<Token> comma_separated_identifiers();
+
     void parse_neuron_block();
 
     // disable default and copy assignment
     Parser();
     Parser(Parser const &);
 };
+
