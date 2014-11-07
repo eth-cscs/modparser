@@ -121,7 +121,7 @@ public:
     Token peek();
 
     // scan a number from the stream
-    double number();
+    std::string number();
 
     // scan an identifier string from the stream
     std::string identifier();

@@ -76,7 +76,9 @@ Token Lexer::parse() {
             case '0': case '1' : case '2' : case '3' : case '4':
             case '5': case '6' : case '7' : case '8' : case '9':
             case '.':
-                t.value = number();
+                t.name = number();
+                if( status_!=ls_error ) t.value = std::stod(t.name);
+
                 // test for error when reading number
                 t.type = (status_==ls_error) ? tok_reserved : tok_number;
                 return t;
@@ -165,7 +167,7 @@ Token Lexer::peek() {
 }
 
 // scan floating point number from stream
-double Lexer::number() {
+std::string Lexer::number() {
     std::string str;
     char c = *current_;
 
@@ -216,11 +218,9 @@ double Lexer::number() {
     if(num_point>1) {
         error_string_ = pprintf("too many .'s when reading the number '%'", str);
         status_ = ls_error;
-        return 0.;
     }
 
-    // convert string to double
-    return std::stod(str);
+    return str;
 }
 
 // scan identifier from stream
