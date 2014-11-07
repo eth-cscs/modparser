@@ -171,7 +171,7 @@ TEST(Lexer, comments) {
 
 // test numbers
 TEST(Lexer, numbers) {
-    char string[] = "1 .3 23 87.99 12.";
+    char string[] = "1 .3 23 87.99 12. -3";
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
@@ -195,8 +195,18 @@ TEST(Lexer, numbers) {
     EXPECT_EQ(t5.type, tok_number);
     EXPECT_EQ(t5.value, 12.0);
 
+    // the lexer does not decide where the - sign goes
+    // the parser uses additional contextual information to
+    // decide if the minus is a binary or unary expression
     auto t6 = lexer.parse();
-    EXPECT_EQ(t6.type, tok_eof);
+    EXPECT_EQ(t6.type, tok_minus);
+
+    auto t7 = lexer.parse();
+    EXPECT_EQ(t7.type, tok_number);
+    EXPECT_EQ(t7.value, 3.0);
+
+    auto t8 = lexer.parse();
+    EXPECT_EQ(t8.type, tok_eof);
 }
 
 // test errors
