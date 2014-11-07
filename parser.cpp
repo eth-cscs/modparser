@@ -18,6 +18,9 @@ Parser::Parser(Module& m)
             case tok_state :
                 parse_state_block();
                 break;
+            case tok_units :
+                parse_units_block();
+                break;
             default :
                 error_string_ +=
                     pprintf("% at % expected block type, found '%'",
@@ -241,13 +244,13 @@ void Parser::parse_state_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error_string_ = pprintf("% at % NEURON block must start with a curly brace {, found '%'",
+        error_string_ = pprintf("% at % STATE block must start with a curly brace {, found '%'",
                                 module_.name(), token_.location, token_.name);
         status_ = ls_error;
         return;
     }
 
-    // there are no use cases for curly brace in a NEURON block, so we don't have to count them
+    // there are no use cases for curly brace in a STATE block, so we don't have to count them
     // we have to get the next token before entering the loop to handle the case of
     // an empty block {}
     get_token();
@@ -269,4 +272,92 @@ void Parser::parse_state_block() {
 
     // now we have a curly brace, so prime the next token
     get_token();
+}
+
+// scan a unit block
+// at first units are to be ignored
+void Parser::parse_units_block() {
+    UnitsBlock units_block;
+
+    get_token();
+
+    // assert that the block starts with a curly brace
+    if(token_.type != tok_lbrace) {
+        error_string_ = pprintf("% at % UNITS block must start with a curly brace {, found '%'",
+                                module_.name(), token_.location, token_.name);
+        status_ = ls_error;
+        return;
+    }
+
+    // there are no use cases for curly brace in a UNITS block, so we don't have to count them
+    get_token();
+    while(token_.type!=tok_rbrace) {
+        // get the alias
+        std::vector<Token> lhs = unit_description();
+        if( status_!=ls_happy ) return;
+
+        // consume the = sign
+        if( token_.type!=tok_eq ) {
+            error_string_ = pprintf("% at % expected '=', instead found '%'",
+                                    module_.name(), token_.location, token_.name);
+            status_ = ls_error;
+            return;
+        }
+        get_token();
+
+        // get the units
+        std::vector<Token> rhs = unit_description();
+        if( status_!=ls_happy ) return;
+
+        // store the unit definition
+        units_block.unit_aliases.push_back({lhs, rhs});
+    }
+
+    std::cout << units_block;
+
+    // add this state block information to the module
+    module_.units_block(units_block);
+
+    // now we have a curly brace, so prime the next token
+    get_token();
+}
+
+// is thing in list?
+template <typename T, int N>
+bool is_in(T thing, T (&list)[N]) {
+    for(auto item : list) {
+        if(thing==item) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<Token> Parser::unit_description() {
+    TOK legal_tokens[] = {tok_identifier, tok_divide, tok_number};
+    int startline = location_.line;
+    std::vector<Token> tokens;
+
+    if(token_.type != tok_lparen)
+        goto unit_error;
+
+    get_token();
+    // i could have forgotten a special case here
+    while(token_.type != tok_rparen) {
+        if(startline < location_.line)
+            goto unit_error;
+        if( !is_in(token_.type, legal_tokens) )
+            goto unit_error;
+        tokens.push_back(token_);
+        get_token();
+    }
+    get_token(); // remove trailing right parenthesis ')'
+    goto unit_ok;
+
+unit_error:
+    error_string_ = pprintf("% at % ill-formed unit description %",
+                            module_.name(), token_.location, tokens);
+    status_ = ls_error;
+unit_ok:
+    return tokens;
 }

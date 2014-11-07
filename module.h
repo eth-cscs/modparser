@@ -18,11 +18,15 @@ public :
     NeuronBlock &      neuron_block()       {return neuron_block_;}
     NeuronBlock const& neuron_block() const {return neuron_block_;}
 
-    StateBlock &      state_block()       {return state_block_;}
-    StateBlock const& state_block() const {return state_block_;}
+    StateBlock &       state_block()        {return state_block_;}
+    StateBlock const&  state_block()  const {return state_block_;}
+
+    UnitsBlock &       units_block()        {return units_block_;}
+    UnitsBlock const&  units_block()  const {return units_block_;}
 
     void neuron_block(NeuronBlock const &n) {neuron_block_ = n;}
-    void state_block( StateBlock  const &s) {state_block_ = s;}
+    void state_block (StateBlock  const &s) {state_block_  = s;}
+    void units_block  (UnitsBlock   const &u) {units_block_   = u;}
 private :
     std::string fname_;
     std::vector<char> buffer_; // character buffer loaded from file
@@ -30,4 +34,5 @@ private :
     // blocks
     NeuronBlock neuron_block_;
     StateBlock  state_block_;
+    UnitsBlock  units_block_;
 };
