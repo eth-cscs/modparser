@@ -40,7 +40,7 @@ template <typename T>
 static std::ostream& operator<< (std::ostream& os, std::vector<T> const& V); // forward declaration
 
 static std::ostream& operator<< (std::ostream& os, Token const& t) {
-    return os << "(" << t.name << ", " << t.name << ")";
+    return os << t.name;
 }
 
 static std::ostream& operator<< (std::ostream& os, UnitsBlock::units_pair const& p) {
@@ -50,13 +50,16 @@ static std::ostream& operator<< (std::ostream& os, UnitsBlock::units_pair const&
 template <typename T>
 static std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
     os << "[";
-    for(auto const& v: V)
-        os << " " << v;
-    return os << " ]";
+    for(auto it = V.begin(); it!=V.end(); ++it) {
+        os << *it << (it==V.end()-1 ? "" : " ");
+    }
+    //for(auto const& v: V)
+        //os << v << ",";
+    return os << "]";
 }
 
 static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
-    return os << "{" << I.name << ", read " << I.read << " write " << I.write << "}";
+    return os << "{" << I.name << ": read " << I.read << " write " << I.write << "}";
 }
 
 static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {

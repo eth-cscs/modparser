@@ -275,7 +275,6 @@ void Parser::parse_state_block() {
 }
 
 // scan a unit block
-// at first units are to be ignored
 void Parser::parse_units_block() {
     UnitsBlock units_block;
 
@@ -296,14 +295,15 @@ void Parser::parse_units_block() {
         std::vector<Token> lhs = unit_description();
         if( status_!=ls_happy ) return;
 
-        // consume the = sign
+        // consume the '=' sign
         if( token_.type!=tok_eq ) {
             error_string_ = pprintf("% at % expected '=', instead found '%'",
                                     module_.name(), token_.location, token_.name);
             status_ = ls_error;
             return;
         }
-        get_token();
+
+        get_token(); // next token
 
         // get the units
         std::vector<Token> rhs = unit_description();
