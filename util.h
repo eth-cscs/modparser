@@ -2,6 +2,17 @@
 
 #include <sstream>
 
+// is thing in list?
+template <typename T, int N>
+bool is_in(T thing, const T (&list)[N]) {
+    for(auto item : list) {
+        if(thing==item) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static std::string pprintf(const char *s) {
     std::string errstring;
     while(*s) {

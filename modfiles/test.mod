@@ -20,3 +20,16 @@ UNITS   {
     (molar) = (1/liter)
     (mM) = (milli/liter)
 }
+
+: TODO handle the - signs below
+PARAMETER {
+    gkbar   = 0.1  (mho/cm2)
+    celsius
+    ek      = -100 (mV)    : must be explicitly def. in hoc
+    v       (mV)
+:    vhalfm  =-43   (mV)
+    km      =8
+:    vhalfh  =-67   (mV)
+    kh      =7.3
+    q10     =2.3
+}

@@ -3,6 +3,19 @@
 #include "parser.h"
 #include "util.h"
 
+
+void Parser::error(std::string msg) {
+    std::string location_info = pprintf("%:% ", module_.name(), token_.location);
+    if(status_==ls_error) {
+        // append to current string
+        error_string_ += "\n" + location_info + msg;
+    }
+    else {
+        error_string_ = location_info + msg;
+        status_ = ls_error;
+    }
+}
+
 Parser::Parser(Module& m)
 :   module_(m),
     Lexer(m.buffer())
@@ -21,11 +34,11 @@ Parser::Parser(Module& m)
             case tok_units :
                 parse_units_block();
                 break;
+            case tok_parameter :
+                parse_parameter_block();
+                break;
             default :
-                error_string_ +=
-                    pprintf("% at % expected block type, found '%'",
-                            module_.name(), token_.location, token_.name);
-                status_ = ls_error;
+                error(pprintf("expected block type, found '%'", token_.name));
                 break;
         }
         if(status() == ls_error) {
@@ -61,31 +74,19 @@ std::vector<Token> Parser::comma_separated_identifiers() {
         if(location_.line > startline) {
             return tokens;
         }
-        else if(token_.type == tok_reserved) {
-            error_string_ = pprintf("% at % read badly formed symbol '%', expected a variable name",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
-            return tokens;
-        }
         else if(token_.type == tok_identifier) {
             tokens.push_back(token_);
         }
         else if(is_keyword(token_)) {
-            error_string_ = pprintf("% at % found keyword '%', expected a variable name",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
+            error(pprintf("found keyword '%', expected a variable name", token_.name));
             return tokens;
         }
         else if(token_.type == tok_number) {
-            error_string_ = pprintf("% at % found number '%', expected a variable name",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
+            error(pprintf("found number '%', expected a variable name", token_.name));
             return tokens;
         }
         else {
-            error_string_ = pprintf("% at % found '%', expected a variable name",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
+            error(pprintf("found '%', expected a variable name", token_.name));
             return tokens;
         }
 
@@ -96,9 +97,7 @@ std::vector<Token> Parser::comma_separated_identifiers() {
             get_token();
             // assert that the list can't run off the end of a line
             if(peek().location.line > startline) {
-                error_string_ = pprintf("% at % previous line ended with a ','",
-                                        module_.name(), token_.location);
-                status_ = ls_error;
+                error("line can't end with a ','");
                 return tokens;
             }
         }
@@ -126,9 +125,7 @@ void Parser::parse_neuron_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error_string_ = pprintf("% at % NEURON block must start with a curly brace {, found '%'",
-                                module_.name(), token_.location, token_.name);
-        status_ = ls_error;
+        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -149,9 +146,7 @@ void Parser::parse_neuron_block() {
                 get_token();
                 // assert that a valid name for the Neuron has been specified
                 if(token_.type != tok_identifier) {
-                    error_string_ = pprintf("% at % invalide name for SUFFIX, found '%'",
-                                            module_.name(), token_.location, token_.name);
-                    status_ = ls_error;
+                    error(pprintf("invalid name for SUFFIX, found '%'", token_.name));
                     return;
                 }
                 neuron_block.suffix = token_.name;
@@ -193,9 +188,7 @@ void Parser::parse_neuron_block() {
                     get_token();
                     if(token_.type != tok_identifier) {
                         // todo: extended to test for valid ion names (k, Ca, ... others)
-                        error_string_ = pprintf("% at %  | this is an invalid name for an ion chanel '%'",
-                                                module_.name(), token_.location, token_.name);
-                        status_ = ls_error;
+                        error(pprintf("invalid name for an ion chanel '%'", token_.name));
                         return;
                     }
                     ion.name = token_.name;
@@ -217,12 +210,9 @@ void Parser::parse_neuron_block() {
                 }
                 break;
 
-
             // the parser encountered an invalid symbol
-            default         :
-                error_string_ = pprintf("% at % there was an innapropriate symbol '%' in NEURON block",
-                                        module_.name(), token_.location, token_.name);
-                status_ = ls_error;
+            default :
+                error(pprintf("there was an invalid symbol '%' in NEURON block", token_.name));
                 return;
         }
         get_token();
@@ -244,9 +234,7 @@ void Parser::parse_state_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error_string_ = pprintf("% at % STATE block must start with a curly brace {, found '%'",
-                                module_.name(), token_.location, token_.name);
-        status_ = ls_error;
+        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -256,9 +244,7 @@ void Parser::parse_state_block() {
     get_token();
     while(token_.type!=tok_rbrace) {
         if(token_.type != tok_identifier) {
-            error_string_ = pprintf("% at % this is not a valid name for a state variable '%'",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
+            error(pprintf("'%' is not a valid name for a state variable", token_.name));
             return;
         }
         state_block.state_variables.push_back(token_.name);
@@ -282,9 +268,7 @@ void Parser::parse_units_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error_string_ = pprintf("% at % UNITS block must start with a curly brace {, found '%'",
-                                module_.name(), token_.location, token_.name);
-        status_ = ls_error;
+        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -297,9 +281,7 @@ void Parser::parse_units_block() {
 
         // consume the '=' sign
         if( token_.type!=tok_eq ) {
-            error_string_ = pprintf("% at % expected '=', instead found '%'",
-                                    module_.name(), token_.location, token_.name);
-            status_ = ls_error;
+            error(pprintf("expected '=', found '%'", token_.name));
             return;
         }
 
@@ -322,19 +304,80 @@ void Parser::parse_units_block() {
     get_token();
 }
 
-// is thing in list?
-template <typename T, int N>
-bool is_in(T thing, T (&list)[N]) {
-    for(auto item : list) {
-        if(thing==item) {
-            return true;
-        }
+//////////////////////////////////////////////////////
+// the parameter block describes variables that are
+// to be used as parameters. Some are given values,
+// others are simply listed, and some have units
+// assigned to them. Here we want to get a list of the
+// parameter names, along with values if given.
+// We also store the token that describes the units
+//////////////////////////////////////////////////////
+void Parser::parse_parameter_block() {
+    ParameterBlock block;
+
+    get_token();
+
+    // assert that the block starts with a curly brace
+    if(token_.type != tok_lbrace) {
+        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        return;
     }
-    return false;
+
+    // there are no use cases for curly brace in a UNITS block, so we don't have to count them
+    get_token();
+    while(token_.type!=tok_rbrace && token_.type!=tok_eof) {
+        int line = location_.line;
+        Variable parm;
+
+        // read the parameter name
+        if(token_.type != tok_identifier) {
+            goto parm_error;
+        }
+        parm.token = token_; // save full token
+
+        get_token();
+
+        // look for equality
+        if(token_.type==tok_eq) {
+            get_token(); // consume '='
+            if(token_.type != tok_number) {
+                goto parm_error;
+            }
+            parm.value = token_.name; // store value as a string
+            get_token();
+        }
+
+        // get the parameters
+        if(line==location_.line && token_.type == tok_lparen) {
+            parm.units = unit_description();
+            if(status_ == ls_error) {
+                goto parm_error;
+            }
+        }
+
+        block.parameters.push_back(parm);
+    }
+    std::cout << block;
+
+    // errer if EOF before closeing curly brace
+    if(token_.type==tok_eof) {
+        error("PARAMETER block must have closing '}'");
+        goto parm_error;
+    }
+
+    get_token(); // consume closing brace
+
+    return;
+parm_error:
+    // only write error message if one hasn't already been logged by the lexer
+    if(status_==ls_happy) {
+        error(pprintf("PARAMETER block unexpected symbol '%'", token_.name));
+    }
+    return;
 }
 
 std::vector<Token> Parser::unit_description() {
-    TOK legal_tokens[] = {tok_identifier, tok_divide, tok_number};
+    static const TOK legal_tokens[] = {tok_identifier, tok_divide, tok_number};
     int startline = location_.line;
     std::vector<Token> tokens;
 
@@ -355,9 +398,8 @@ std::vector<Token> Parser::unit_description() {
     goto unit_ok;
 
 unit_error:
-    error_string_ = pprintf("% at % ill-formed unit description %",
-                            module_.name(), token_.location, tokens);
-    status_ = ls_error;
+    error(pprintf("incorrect unit description '%'", tokens));
 unit_ok:
     return tokens;
 }
+

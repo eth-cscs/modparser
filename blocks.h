@@ -27,10 +27,21 @@ struct StateBlock {
 };
 
 // information stored in a NEURON {} block in mod file
+typedef std::vector<Token> unit_tokens;
 struct UnitsBlock {
-    typedef std::vector<Token> unit_type;
-    typedef std::pair<unit_type, unit_type> units_pair;
+    typedef std::pair<unit_tokens, unit_tokens> units_pair;
     std::vector<units_pair> unit_aliases;
+};
+
+struct Variable {
+    Token token;
+    std::string value; // store the value as a string, not a number : empty string == no value
+    unit_tokens units;
+};
+
+// information stored in a NEURON {} block in mod file
+struct ParameterBlock {
+    std::vector<Variable> parameters;
 };
 
 ////////////////////////////////////////////////
@@ -43,6 +54,15 @@ static std::ostream& operator<< (std::ostream& os, Token const& t) {
     return os << t.name;
 }
 
+static std::ostream& operator<< (std::ostream& os, Variable const& V) {
+    if(V.units.size())
+        os << "(" << V.token << "," << V.value << "," << V.units << ")";
+    else
+        os << "(" << V.token << "," << V.value << ",)";
+
+    return os;
+}
+
 static std::ostream& operator<< (std::ostream& os, UnitsBlock::units_pair const& p) {
     return os << "(" << p.first << ", " << p.second << ")";
 }
@@ -50,16 +70,14 @@ static std::ostream& operator<< (std::ostream& os, UnitsBlock::units_pair const&
 template <typename T>
 static std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
     os << "[";
-    for(auto it = V.begin(); it!=V.end(); ++it) {
+    for(auto it = V.begin(); it!=V.end(); ++it) { // ugly loop, pretty printing
         os << *it << (it==V.end()-1 ? "" : " ");
     }
-    //for(auto const& v: V)
-        //os << v << ",";
     return os << "]";
 }
 
 static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
-    return os << "{" << I.name << ": read " << I.read << " write " << I.write << "}";
+    return os << "(" << I.name << ": read " << I.read << " write " << I.write << ")";
 }
 
 static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
@@ -82,6 +100,13 @@ static std::ostream& operator<< (std::ostream& os, StateBlock const& B) {
 static std::ostream& operator<< (std::ostream& os, UnitsBlock const& U) {
     os << "UnitsBlock"       << std::endl;
     os << "  aliases    : "  << U.unit_aliases << std::endl;
+
+    return os;
+}
+
+static std::ostream& operator<< (std::ostream& os, ParameterBlock const& P) {
+    os << "ParameterBlock"   << std::endl;
+    os << "  parameters : "  << P.parameters << std::endl;
 
     return os;
 }

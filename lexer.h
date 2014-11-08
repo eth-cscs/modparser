@@ -140,6 +140,7 @@ public:
 protected:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
+
     // helper for determining if an identifier string matches a keyword
     TOK get_identifier_type(std::string const& identifier);
 

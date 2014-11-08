@@ -16,6 +16,10 @@ private:
     void parse_neuron_block();
     void parse_state_block();
     void parse_units_block();
+    void parse_parameter_block();
+
+    // helper function for logging errors
+    void error(std::string msg);
 
     // disable default and copy assignment
     Parser();
