@@ -27,9 +27,9 @@ PARAMETER {
     celsius
     ek      = -100 (mV)    : must be explicitly def. in hoc
     v       (mV)
-:    vhalfm  =-43   (mV)
+    vhalfm  =-43   (mV)
     km      =8
-:    vhalfh  =-67   (mV)
+    vhalfh  =-67   (mV)
     kh      =7.3
     q10     =2.3
 }

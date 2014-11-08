@@ -78,15 +78,19 @@ static std::ostream& operator<< (std::ostream& os, Location const& L) {
 // what is in a token?
 //  TOK indicating type of token
 //  information about its location
-//  value information if it is 
 struct Token {
     Location location;
     TOK type;
 
-    // don't bother using a union or an abstract base class for storing metadata associated
-    // with different tokens, because the .mod files are very small, so memory constraints are
-    // not an issue
-    double value;
+    double value() {
+        return std::stod(name);
+    }
+    // the name string contains the text of the token
+    // the string is context sensitive:
+    //   type = tok_number     : name = "3.1415"  (e.g.)
+    //   type = tok_plus       : name = "+"       (always)
+    //   type = tok_if         : name = "if"      (always)
+    //   type = tok_identifier : name = "foo_bar" (e.g.)
     std::string name;
 };
 

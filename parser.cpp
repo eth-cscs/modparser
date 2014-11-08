@@ -340,10 +340,14 @@ void Parser::parse_parameter_block() {
         // look for equality
         if(token_.type==tok_eq) {
             get_token(); // consume '='
+            if(token_.type==tok_minus) {
+                parm.value = "-";
+                get_token();
+            }
             if(token_.type != tok_number) {
                 goto parm_error;
             }
-            parm.value = token_.name; // store value as a string
+            parm.value += token_.name; // store value as a string
             get_token();
         }
 
@@ -395,11 +399,11 @@ std::vector<Token> Parser::unit_description() {
         get_token();
     }
     get_token(); // remove trailing right parenthesis ')'
-    goto unit_ok;
+
+    return tokens;
 
 unit_error:
     error(pprintf("incorrect unit description '%'", tokens));
-unit_ok:
     return tokens;
 }
 

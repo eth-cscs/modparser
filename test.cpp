@@ -177,23 +177,23 @@ TEST(Lexer, numbers) {
 
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_number);
-    EXPECT_EQ(t1.value, 1.0);
+    EXPECT_EQ(t1.value(), 1.0);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_number);
-    EXPECT_EQ(t2.value, 0.3);
+    EXPECT_EQ(t2.value(), 0.3);
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_number);
-    EXPECT_EQ(t3.value, 23.0);
+    EXPECT_EQ(t3.value(), 23.0);
 
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_number);
-    EXPECT_EQ(t4.value, 87.99);
+    EXPECT_EQ(t4.value(), 87.99);
 
     auto t5 = lexer.parse();
     EXPECT_EQ(t5.type, tok_number);
-    EXPECT_EQ(t5.value, 12.0);
+    EXPECT_EQ(t5.value(), 12.0);
 
     // the lexer does not decide where the - sign goes
     // the parser uses additional contextual information to
@@ -203,7 +203,7 @@ TEST(Lexer, numbers) {
 
     auto t7 = lexer.parse();
     EXPECT_EQ(t7.type, tok_number);
-    EXPECT_EQ(t7.value, 3.0);
+    EXPECT_EQ(t7.value(), 3.0);
 
     auto t8 = lexer.parse();
     EXPECT_EQ(t8.type, tok_eof);

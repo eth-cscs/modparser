@@ -77,7 +77,6 @@ Token Lexer::parse() {
             case '5': case '6' : case '7' : case '8' : case '9':
             case '.':
                 t.name = number();
-                if( status_!=ls_error ) t.value = std::stod(t.name);
 
                 // test for error when reading number
                 t.type = (status_==ls_error) ? tok_reserved : tok_number;
