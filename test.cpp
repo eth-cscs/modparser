@@ -248,6 +248,7 @@ TEST(Module, open) {
 TEST(Parser, open) {
     Module m("./modfiles/test.mod");
     Parser p(m);
+    EXPECT_EQ(p.status(), ls_happy);
 }
 
 /**************************************************************

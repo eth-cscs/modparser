@@ -37,6 +37,9 @@ Parser::Parser(Module& m)
             case tok_parameter :
                 parse_parameter_block();
                 break;
+            case tok_assigned :
+                parse_assigned_block();
+                break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
                 break;
@@ -376,6 +379,67 @@ parm_error:
     // only write error message if one hasn't already been logged by the lexer
     if(status_==ls_happy) {
         error(pprintf("PARAMETER block unexpected symbol '%'", token_.name));
+    }
+    return;
+}
+
+void Parser::parse_assigned_block() {
+    AssignedBlock block;
+
+    get_token();
+
+    // assert that the block starts with a curly brace
+    if(token_.type != tok_lbrace) {
+        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        return;
+    }
+
+    // there are no use cases for curly brace in an ASSIGNED block, so we don't have to count them
+    get_token();
+    while(token_.type!=tok_rbrace && token_.type!=tok_eof) {
+        int line = location_.line;
+        std::vector<Token> variables; // we can have more than one variable on a line
+
+        // the first token must be ...
+        if(token_.type != tok_identifier) {
+            goto ass_error;
+        }
+        while(token_.type == tok_identifier && line == location_.line) {
+            variables.push_back(token_); // save full token
+            get_token();
+        }
+
+        // there are some parameters at the end of the line
+        if(line==location_.line && token_.type == tok_lparen) {
+            auto u = unit_description();
+            if(status_ == ls_error) {
+                goto ass_error;
+            }
+            for(auto const& t : variables) {
+                block.parameters.push_back(Variable(t, "", u));
+            }
+        }
+        else {
+            for(auto const& t : variables) {
+                block.parameters.push_back(Variable(t, "", {}));
+            }
+        }
+    }
+    std::cout << block;
+
+    // errer if EOF before closeing curly brace
+    if(token_.type==tok_eof) {
+        error("ASSIGNED block must have closing '}'");
+        goto ass_error;
+    }
+
+    get_token(); // consume closing brace
+
+    return;
+ass_error:
+    // only write error message if one hasn't already been logged by the lexer
+    if(status_==ls_happy) {
+        error(pprintf("ASSIGNED block unexpected symbol '%'", token_.name));
     }
     return;
 }

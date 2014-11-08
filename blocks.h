@@ -37,10 +37,22 @@ struct Variable {
     Token token;
     std::string value; // store the value as a string, not a number : empty string == no value
     unit_tokens units;
+
+    Variable(Token const& t, std::string const& v, unit_tokens const& u)
+        : token(t), value(v), units(u)
+    {}
+
+    Variable()
+    {}
 };
 
 // information stored in a NEURON {} block in mod file
 struct ParameterBlock {
+    std::vector<Variable> parameters;
+};
+
+// information stored in a NEURON {} block in mod file
+struct AssignedBlock {
     std::vector<Variable> parameters;
 };
 
@@ -107,6 +119,13 @@ static std::ostream& operator<< (std::ostream& os, UnitsBlock const& U) {
 static std::ostream& operator<< (std::ostream& os, ParameterBlock const& P) {
     os << "ParameterBlock"   << std::endl;
     os << "  parameters : "  << P.parameters << std::endl;
+
+    return os;
+}
+
+static std::ostream& operator<< (std::ostream& os, AssignedBlock const& A) {
+    os << "AssignedBlock"   << std::endl;
+    os << "  parameters : "  << A.parameters << std::endl;
 
     return os;
 }

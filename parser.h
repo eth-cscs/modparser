@@ -17,6 +17,7 @@ private:
     void parse_state_block();
     void parse_units_block();
     void parse_parameter_block();
+    void parse_assigned_block();
 
     // helper function for logging errors
     void error(std::string msg);

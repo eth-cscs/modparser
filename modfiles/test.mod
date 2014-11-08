@@ -21,7 +21,6 @@ UNITS   {
     (mM) = (milli/liter)
 }
 
-: TODO handle the - signs below
 PARAMETER {
     gkbar   = 0.1  (mho/cm2)
     celsius
@@ -33,3 +32,10 @@ PARAMETER {
     kh      =7.3
     q10     =2.3
 }
+
+ASSIGNED {
+    ik      (mA/cm2)
+    minf    mtau (ms)
+    hinf    htau (ms)
+}
+
