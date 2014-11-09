@@ -39,3 +39,30 @@ ASSIGNED {
     hinf    htau (ms)
 }
 
+:BREAKPOINT {
+:    SOLVE states METHOD cnexp
+:    ik = gkbar * m*h*(v-ek)
+:}
+
+:INITIAL {
+:    trates(v)
+:    m=minf
+:    h=hinf
+:}
+
+:DERIVATIVE states {
+:    trates(v)
+:    m' = (minf-m)/mtau
+:    h' = (hinf-h)/htau
+:}
+
+:PROCEDURE trates(v) {
+:    LOCAL qt
+:    qt=q10^((celsius-22)/10)
+:    minf=1-1/(1+exp((v-vhalfm)/km))
+:    hinf=1/(1+exp((v-vhalfh)/kh))
+:
+:    mtau = 0.6
+:    htau = 1500
+:}
+

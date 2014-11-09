@@ -404,8 +404,9 @@ void Parser::parse_assigned_block() {
         if(token_.type != tok_identifier) {
             goto ass_error;
         }
+        // read all of the identifiers until we run out of identifiers or reach a new line
         while(token_.type == tok_identifier && line == location_.line) {
-            variables.push_back(token_); // save full token
+            variables.push_back(token_);
             get_token();
         }
 
@@ -449,20 +450,22 @@ std::vector<Token> Parser::unit_description() {
     int startline = location_.line;
     std::vector<Token> tokens;
 
+    // chec that we start with a left parenthesis
     if(token_.type != tok_lparen)
         goto unit_error;
-
     get_token();
-    // i could have forgotten a special case here
+
     while(token_.type != tok_rparen) {
-        if(startline < location_.line)
+        // check for illegal tokens or a new line
+        if( !is_in(token_.type,legal_tokens) || startline < location_.line )
             goto unit_error;
-        if( !is_in(token_.type, legal_tokens) )
-            goto unit_error;
+
+        // add this token to the set
         tokens.push_back(token_);
         get_token();
     }
-    get_token(); // remove trailing right parenthesis ')'
+    // remove trailing right parenthesis ')'
+    get_token();
 
     return tokens;
 
