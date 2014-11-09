@@ -258,8 +258,8 @@ std::string Lexer::identifier() {
         else if(c=='{' || c =='}') {
             break;
         }
-        // an identifier can be followed by a comma or a comment
-        else if(c==',' || c==':') {
+        // an identifier can be followed by a comma or a comment or assignment
+        else if(c==',' || c==':'  || c=='=') {
             break;
         }
         else if(is_alphanumeric(c) || c=='_') {
@@ -298,6 +298,7 @@ static Keyword keywords[] = {
     {"BREAKPOINT",  tok_breakpoint},
     {"DERIVATIVE",  tok_derivative},
     {"PROCEDURE",   tok_procedure},
+    {"INITIAL",     tok_initial},
     {"UNITSOFF",    tok_unitsoff},
     {"UNITSON",     tok_unitson},
     {"SUFFIX",      tok_suffix},

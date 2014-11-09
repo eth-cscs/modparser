@@ -4,10 +4,42 @@ Write the lexer
         - VERBATIM is a major code stink
         - ... so do a review of all use cases for VERBATIM and generalize them
           into the DSL
-    - elegant handling of errors in the lexer
-        + implemented
-        - need some unit tests
+    + elegant handling of errors in the lexer
 
 write the Parser
     - design the AST structure
         - I don't know what the root node looks like...
+
+======================================================================================================
+
+The parser makes two passes of the .mod file. There is one pass each for the
+    1. adjective blocks
+        PARAMETER, ASSIGNED, NEURON, STATE, UNITS
+    2. verb blocks
+        DERIVATIVE, PROCEDURE, INITIAL, BREAKPOINT
+
+The adjective blocks are so called because they describe the fields and meta-data pertaining to the module.
+    - simply lists of parameters, ion dependencies, module name, units, etc...
+
+The verb blocks describe actions with fields
+    - they require an AST to describe the transformations
+
+-- PASS 1 --
+
+parse all blocks where units and variables are defined:
+    PARAMETER, ASSIGNED, NEURON, STATE, UNITS
+These don't require AST to store their state (they have no recursion, and block-specific formatting)
+
+When a block that requires AST (blocks that do instead of describe)
+    DERIVATIVE, PROCEDURE, INITIAL, BREAKPOINT
+    -   make a note of (a) its existance (b) its location
+    -   we will return for these blocks on the second pass
+
+Once all the descriptive blocks have been parsed, build tables that describe all of the variables, globals and parameters used in the module
+
+-- PASS 2 --
+
+Now that all of the variables have been described, form the AST for each of the verb blocks
+    - we can match against the identifier tables and check for correctness
+    - note that a local lookup is required for any variables marked LOCAL in this block
+

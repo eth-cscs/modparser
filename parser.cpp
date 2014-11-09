@@ -40,6 +40,17 @@ Parser::Parser(Module& m)
             case tok_assigned :
                 parse_assigned_block();
                 break;
+            case tok_breakpoint :
+                // we calculate the character that points to the first
+                // given line_ and token_.location, we can compute the current_
+                // required to reset state in the lexer
+                verb_blocks_.push_back({token_, line_});
+                skip_block();
+                break;
+            case tok_initial :
+                verb_blocks_.push_back({token_, line_});
+                skip_block();
+                break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
                 break;
@@ -49,6 +60,37 @@ Parser::Parser(Module& m)
             break;
         }
     }
+}
+
+// this will skip the block that follows
+// precondition:
+//      - current token in the stream is the opening brace of the block '{'
+void Parser::skip_block() {
+    get_token(); // get the opening '{'
+    assert(token_.type == tok_lbrace);
+
+    get_token(); // consume opening curly brace
+
+    int num_curlys = 0;
+    while(!(token_.type==tok_rbrace && num_curlys==0)) {
+        switch(token_.type) {
+            case tok_lbrace :
+                num_curlys++;
+                break;
+            case tok_rbrace :
+                num_curlys--;
+                break;
+            case tok_eof :
+                error("expect a closing } at the end of a block");
+                return;
+            default :
+                ;
+        }
+
+        get_token(); // get the next token
+    }
+
+    get_token(); //consume the final '}'
 }
 
 // consume a comma separated list of identifiers
