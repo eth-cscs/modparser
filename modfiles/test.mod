@@ -50,6 +50,10 @@ INITIAL {
     h=hinf
 }
 
+: the 'states' in the definition is giving the derivative a name
+: this name is then used in the SOLVE statement above
+: should states be a procedure with special declaration syntax (takes no arguments by default)?
+
 :DERIVATIVE states {
 :    trates(v)
 :    m' = (minf-m)/mtau

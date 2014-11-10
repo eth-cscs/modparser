@@ -1,5 +1,6 @@
 #pragma once
 
+#include "expression.h"
 #include "lexer.h"
 #include "module.h"
 
