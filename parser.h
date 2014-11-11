@@ -8,6 +8,8 @@ class Parser : public Lexer {
 public:
     explicit Parser(Module& m);
 
+    Expression* parse_prototype();
+
 private:
     Module &module_;
 
@@ -25,6 +27,7 @@ private:
 
     // helper function for logging errors
     void error(std::string msg);
+
 
     // disable default and copy assignment
     Parser();

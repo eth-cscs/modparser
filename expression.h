@@ -12,7 +12,7 @@ public:
         : location_(location)
     {}
 
-    virtual ~Expression();
+    //virtual ~Expression();
 
     // expressions must provide a method for stringification
     virtual std::string to_string() = 0;
@@ -24,6 +24,7 @@ protected:
 
 // an identifier
 class IdentifierExpression : public Expression {
+public:
     IdentifierExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
     {}
@@ -32,13 +33,13 @@ class IdentifierExpression : public Expression {
         return name_;
     }
 private:
+    // there has to be some pointer to a table of identifiers
     std::string name_;
 };
 
 // a proceduce prototype
 class PrototypeExpression : public Expression {
 public:
-    // todo: need to think about rvalue references for copying expression lists
     PrototypeExpression(Location loc, std::string const& name, std::vector<Expression*> const& args)
         : Expression(loc), name_(name), args_(args)
     {}
@@ -46,7 +47,7 @@ public:
     std::string const& name() const {return name_;}
 
     std::string to_string() override {
-        return name_ + pprintf("(% args)", args_.size());
+        return name_ + pprintf("(% args : %)", args_.size(), args_);
     }
 private:
     std::string name_;
@@ -55,6 +56,7 @@ private:
 
 // a number
 class NumberExpression : public Expression {
+public:
     NumberExpression(Location loc, std::string const& value)
         : Expression(loc), value_(std::stod(value))
     {}

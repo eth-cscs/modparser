@@ -112,7 +112,7 @@ TEST(Lexer, newline) {
 
 // test operators
 TEST(Lexer, symbols) {
-    char string[] = "+-/*, t=";
+    char string[] = "+-/*, t= ^ h'";
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
@@ -131,6 +131,7 @@ TEST(Lexer, symbols) {
     auto t5 = lexer.parse();
     EXPECT_EQ(t5.type, tok_comma);
 
+    // test that identifier followed by = is parsed correctly
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok_identifier);
 
@@ -138,7 +139,18 @@ TEST(Lexer, symbols) {
     EXPECT_EQ(t7.type, tok_eq);
 
     auto t8 = lexer.parse();
-    EXPECT_EQ(t8.type, tok_eof);
+    EXPECT_EQ(t8.type, tok_pow);
+
+    auto t9 = lexer.parse();
+    EXPECT_EQ(t9.type, tok_identifier);
+
+    // check that prime' is parsed properly after symbol
+    // as this is how it is used to indicate a derivative
+    auto t10 = lexer.parse();
+    EXPECT_EQ(t10.type, tok_prime);
+
+    auto t11 = lexer.parse();
+    EXPECT_EQ(t11.type, tok_eof);
 }
 
 // test braces

@@ -27,7 +27,7 @@ inline bool is_eof(const char &c) {
     return (c==0 || c==EOF);
 }
 inline bool is_operator(const char &c) {
-    return (c=='+' || c=='-' || c=='*' || c=='/');
+    return (c=='+' || c=='-' || c=='*' || c=='/' || c=='^' || c=='\'');
 }
 
 //*********************
@@ -130,6 +130,14 @@ Token Lexer::parse() {
                 return t;
             case '*':
                 t.type = tok_times;
+                t.name += character();
+                return t;
+            case '^':
+                t.type = tok_pow;
+                t.name += character();
+                return t;
+            case '\'':
+                t.type = tok_prime;
                 t.name += character();
                 return t;
             case ',':

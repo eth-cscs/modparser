@@ -14,10 +14,10 @@ enum TOK {
     /////////////////////////////
     // symbols
     /////////////////////////////
-    // = + - * /
-    tok_eq, tok_plus, tok_minus, tok_times, tok_divide,
-    // ,
-    tok_comma,
+    // = + - * / ^
+    tok_eq, tok_plus, tok_minus, tok_times, tok_divide, tok_pow,
+    // , '
+    tok_comma, tok_prime,
 
     // { }
     tok_lbrace, tok_rbrace,

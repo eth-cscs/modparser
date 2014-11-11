@@ -50,23 +50,23 @@ INITIAL {
     h=hinf
 }
 
+PROCEDURE trates(v) {
+    LOCAL qt
+    qt=q10^((celsius-22)/10)
+    minf=1-1/(1+exp((v-vhalfm)/km))
+    hinf=1/(1+exp((v-vhalfh)/kh))
+
+    mtau = 0.6
+    htau = 1500
+}
+
 : the 'states' in the definition is giving the derivative a name
 : this name is then used in the SOLVE statement above
 : should states be a procedure with special declaration syntax (takes no arguments by default)?
 
-:DERIVATIVE states {
-:    trates(v)
-:    m' = (minf-m)/mtau
-:    h' = (hinf-h)/htau
-:}
-
-:PROCEDURE trates(v) {
-:    LOCAL qt
-:    qt=q10^((celsius-22)/10)
-:    minf=1-1/(1+exp((v-vhalfm)/km))
-:    hinf=1/(1+exp((v-vhalfh)/kh))
-:
-:    mtau = 0.6
-:    htau = 1500
-:}
+DERIVATIVE states {
+    trates(v)
+    m' = (minf-m)/mtau
+    h' = (hinf-h)/htau
+}
 

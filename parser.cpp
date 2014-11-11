@@ -44,11 +44,27 @@ Parser::Parser(Module& m)
                 // we calculate the character that points to the first
                 // given line_ and token_.location, we can compute the current_
                 // required to reset state in the lexer
+                get_token(); // consume BREAKPOINT symbol
                 verb_blocks_.push_back({token_, line_});
                 skip_block();
                 break;
             case tok_initial :
+                get_token(); // consume INITIAL symbol
                 verb_blocks_.push_back({token_, line_});
+                skip_block();
+                break;
+            case tok_procedure :
+                {
+                    get_token();
+                    auto e = parse_prototype();
+                }
+                skip_block();
+                break;
+            case tok_derivative :
+                {
+                    get_token();
+                    auto e = parse_prototype();
+                }
                 skip_block();
                 break;
             default :
@@ -56,7 +72,7 @@ Parser::Parser(Module& m)
                 break;
         }
         if(status() == ls_error) {
-            std::cerr << "\033[1;31m" << error_string_ << "\033[0m" << std::endl;
+            std::cerr << colorize(error_string_, kRed) << std::endl;
             break;
         }
     }
@@ -66,8 +82,8 @@ Parser::Parser(Module& m)
 // precondition:
 //      - current token in the stream is the opening brace of the block '{'
 void Parser::skip_block() {
-    get_token(); // get the opening '{'
-    assert(token_.type == tok_lbrace);
+    //get_token(); // get the opening '{'
+    //assert(token_.type == tok_lbrace);
 
     get_token(); // consume opening curly brace
 
@@ -106,10 +122,9 @@ std::vector<Token> Parser::comma_separated_identifiers() {
     int startline = location_.line;
     // handle is an empty list at the end of a line
     if(peek().location.line > startline) {
-        // should this be an error?
-        // it is the sort of thing that would happen when scanning WRITE below:
-        //  USEION k READ a, b WRITE
-        // probably best left to the caller to decide whether an empty list is an error
+        // this happens when scanning WRITE below:
+        //      USEION k READ a, b WRITE
+        // leave to the caller to decide whether an empty list is an error
         return tokens;
     }
     while(1) {
@@ -138,7 +153,7 @@ std::vector<Token> Parser::comma_separated_identifiers() {
         // look ahead to check for a comma.  This approach ensures that the
         // first token after the end of the list is not consumed
         if( peek().type == tok_comma ) {
-            // consume the comma
+            // load the comma
             get_token();
             // assert that the list can't run off the end of a line
             if(peek().location.line > startline) {
@@ -514,5 +529,40 @@ std::vector<Token> Parser::unit_description() {
 unit_error:
     error(pprintf("incorrect unit description '%'", tokens));
     return tokens;
+}
+
+Expression* Parser::parse_prototype() {
+    Token identifier = token_;
+
+    // load the parenthesis
+    get_token();
+
+    // check for an argument list enclosed in parenthesis (...)
+    // return a prototype with an empty argument list if not found
+    if( token_.type != tok_lparen ) {
+        return new PrototypeExpression(identifier.location, identifier.name, {});
+    }
+
+    std::vector<Token> arg_tokens = comma_separated_identifiers();
+    if(status()==ls_error) { // break away if there was an error
+        return nullptr;
+    }
+
+    // advance to next token, because the list reader leaves token_
+    // pointing to the last entry in the list
+    get_token();
+
+    if(token_.type != tok_rparen) {
+        error("procedure argument list must have closing parenthesis ')'");
+        return nullptr;
+    }
+    get_token(); // consume closing parenthesis
+
+    std::vector<Expression*> arg_expressions;
+    for(auto const& t : arg_tokens) {
+        arg_expressions.push_back(new IdentifierExpression(t.location, t.name));
+    }
+
+    return new PrototypeExpression(identifier.location, identifier.name, arg_expressions);
 }
 

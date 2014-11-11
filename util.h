@@ -49,3 +49,18 @@ std::string pprintf(const char *s, T value, Args... args) {
     return errstring;
 }
 
+enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow};
+static std::string colorize(std::string const& s, stringColor c) {
+    switch(c) {
+        case kWhite :
+            return "\033[1;0m"  + s + "\033[0m";
+        case kRed   :
+            return "\033[1;31m" + s + "\033[0m";
+        case kGreen :
+            return "\033[1;32m" + s + "\033[0m";
+        case kBlue  :
+            return "\033[1;34m" + s + "\033[0m";
+        case kYellow   :
+            return "\033[1;33m" + s + "\033[0m";
+    }
+}
