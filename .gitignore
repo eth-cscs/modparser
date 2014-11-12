@@ -23,6 +23,7 @@
 *.exe
 *.out
 *.app
+modcc
 
 # cmake detritus
 compile_commands.json

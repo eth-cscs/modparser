@@ -12,5 +12,13 @@ set(TEST_SOURCES
     module.cpp
 )
 
+set(MODCC_SOURCES
+    lexer.cpp
+    parser.cpp
+    module.cpp
+    modcc.cpp
+)
+
 add_executable(unittests.exe ${TEST_SOURCES})
+add_executable(modcc ${MODCC_SOURCES})
 
