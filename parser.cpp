@@ -387,7 +387,7 @@ void Parser::parse_parameter_block() {
     get_token();
     while(token_.type!=tok_rbrace && token_.type!=tok_eof) {
         int line = location_.line;
-        Variable parm;
+        Id parm;
 
         // read the parameter name
         if(token_.type != tok_identifier) {
@@ -474,12 +474,12 @@ void Parser::parse_assigned_block() {
                 goto ass_error;
             }
             for(auto const& t : variables) {
-                block.parameters.push_back(Variable(t, "", u));
+                block.parameters.push_back(Id(t, "", u));
             }
         }
         else {
             for(auto const& t : variables) {
-                block.parameters.push_back(Variable(t, "", {}));
+                block.parameters.push_back(Id(t, "", {}));
             }
         }
     }

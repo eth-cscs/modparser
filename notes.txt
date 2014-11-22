@@ -88,3 +88,55 @@ PROCEDURE rates(){
         ...
     UNITSON
 }
+
+variable types
+    RANGE
+        - values that are a function of position
+        - are made available to the neuron interpreter
+    GLOBAL
+    PARAMETER (value[may be set externally])
+        - these values are used by model but not set by it
+        - special variables (v, area, celcius, etc.) should be declared as parameter (and you shouldn't assign values to them in the model)
+        - ionic concentrations, currents, and potentials that are used but not set in this particular model should be declared as parameters.
+    STATE
+        - These are variables which are the unknowns in differential and algebraic equations
+        - they are always RANGE variables
+        - Ionic concentration is a state only if the concentration is being calculated within that specific model (mechanism)
+    ION (read/write, ion name)
+        - If an ion, called for example (ca,k,na), is declared then a separate mechanism is internally created within NEURON, denoted by (ca,k,na)
+        - the (ca,k,na) mechanism is automatically inserted whenever the USEION includes that mechanism
+        - The variables of the mechanism (ca,k,na) are
+            - outward total current carried (ica, ik, ina)
+            - internal concentration (cai, ki, nai)
+            - external concentration (cao, ko, nao)
+            - reversal potential     (eca, ek, ena)
+    ASSIGNED
+        - these are variables which can be computed directly by assignment statements and are important enough that you may wish to know their value during a simulation.
+        - in a Neuron context you will wish to divide them between range variables and global variables.
+        - can be modified by Neuron
+
+The tricky bit is coming up with a good taxonomy of Types... how do we categorize them?
+
+class Type {
+    std::string name;
+    Type *type;
+    virtual bool is_global()    {return false;}
+    virtual bool is_parameter() {return false;;
+    virtual bool is_assigned()  {return false;}
+    virtual bool is_state()     {return false;}
+    virtual bool is_range()     {return false;}
+    virtual Ion* ion()          {return nullptr;}
+};
+
+class Assigned : public Type {
+    // do we categorize Types as assigned, then tag them further with bools indicating if they are range, state, etc
+    bool is_range_;
+    bool is_state_;
+    virtual bool is_assigned() {return true;}
+};
+
+enum ionType {kIonCa, kIonNa, kIonK, kIonOther};
+class Ion {
+    ionType type;
+    std::string name;
+}
