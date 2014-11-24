@@ -30,7 +30,7 @@ public:
     IdentifierExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
     {
-        std::cout << colorize("IdentifierExpression", kGreen) << std::endl;
+        //std::cout << colorize("IdentifierExpression", kGreen) << std::endl;
     }
 
     std::string to_string() override {
@@ -38,7 +38,7 @@ public:
     }
 
     ~IdentifierExpression() {
-        std::cout << colorize("~IdentifierExpression", kYellow) << std::endl;
+        //std::cout << colorize("~IdentifierExpression", kYellow) << std::endl;
     }
 private:
     // there has to be some pointer to a table of identifiers
@@ -51,7 +51,7 @@ public:
     PrototypeExpression(Location loc, std::string const& name, std::vector<Expression*> const& args)
         : Expression(loc), name_(name), args_(args)
     {
-        std::cout << colorize("PrototypeExpression", kGreen) << std::endl;
+        //std::cout << colorize("PrototypeExpression", kGreen) << std::endl;
     }
 
     std::string const& name() const {return name_;}
@@ -61,7 +61,7 @@ public:
     }
 
     ~PrototypeExpression() {
-        std::cout << colorize("~PrototypeExpression", kYellow) << std::endl;
+        //std::cout << colorize("~PrototypeExpression", kYellow) << std::endl;
     }
 private:
     std::string name_;
