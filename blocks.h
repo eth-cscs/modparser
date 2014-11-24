@@ -33,27 +33,27 @@ struct UnitsBlock {
     std::vector<units_pair> unit_aliases;
 };
 
-struct Variable {
+struct Id {
     Token token;
     std::string value; // store the value as a string, not a number : empty string == no value
     unit_tokens units;
 
-    Variable(Token const& t, std::string const& v, unit_tokens const& u)
+    Id(Token const& t, std::string const& v, unit_tokens const& u)
         : token(t), value(v), units(u)
     {}
 
-    Variable()
+    Id()
     {}
 };
 
 // information stored in a NEURON {} block in mod file
 struct ParameterBlock {
-    std::vector<Variable> parameters;
+    std::vector<Id> parameters;
 };
 
 // information stored in a NEURON {} block in mod file
 struct AssignedBlock {
-    std::vector<Variable> parameters;
+    std::vector<Id> parameters;
 };
 
 ////////////////////////////////////////////////
@@ -66,7 +66,7 @@ static std::ostream& operator<< (std::ostream& os, Token const& t) {
     return os << t.name;
 }
 
-static std::ostream& operator<< (std::ostream& os, Variable const& V) {
+static std::ostream& operator<< (std::ostream& os, Id const& V) {
     if(V.units.size())
         os << "(" << V.token << "," << V.value << "," << V.units << ")";
     else
