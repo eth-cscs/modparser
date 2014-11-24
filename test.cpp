@@ -47,7 +47,7 @@ TEST(Lexer, identifiers) {
 
 // test keywords
 TEST(Lexer, keywords) {
-    char string[] = "NEURON UNITS SOLVE else";
+    char string[] = "NEURON UNITS SOLVE else TITLE";
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
@@ -70,7 +70,12 @@ TEST(Lexer, keywords) {
     EXPECT_EQ(t4.name, "else");
 
     auto t5 = lexer.parse();
-    EXPECT_EQ(t5.type, tok_eof);
+    //EXPECT_EQ(t5.type, tok_title);
+    EXPECT_NE(t5.type, tok_identifier);
+    EXPECT_EQ(t5.name, "TITLE");
+
+    auto t6 = lexer.parse();
+    EXPECT_EQ(t6.type, tok_eof);
 }
 
 // test white space

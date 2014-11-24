@@ -24,6 +24,7 @@ Parser::Parser(Module& m)
     get_token();
 
     while(token_.type!=tok_eof) {
+        std::cout << token_.name << std::endl;
         switch(token_.type) {
             case tok_neuron :
                 parse_neuron_block();
