@@ -193,6 +193,11 @@ std::string Lexer::number() {
         if(c=='\n') {
             break;
         }
+
+        // TODO :   these checks should be moved out of the number/identifier scanners
+        //          simply return when a character that is not [0-9.] is not found
+        //          and let the parser handle whatever follows the number/identifier
+
         // a number can be followed by mathematical operator
         else if(is_operator(c)) {
             break;

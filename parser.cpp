@@ -281,7 +281,7 @@ void Parser::parse_neuron_block() {
     // copy neuron block into module
     module_.neuron_block(neuron_block);
 
-    std::cout << neuron_block;
+    //std::cout << neuron_block;
 
     // now we have a curly brace, so prime the next token
     get_token();
@@ -311,7 +311,7 @@ void Parser::parse_state_block() {
         get_token();
     }
 
-    std::cout << state_block;
+    //std::cout << state_block;
 
     // add this state block information to the module
     module_.state_block(state_block);
@@ -355,7 +355,7 @@ void Parser::parse_units_block() {
         units_block.unit_aliases.push_back({lhs, rhs});
     }
 
-    std::cout << units_block;
+    //std::cout << units_block;
 
     // add this state block information to the module
     module_.units_block(units_block);
@@ -421,7 +421,7 @@ void Parser::parse_parameter_block() {
 
         block.parameters.push_back(parm);
     }
-    std::cout << block;
+    //std::cout << block;
 
     // errer if EOF before closeing curly brace
     if(token_.type==tok_eof) {
@@ -483,7 +483,7 @@ void Parser::parse_assigned_block() {
             }
         }
     }
-    std::cout << block;
+    //std::cout << block;
 
     // errer if EOF before closeing curly brace
     if(token_.type==tok_eof) {
