@@ -8,10 +8,10 @@ void Parser::error(std::string msg) {
     std::string location_info = pprintf("%:% ", module_.name(), token_.location);
     if(status_==ls_error) {
         // append to current string
-        error_string_ += "\n" + location_info + msg;
+        error_string_ += "\n" + colorize(location_info, kGreen) + msg;
     }
     else {
-        error_string_ = location_info + msg;
+        error_string_ = colorize(location_info, kGreen) + msg;
         status_ = ls_error;
     }
 }
@@ -24,8 +24,10 @@ Parser::Parser(Module& m)
     get_token();
 
     while(token_.type!=tok_eof) {
-        std::cout << token_.name << std::endl;
         switch(token_.type) {
+            case tok_title :
+                parse_title();
+                break;
             case tok_neuron :
                 parse_neuron_block();
                 break;
@@ -73,7 +75,7 @@ Parser::Parser(Module& m)
                 break;
         }
         if(status() == ls_error) {
-            std::cerr << colorize(error_string_, kRed) << std::endl;
+            std::cerr << colorize("error: ", kRed) << error_string_ << std::endl;
             break;
         }
     }
@@ -565,5 +567,25 @@ Expression* Parser::parse_prototype() {
     }
 
     return new PrototypeExpression(identifier.location, identifier.name, arg_expressions);
+}
+
+void Parser::parse_title() {
+    std::string title;
+    int this_line = location().line;
+
+    Token tok = peek();
+    while(tok.location.line==this_line && tok.type!=tok_eof && status_==ls_happy) {
+        get_token();
+        std::cout << "[" << token_.name << "]" << std::endl;
+        title += token_.name;
+        tok = peek();
+    }
+
+    std::cout << "we got us : " << title << std::endl;
+    // set the module title
+    module_.title(title);
+
+    // load next token
+    get_token();
 }
 

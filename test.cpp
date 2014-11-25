@@ -91,7 +91,7 @@ TEST(Lexer, whitespace) {
 
 // test new line
 TEST(Lexer, newline) {
-    char string[] = "foo \n    bar \n +";
+    char string[] = "foo \n    bar \n +\r\n-";
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
@@ -113,6 +113,13 @@ TEST(Lexer, newline) {
     EXPECT_EQ(t3.name, "+");
     EXPECT_EQ(t3.location.line, 3);
     EXPECT_EQ(t3.location.column, 2);
+
+    // test for carriage return + newline, i.e. \r\n
+    auto t4 = lexer.parse();
+    EXPECT_EQ(t4.type, tok_minus);
+    EXPECT_EQ(t4.name, "-");
+    EXPECT_EQ(t4.location.line, 4);
+    EXPECT_EQ(t4.location.column, 1);
 }
 
 // test operators
@@ -249,7 +256,7 @@ TEST(Lexer, errors) {
     EXPECT_EQ(lexer.status(), ls_error);
 
     // assert that the correct error message was generated
-    EXPECT_EQ(lexer.error_message(), "found undexpected character 'a' when reading a number '1a'");
+    EXPECT_EQ(lexer.error_message(), "found unexpected character 'a' when reading a number '1a'");
 }
 
 /**************************************************************

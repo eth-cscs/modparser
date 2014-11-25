@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 #include "module.h"
@@ -12,6 +13,7 @@ Module::Module(std::string const& fname)
     if(!fid.is_open()) { // return if no file opened
         return;
     }
+
     // determine size of file
     size_t size = fid.tellg();
     fid.seekg(0, std::ios::beg);

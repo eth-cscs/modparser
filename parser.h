@@ -22,6 +22,7 @@ private:
     void parse_units_block();
     void parse_parameter_block();
     void parse_assigned_block();
+    void parse_title();
 
     void skip_block();
 

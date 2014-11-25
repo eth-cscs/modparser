@@ -64,6 +64,20 @@ Token Lexer::parse() {
                 location_.line++;
                 continue;   // skip to next line
 
+            // new line
+            case '\r'   :
+                current_++;
+                if(*current_ != '\n') {
+                    error_string_ = pprintf("bad line ending: \\n must follow \\r");
+                    status_ = ls_error;
+                    t.type = tok_reserved;
+                    break;
+                }
+                current_++;
+                line_ = current_;
+                location_.line++;
+                continue;   // skip to next line
+
             // comment (everything after : on a line is a comment)
             case ':'    :
                 // strip characters until either end of file or end of line
@@ -145,7 +159,7 @@ Token Lexer::parse() {
                 t.name += character();
                 return t;
             default:
-                error_string_ = pprintf("found undexpected character '%' when trying to find next token", *current_);
+                error_string_ = pprintf("found unexpected character '%' when trying to find next token", *current_);
                 status_ = ls_error;
                 t.name += character();
                 t.type = tok_reserved;
@@ -190,7 +204,7 @@ std::string Lexer::number() {
         if(is_eof(c) || is_whitespace(c)) {
             break;
         }
-        if(c=='\n') {
+        if(c=='\n' || c=='\r') {
             break;
         }
 
@@ -219,7 +233,7 @@ std::string Lexer::number() {
         // e.g. the following [a-zA-Z]
         else {
             str += c;
-            error_string_ = pprintf("found undexpected character '%' when reading a number '%'", c, str);
+            error_string_ = pprintf("found unexpected character '%' when reading a number '%'", c, str);
             status_ = ls_error;
             break;
         }
@@ -256,7 +270,7 @@ std::string Lexer::identifier() {
         if(is_eof(c) || is_whitespace(c)) {
             break;
         }
-        if(c=='\n') {
+        if(c=='\n' || c=='\r') {
             break;
         }
         // an identifyer can be followed by mathematical operator
@@ -283,7 +297,9 @@ std::string Lexer::identifier() {
         // e.g. the following [a-zA-Z]
         else {
             name += c;
-            error_string_ = pprintf("found undexpected character '%' when reading an identifier '%'", c, name);
+            //error_string_ = pprintf("found unexpected character '%' when reading an identifier '%'", c, name);
+            std::cout << colorize("unexpected character", kBlue) << std::endl;
+            error_string_ = pprintf("found unexpected character when reading an identifier");
             status_ = ls_error;
             break;
         }
@@ -303,6 +319,7 @@ struct Keyword {
 };
 
 static Keyword keywords[] = {
+    {"TITLE",       tok_title},
     {"NEURON",      tok_neuron},
     {"UNITS",       tok_units},
     {"PARAMETER",   tok_parameter},
