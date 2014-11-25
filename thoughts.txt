@@ -33,13 +33,6 @@ caught on returning from every function call
     - should we just throw an excpetion and catch at a higher level?
 
 --------------------------------
-pretty printing errors
---------------------------------
-
-It would be sexy to print lines and hilight errors
-It would not be too time consuming to implement
-
---------------------------------
 warnings
 --------------------------------
 

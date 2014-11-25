@@ -282,6 +282,47 @@ TEST(Parser, open) {
 }
 
 /**************************************************************
+ * expression tests
+ **************************************************************/
+TEST(Expression, variable_constructors) {
+    // check that default values for constructor work
+    {
+        RangeVariable v("v");
+        EXPECT_EQ(v.access(),      k_readwrite);
+        EXPECT_EQ(v.visibility(),  k_global_visibility);
+        EXPECT_EQ(v.linkage(),     k_local_link);
+
+        EXPECT_EQ(v.name(), std::string("v"));
+
+        EXPECT_TRUE(v.is_readable());
+        EXPECT_TRUE(v.is_writeable());
+        EXPECT_TRUE(v.is_range());
+    }
+    {
+        ScalarVariable v("v", k_read, k_local_visibility, k_extern_link);
+        EXPECT_EQ(v.access(),      k_read);
+        EXPECT_EQ(v.visibility(),  k_local_visibility);
+        EXPECT_EQ(v.linkage(),     k_extern_link);
+
+        EXPECT_TRUE( v.is_readable());
+        EXPECT_FALSE(v.is_writeable());
+        EXPECT_FALSE(v.is_ion());
+        EXPECT_FALSE(v.is_range());
+    }
+    {
+        IonVariable v("v", k_ion_Ca, k_write, k_local_visibility, k_extern_link);
+        EXPECT_EQ(v.access(),      k_write);
+        EXPECT_EQ(v.visibility(),  k_local_visibility);
+        EXPECT_EQ(v.linkage(),     k_extern_link);
+
+        EXPECT_FALSE(v.is_readable());
+        EXPECT_TRUE (v.is_writeable());
+        EXPECT_TRUE (v.is_ion());
+        EXPECT_TRUE (v.is_range());
+    }
+}
+
+/**************************************************************
  * main
  **************************************************************/
 int main(int argc, char **argv) {

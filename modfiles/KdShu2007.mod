@@ -21,7 +21,6 @@ PARAMETER {
     q10     =2.3
 }
 
-
 UNITS {
     (mA) = (milliamp)
     (mV) = (millivolt)

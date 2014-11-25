@@ -89,6 +89,18 @@ PROCEDURE rates(){
     UNITSON
 }
 
+--------------------
+PLAN
+--------------------
+
+- develop first draft of taxonomy of types in C++
+- implement AST parser with this taxonomy
+- floating point complexity report for a mod file
+- document taxonomy
+- take to Michael for his feedback
+
+--------------------
+
 variable types
     RANGE
         - values that are a function of position
