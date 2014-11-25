@@ -297,7 +297,7 @@ void Parser::parse_state_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("STATE block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -331,7 +331,7 @@ void Parser::parse_units_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("UNITS block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -382,7 +382,7 @@ void Parser::parse_parameter_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("PARAMETER block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 
@@ -450,7 +450,7 @@ void Parser::parse_assigned_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("ASSIGNED block must start with a curly brace {, found '%'", token_.name));
         return;
     }
 

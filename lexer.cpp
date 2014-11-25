@@ -71,7 +71,7 @@ Token Lexer::parse() {
                     error_string_ = pprintf("bad line ending: \\n must follow \\r");
                     status_ = ls_error;
                     t.type = tok_reserved;
-                    break;
+                    return t;
                 }
                 current_++;
                 line_ = current_;
@@ -163,7 +163,7 @@ Token Lexer::parse() {
                 status_ = ls_error;
                 t.name += character();
                 t.type = tok_reserved;
-                break;
+                return t;
         }
     }
 
@@ -297,9 +297,7 @@ std::string Lexer::identifier() {
         // e.g. the following [a-zA-Z]
         else {
             name += c;
-            //error_string_ = pprintf("found unexpected character '%' when reading an identifier '%'", c, name);
-            std::cout << colorize("unexpected character", kBlue) << std::endl;
-            error_string_ = pprintf("found unexpected character when reading an identifier");
+            error_string_ = pprintf("found unexpected character '%' when reading an identifier '%'", c, name);
             status_ = ls_error;
             break;
         }
