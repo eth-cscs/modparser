@@ -576,12 +576,10 @@ void Parser::parse_title() {
     Token tok = peek();
     while(tok.location.line==this_line && tok.type!=tok_eof && status_==ls_happy) {
         get_token();
-        std::cout << "[" << token_.name << "]" << std::endl;
         title += token_.name;
         tok = peek();
     }
 
-    std::cout << "we got us : " << title << std::endl;
     // set the module title
     module_.title(title);
 
