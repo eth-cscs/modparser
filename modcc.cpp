@@ -11,8 +11,11 @@ int main(int argc, char **argv) {
                   << "requires file name to parse" << std::endl;
         return 1;
     }
+
+    // load the module from file passed as first argument
     Module m(argv[1]);
 
+    // check that the module is not empty
     if(m.buffer().size()==0) {
         std::cout << colorize("error: ", kRed)
                   << colorize(argv[1], kGreen)
@@ -20,13 +23,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-
+    // parse the module data
     Parser p(m);
     if(p.status() != ls_happy) {
-        std::cout << colorize("error: ", kRed)
-                  << colorize(argv[1], kGreen)
-                  << " unable to parse file" << std::endl;
-
+        // return with error
         return 1;
     }
 
@@ -39,4 +39,9 @@ int main(int argc, char **argv) {
         }
     }
     #endif
+
+    std::cout << colorize("succesfully parsed ", kYellow)
+              << colorize(argv[1], kGreen)
+              << std::endl;
+    return 0;
 }

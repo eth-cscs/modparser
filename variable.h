@@ -41,9 +41,58 @@ enum ionKind {
 };
 
 ///
+/// base class for all identifier types (variables and functions)
+///
+class Identifier {
+public:
+    Identifier(std::string const& name)
+    :   name_(name)
+    {}
+
+    virtual bool is_variable() const = 0;
+    virtual bool is_call()     const = 0;
+
+    std::string const& name() const {return name_;}
+protected:
+    std::string name_;
+};
+
+///
+/// base class for call types (functions and procedures)
+///
+class Call : public Identifier {
+public:
+    Call(std::string const& name, int n)
+        : Identifier(name), num_args_(n)
+    {}
+
+    bool is_variable() const override {return false;}
+    bool is_call()     const override {return true;}
+
+protected:
+    int num_args_;
+
+    // this has to store the AST for the function body
+};
+
+///
+/// procedure
+///
+class Procedure : public Call {
+public:
+    Procedure(std::string const& name, int n)
+        : Call(name, n)
+    {}
+
+    bool is_variable() const override {return false;}
+    bool is_call()     const override {return true;}
+private:
+};
+
+///
 /// base class that defines a variable
 ///
-class Variable {
+class Variable : public Identifier {
 public:
     Variable(
         std::string const& name,
@@ -51,7 +100,7 @@ public:
         visibilityKind  visibility  = k_global_visibility,
         linkageKind     linkage     = k_local_link
     )
-    :   name_(name),
+    :   Identifier(name),
         access_(access),
         visibility_(visibility),
         linkage_(linkage)
@@ -72,15 +121,14 @@ public:
     bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
     bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
 
-    std::string const& name() const { return name_;}
+    bool is_variable() const override {return true;}
+    bool is_call()     const override {return false;}
 protected:
     Variable();
 
     accessKind    access_;
     visibilityKind visibility_;
     linkageKind   linkage_;
-
-    std::string name_;
 };
 
 ///

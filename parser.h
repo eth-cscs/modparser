@@ -26,12 +26,17 @@ private:
 
     void skip_block();
 
+    /// build the identifier list
+    void build_identifiers();
+
     // helper function for logging errors
     void error(std::string msg);
-
 
     // disable default and copy assignment
     Parser();
     Parser(Parser const &);
+
+    // hash table for lookup of variable and call names
+    std::unordered_map<std::string, Identifier*> identifiers_;
 };
 

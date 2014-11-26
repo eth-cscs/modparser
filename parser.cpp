@@ -23,6 +23,8 @@ Parser::Parser(Module& m)
     // prime the first token
     get_token();
 
+    // perform first pass to read the descriptive blocks and
+    // record the location of the verb blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -79,6 +81,20 @@ Parser::Parser(Module& m)
             break;
         }
     }
+
+    std::cout << module_.state_block();
+    std::cout << module_.units_block();
+    std::cout << module_.parameter_block();
+    std::cout << module_.neuron_block();
+    std::cout << module_.assigned_block();
+    // create the lookup information for the identifiers based on information
+    // in the descriptive blocks
+    build_identifiers();
+
+    // perform the second pass
+    // iterate of the verb blocks (functions, procedures, derivatives, etc...)
+    // and build their ASTs
+    // look up all symbols that were constructed in build_identifiers
 }
 
 // this will skip the block that follows
@@ -314,8 +330,6 @@ void Parser::parse_state_block() {
         get_token();
     }
 
-    //std::cout << state_block;
-
     // add this state block information to the module
     module_.state_block(state_block);
 
@@ -357,8 +371,6 @@ void Parser::parse_units_block() {
         // store the unit definition
         units_block.unit_aliases.push_back({lhs, rhs});
     }
-
-    //std::cout << units_block;
 
     // add this state block information to the module
     module_.units_block(units_block);
@@ -424,7 +436,6 @@ void Parser::parse_parameter_block() {
 
         block.parameters.push_back(parm);
     }
-    //std::cout << block;
 
     // errer if EOF before closeing curly brace
     if(token_.type==tok_eof) {
@@ -433,6 +444,8 @@ void Parser::parse_parameter_block() {
     }
 
     get_token(); // consume closing brace
+
+    module_.parameter_block(block);
 
     return;
 parm_error:
@@ -486,7 +499,6 @@ void Parser::parse_assigned_block() {
             }
         }
     }
-    //std::cout << block;
 
     // errer if EOF before closeing curly brace
     if(token_.type==tok_eof) {
@@ -495,6 +507,8 @@ void Parser::parse_assigned_block() {
     }
 
     get_token(); // consume closing brace
+
+    module_.assigned_block(block);
 
     return;
 ass_error:
@@ -585,5 +599,9 @@ void Parser::parse_title() {
 
     // load next token
     get_token();
+}
+
+// must be called between the first and second parses
+void Parser::build_identifiers() {
 }
 

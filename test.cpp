@@ -304,10 +304,13 @@ TEST(Expression, variable_constructors) {
         EXPECT_EQ(v.visibility(),  k_local_visibility);
         EXPECT_EQ(v.linkage(),     k_extern_link);
 
-        EXPECT_TRUE( v.is_readable());
-        EXPECT_FALSE(v.is_writeable());
-        EXPECT_FALSE(v.is_ion());
-        EXPECT_FALSE(v.is_range());
+        EXPECT_TRUE(  v.is_readable());
+        EXPECT_FALSE( v.is_writeable());
+        EXPECT_FALSE( v.is_ion());
+        EXPECT_FALSE( v.is_range());
+
+        EXPECT_TRUE(  v.is_variable());
+        EXPECT_FALSE( v.is_call());
     }
     {
         IonVariable v("v", k_ion_Ca, k_write, k_local_visibility, k_extern_link);
