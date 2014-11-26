@@ -91,6 +91,10 @@ Parser::Parser(Module& m)
     // in the descriptive blocks
     build_identifiers();
 
+    if(status() == ls_error) { // check for errors when building identifier table
+        std::cerr << colorize("error : ", kRed) << error_string_ << std::endl;
+    }
+
     // perform the second pass
     // iterate of the verb blocks (functions, procedures, derivatives, etc...)
     // and build their ASTs
@@ -603,5 +607,123 @@ void Parser::parse_title() {
 
 // must be called between the first and second parses
 void Parser::build_identifiers() {
+    // add state variables
+    for(auto const &var : module_.state_block()) {
+        Variable *id = new Variable(var);
+
+        id->set_state(true);    // set state to true
+        // state variables are private
+        //      what about if the state variables is an ion concentration?
+        id->set_linkage(k_local_link);
+        id->set_visibility(k_local_visibility);
+        id->set_ion_channel(k_ion_none);    // no ion channel
+        id->set_range(k_range);             // always a range
+        id->set_access(k_readwrite);
+
+        identifiers_[var] = id;
+    }
+
+    // add the parameters
+    for(auto const& var : module_.parameter_block()) {
+        auto name = var.name();
+        Variable *id = new Variable(name);
+
+        id->set_state(false);           // never a state variable
+        id->set_linkage(k_local_link);
+        // parameters are visible to Neuron
+        id->set_visibility(k_global_visibility);
+        id->set_ion_channel(k_ion_none);
+        // scalar by default, may later be upgraded to range
+        id->set_range(k_scalar);
+        id->set_access(k_read);
+
+        // check for 'special' variables
+        if(name == "v") { // global voltage values
+            id->set_linkage(k_extern_link);
+            id->set_range(k_range);
+            // argh, the global version cannot be modified, however
+            // the local ghost is sometimes modified
+            // make this illegal, because it is probably sloppy programming
+            id->set_access(k_read);
+        } else if(name == "celcius") { // global celcius parameter
+            id->set_linkage(k_extern_link);
+        }
+
+        identifiers_[name] = id;
+    }
+
+    // add the assigned variables
+    for(auto const& var : module_.assigned_block()) {
+        auto name = var.name();
+        Variable *id = new Variable(name);
+
+        id->set_state(false);           // never a state variable
+        id->set_linkage(k_local_link);
+        // local visibility by default
+        id->set_visibility(k_local_visibility);
+        id->set_ion_channel(k_ion_none); // can change later
+        // ranges because these are assigned to in loop
+        id->set_range(k_range);
+        id->set_access(k_readwrite);
+
+        identifiers_[name] = id;
+    }
+
+    ////////////////////////////////////////////////////
+    // parse the NEURON block data, and use it to update
+    // the variables in identifiers_
+    ////////////////////////////////////////////////////
+    // first the ION channels
+    for(auto const& ion : module_.neuron_block().ions) {
+        // assume that the ion channel variable has already been declared
+        // we check for this, and throw an error if not
+        for(auto const& var : ion.read) {
+            auto id = dynamic_cast<Variable*>(identifiers_[var]);
+            if(id==nullptr) { // assert that variable is alredy set
+                error( pprintf(
+                        "variable % from ion channel % has to be"
+                        " declared as PARAMETER or ASSIGNED",
+                         colorize(var, kYellow),
+                         colorize(ion.name, kYellow)
+                        )
+                );
+                return;
+            }
+            id->set_access(k_read);
+            id->set_visibility(k_global_visibility);
+            id->set_ion_channel(ion.kind());
+        }
+        for(auto const& var : ion.write) {
+            auto id = dynamic_cast<Variable*>(identifiers_[var]);
+            if(id==nullptr) { // assert that variable is alredy set
+                error( pprintf(
+                        "variable % from ion channel % has to be"
+                        " declared as PARAMETER or ASSIGNED",
+                         colorize(var, kYellow),
+                         colorize(ion.name, kYellow)
+                        )
+                );
+                return;
+            }
+            id->set_access(k_write);
+            id->set_visibility(k_global_visibility);
+            id->set_ion_channel(ion.kind());
+        }
+    }
+    // then GLOBAL variables channels
+    for(auto const& var : module_.neuron_block().globals) {
+        auto id = dynamic_cast<Variable*>(identifiers_[var]);
+        id->set_visibility(k_global_visibility);
+    }
+
+    // then RANGE variables
+    for(auto const& var : module_.neuron_block().ranges) {
+        auto id = dynamic_cast<Variable*>(identifiers_[var]);
+        id->set_range(k_range);
+    }
+
+    for(auto var : identifiers_) {
+        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+    }
 }
 

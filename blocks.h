@@ -4,9 +4,17 @@
 #include <vector>
 
 #include "lexer.h"
+#include "util.h"
+#include "identifier.h"
 
 // describes a relationship with an ion channel
 struct IonDep {
+    ionKind kind() const {
+        if(name=="k")  return k_ion_K;
+        if(name=="Na") return k_ion_Na;
+        if(name=="Ca") return k_ion_Ca;
+        return k_ion_none;
+    }
     std::string name;               // name of ion channel
     std::vector<std::string> read;  // name of channels parameters to write
     std::vector<std::string> write; // name of channels parameters to read
@@ -24,6 +32,12 @@ struct NeuronBlock {
 // information stored in a NEURON {} block in mod file
 struct StateBlock {
     std::vector<std::string> state_variables;
+    auto begin() -> decltype(state_variables.begin()) {
+        return state_variables.begin();
+    }
+    auto end() -> decltype(state_variables.end()) {
+        return state_variables.end();
+    }
 };
 
 // information stored in a NEURON {} block in mod file
@@ -42,18 +56,39 @@ struct Id {
         : token(t), value(v), units(u)
     {}
 
-    Id()
-    {}
+    Id() {}
+
+    bool has_value() const {
+        return value.size()>0;
+    }
+
+    std::string const& name() const {
+        return token.name;
+    }
 };
 
 // information stored in a NEURON {} block in mod file
 struct ParameterBlock {
     std::vector<Id> parameters;
+
+    auto begin() -> decltype(parameters.begin()) {
+        return parameters.begin();
+    }
+    auto end() -> decltype(parameters.end()) {
+        return parameters.end();
+    }
 };
 
 // information stored in a NEURON {} block in mod file
 struct AssignedBlock {
     std::vector<Id> parameters;
+
+    auto begin() -> decltype(parameters.begin()) {
+        return parameters.begin();
+    }
+    auto end() -> decltype(parameters.end()) {
+        return parameters.end();
+    }
 };
 
 ////////////////////////////////////////////////
@@ -93,7 +128,7 @@ static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
 }
 
 static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
-    os << "NeuronBlock"     << std::endl;
+    os << colorize("NeuronBlock",kBlue)     << std::endl;
     os << "  name       : " << N.suffix  << std::endl;
     os << "  threadsafe : " << (N.threadsafe ? "yes" : "no") << std::endl;
     os << "  ranges     : " << N.ranges  << std::endl;
@@ -104,27 +139,27 @@ static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
 }
 
 static std::ostream& operator<< (std::ostream& os, StateBlock const& B) {
-    os << "StateBlock"      << std::endl;
+    os << colorize("StateBlock",kBlue)      << std::endl;
     return os << "  variables  : " << B.state_variables << std::endl;
 
 }
 
 static std::ostream& operator<< (std::ostream& os, UnitsBlock const& U) {
-    os << "UnitsBlock"       << std::endl;
+    os << colorize("UnitsBlock", kBlue)      << std::endl;
     os << "  aliases    : "  << U.unit_aliases << std::endl;
 
     return os;
 }
 
 static std::ostream& operator<< (std::ostream& os, ParameterBlock const& P) {
-    os << "ParameterBlock"   << std::endl;
+    os << colorize("ParameterBlock",kBlue)   << std::endl;
     os << "  parameters : "  << P.parameters << std::endl;
 
     return os;
 }
 
 static std::ostream& operator<< (std::ostream& os, AssignedBlock const& A) {
-    os << "AssignedBlock"   << std::endl;
+    os << colorize("AssignedBlock",kBlue)   << std::endl;
     os << "  parameters : "  << A.parameters << std::endl;
 
     return os;

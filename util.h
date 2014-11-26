@@ -50,6 +50,7 @@ std::string pprintf(const char *s, T value, Args... args) {
 }
 
 enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow};
+
 static std::string colorize(std::string const& s, stringColor c) {
     switch(c) {
         case kWhite :

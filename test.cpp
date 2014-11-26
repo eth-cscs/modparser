@@ -287,41 +287,20 @@ TEST(Parser, open) {
 TEST(Expression, variable_constructors) {
     // check that default values for constructor work
     {
-        RangeVariable v("v");
-        EXPECT_EQ(v.access(),      k_readwrite);
-        EXPECT_EQ(v.visibility(),  k_global_visibility);
-        EXPECT_EQ(v.linkage(),     k_local_link);
-
-        EXPECT_EQ(v.name(), std::string("v"));
-
-        EXPECT_TRUE(v.is_readable());
-        EXPECT_TRUE(v.is_writeable());
+        Variable v("v");
+        v.set_range(k_range);
         EXPECT_TRUE(v.is_range());
-    }
-    {
-        ScalarVariable v("v", k_read, k_local_visibility, k_extern_link);
-        EXPECT_EQ(v.access(),      k_read);
-        EXPECT_EQ(v.visibility(),  k_local_visibility);
-        EXPECT_EQ(v.linkage(),     k_extern_link);
+        EXPECT_FALSE(v.is_scalar());
 
-        EXPECT_TRUE(  v.is_readable());
-        EXPECT_FALSE( v.is_writeable());
-        EXPECT_FALSE( v.is_ion());
-        EXPECT_FALSE( v.is_range());
+        v.set_state(true);
+        EXPECT_TRUE(v.is_state());
+        v.set_state(false);
+        EXPECT_FALSE(v.is_state());
 
-        EXPECT_TRUE(  v.is_variable());
-        EXPECT_FALSE( v.is_call());
-    }
-    {
-        IonVariable v("v", k_ion_Ca, k_write, k_local_visibility, k_extern_link);
-        EXPECT_EQ(v.access(),      k_write);
-        EXPECT_EQ(v.visibility(),  k_local_visibility);
-        EXPECT_EQ(v.linkage(),     k_extern_link);
-
-        EXPECT_FALSE(v.is_readable());
-        EXPECT_TRUE (v.is_writeable());
-        EXPECT_TRUE (v.is_ion());
-        EXPECT_TRUE (v.is_range());
+        v.set_ion_channel(k_ion_Na);
+        EXPECT_TRUE(v.is_ion());
+        v.set_ion_channel(k_ion_none);
+        EXPECT_FALSE(v.is_ion());
     }
 }
 
