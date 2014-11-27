@@ -216,15 +216,13 @@ static std::ostream& operator<< (std::ostream& os, Variable const& V) {
     char name[17];
     snprintf(name, 17, "%-10s", V.name().c_str());
     os << colorize("variable",kBlue) << " " << colorize(name, kYellow) << "(";
-    //os << std::string(V.is_writeable() ? "write" : "not write")    << ", ";
-    //os << std::string(V.is_readable() ?  "read"  : "not read")       << ", ";
     os << colorize("write", V.is_writeable() ? kGreen : kRed)    << ", ";
     os << colorize("read", V.is_readable() ? kGreen : kRed)    << ", ";
     os << (V.is_range() ? "range" : "scalar")   << ", ";
-    os << "ion "        << V.ion_channel()      << ", ";
+    os << "ion" << colorize(to_string(V.ion_channel()), V.ion_channel()==k_ion_none ? kRed : kGreen)<< ", ";
     os << "vis " << V.visibility()       << ", ";
     os << "link "    << V.linkage()          << ", ";
-    os << std::string(V.is_state() ? "is " : "not ") << "state)";
+    os << colorize("state", V.is_state() ? kGreen : kRed)    << ")";
     return os;
 }
 
