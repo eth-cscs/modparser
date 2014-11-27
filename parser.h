@@ -17,6 +17,9 @@ private:
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
 
+    // functions for parsing descriptive blocks
+    // these are called in the first pass, and do not
+    // construct any AST information
     void parse_neuron_block();
     void parse_state_block();
     void parse_units_block();
@@ -25,6 +28,10 @@ private:
     void parse_title();
 
     void skip_block();
+
+    // functions for parsing verb blocks
+    // these are called in the second pass
+    ProcedureExpression* parse_procedure();
 
     /// build the identifier list
     void build_identifiers();

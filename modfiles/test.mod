@@ -3,8 +3,8 @@
 NEURON  {
     THREADSAFE
     SUFFIX KdShu2007
-    USEION k WRITE ik, ig READ ip
-    RANGE  gkbar, ik, ek
+    USEION Ca WRITE ik READ ki
+    RANGE  gkbar, ik, ek, ki
     GLOBAL minf, mtau, hinf, htau
 }
 
@@ -34,6 +34,7 @@ PARAMETER {
 }
 
 ASSIGNED {
+    ki      (mA/cm2)
     ik      (mA/cm2)
     minf    mtau (ms)
     hinf    htau (ms)

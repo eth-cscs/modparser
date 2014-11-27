@@ -45,6 +45,25 @@ private:
     std::string name_;
 };
 
+
+// a number
+class NumberExpression : public Expression {
+public:
+    NumberExpression(Location loc, std::string const& value)
+        : Expression(loc), value_(std::stod(value))
+    {}
+
+    double value() const {return value_;};
+
+    std::string to_string() override {
+        return pprintf("%", value_);
+    }
+
+    ~NumberExpression() {}
+private:
+    double value_;
+};
+
 // a proceduce prototype
 class PrototypeExpression : public Expression {
 public:
@@ -68,23 +87,21 @@ private:
     std::vector<Expression*> args_;
 };
 
-// a number
-class NumberExpression : public Expression {
+class ProcedureExpression : public Expression {
 public:
-    NumberExpression(Location loc, std::string const& value)
-        : Expression(loc), value_(std::stod(value))
+    ProcedureExpression(Location loc, PrototypeExpression* proto)
+        : Expression(loc), prototype_(proto)
     {}
 
-    double value() const {return value_;};
-
-    std::string to_string() override {
-        return pprintf("%", value_);
+    PrototypeExpression* prototype() {
+        return prototype_;
+    }
+    std::string const& name() const {
+        return prototype_->name();
     }
 
-    ~NumberExpression() {
-        std::cout << colorize("~NumberExpression", kYellow) << std::endl;
-    }
 private:
-    double value_;
+    std::vector<std::string> locals_;
+    PrototypeExpression* prototype_;
+    std::vector<Expression *> nodes_;
 };
-
