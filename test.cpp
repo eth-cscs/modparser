@@ -281,6 +281,24 @@ TEST(Parser, open) {
     EXPECT_EQ(p.status(), ls_happy);
 }
 
+TEST(Parser, procedure) {
+    const char* str = "PROCEDURE foo(x, y) { a = 3 }";
+    /*
+"PROCEDURE foo(x, y) {"
+"  a = 3"
+"  b = 2 + x"
+"  y = 2*b"
+"}";
+    */
+    std::vector<char> input(str, str+strlen(str));
+    Module m(input);
+    Parser p(m, false);
+    Expression *e = p.parse_procedure();
+    EXPECT_EQ(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+    std::cout << p.error_message() << std::endl;
+}
+
 /**************************************************************
  * expression tests
  **************************************************************/

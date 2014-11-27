@@ -43,7 +43,7 @@ enum TOK {
     tok_unitsoff, tok_unitson,
     tok_suffix, tok_nonspecific_current, tok_useion,
     tok_read, tok_write,
-    tok_range,
+    tok_range, tok_local,
     tok_solve, tok_method,
     tok_threadsafe, tok_global,
 

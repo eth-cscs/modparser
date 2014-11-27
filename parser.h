@@ -6,9 +6,21 @@
 
 class Parser : public Lexer {
 public:
-    explicit Parser(Module& m);
+    explicit Parser(Module& m, bool advance=true);
+    bool description_pass();
 
     Expression* parse_prototype();
+    Expression* parse_primary();
+    Expression* parse_assignment();
+
+    std::string const& error_message() {
+        return error_string_;
+    }
+
+    // functions for parsing verb blocks
+    // called in the second pass
+    // exposed via public interface to facilitate unit testing
+    ProcedureExpression* parse_procedure();
 
 private:
     Module &module_;
@@ -29,10 +41,6 @@ private:
 
     void skip_block();
 
-    // functions for parsing verb blocks
-    // these are called in the second pass
-    ProcedureExpression* parse_procedure();
-
     /// build the identifier list
     void build_identifiers();
 
@@ -42,6 +50,8 @@ private:
     // disable default and copy assignment
     Parser();
     Parser(Parser const &);
+
+    bool expect(TOK, std::string const& str="");
 
     // hash table for lookup of variable and call names
     std::unordered_map<std::string, Identifier*> identifiers_;

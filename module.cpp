@@ -1,6 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <vector>
 
 #include "module.h"
 
@@ -22,5 +21,14 @@ Module::Module(std::string const& fname)
     buffer_.resize(size+1);
     fid.read(buffer_.data(), size);
     buffer_[size] = 0; // append \0 to terminate string
+}
+
+Module::Module(std::vector<char> const& buffer)
+{
+    buffer_ = buffer;
+
+    // add \0 to end of buffer if not already present
+    if(buffer_[buffer_.size()-1] != 0)
+        buffer_.push_back(0);
 }
 

@@ -17,7 +17,7 @@ public:
     virtual ~Expression() {};
 
     // expressions must provide a method for stringification
-    virtual std::string to_string() = 0;
+    virtual std::string to_string() const = 0;
 
     Location const& location() const {return location_;};
 protected:
@@ -33,8 +33,8 @@ public:
         //std::cout << colorize("IdentifierExpression", kGreen) << std::endl;
     }
 
-    std::string to_string() override {
-        return name_;
+    std::string to_string() const override {
+        return pprintf("[% %]", colorize("id", kBlue), colorize(name_,kYellow));
     }
 
     ~IdentifierExpression() {
@@ -55,7 +55,7 @@ public:
 
     double value() const {return value_;};
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return pprintf("%", value_);
     }
 
@@ -75,7 +75,7 @@ public:
 
     std::string const& name() const {return name_;}
 
-    std::string to_string() override {
+    std::string to_string() const override {
         return name_ + pprintf("(% args : %)", args_.size(), args_);
     }
 
@@ -89,19 +89,55 @@ private:
 
 class ProcedureExpression : public Expression {
 public:
-    ProcedureExpression(Location loc, PrototypeExpression* proto)
-        : Expression(loc), prototype_(proto)
+    ProcedureExpression( Location loc,
+                         std::string const& name,
+                         std::vector<Expression*> const& args,
+                         std::vector<Expression*>const & body)
+        : Expression(loc), name_(name), args_(args), body_(body)
     {}
 
-    PrototypeExpression* prototype() {
-        return prototype_;
+    std::vector<Expression*> const& args() {
+        return args_;
+    }
+    std::vector<Expression*> const& body() {
+        return body_;
     }
     std::string const& name() const {
-        return prototype_->name();
+        return name_;
+    }
+
+    std::string to_string() const override {
+        std::string str = colorize("procedure", kBlue) + " " + colorize(name_, kYellow) + "\n";
+        str += colorize("  args",kBlue) + " : ";
+        for(auto arg : args_)
+            str += arg->to_string() + " ";
+        str += "\n  "+colorize("body", kBlue)+" :";
+        for(auto ex : body_)
+            str += "\n    " + ex->to_string();
+
+        return str;
     }
 
 private:
-    std::vector<std::string> locals_;
-    PrototypeExpression* prototype_;
-    std::vector<Expression *> nodes_;
+    std::string name_;
+    std::vector<Expression *> args_;
+    std::vector<Expression *> body_;
+};
+
+class AssignmentExpression : public Expression {
+    Expression *lhs_;
+    Expression *rhs_;
+public:
+    AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
+        : Expression(loc), lhs_(lhs), rhs_(rhs)
+    {}
+
+    Expression* lhs() {return lhs_;}
+    Expression* rhs() {return rhs_;}
+    const Expression* lhs() const {return lhs_;}
+    const Expression* rhs() const {return rhs_;}
+
+    std::string to_string() const {
+        return pprintf("(% %, %)", colorize("assign",kBlue), lhs_->to_string(), rhs_->to_string());
+    }
 };

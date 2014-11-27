@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "blocks.h"
 
@@ -8,6 +9,7 @@
 class Module {
 public :
     Module(std::string const& fname);
+    Module(std::vector<char> const& buffer);
 
     std::vector<char> const& buffer() const {
         return buffer_;

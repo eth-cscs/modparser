@@ -233,7 +233,7 @@ std::string Lexer::number() {
         // e.g. the following [a-zA-Z]
         else {
             str += c;
-            error_string_ = pprintf("found unexpected character '%' when reading a number '%'", c, str);
+            error_string_ = pprintf("found unexpected character '%' when reading a number '%'", c, colorize(str, kYellow));
             status_ = ls_error;
             break;
         }
@@ -242,7 +242,7 @@ std::string Lexer::number() {
     // check that there is at most one decimal point
     // i.e. disallow values like 2.2324.323
     if(num_point>1) {
-        error_string_ = pprintf("too many .'s when reading the number '%'", str);
+        error_string_ = pprintf("too many .'s when reading the number '%'", colorize(str, kYellow));
         status_ = ls_error;
     }
 
@@ -335,6 +335,7 @@ static Keyword keywords[] = {
     {"READ",        tok_read},
     {"WRITE",       tok_write},
     {"RANGE",       tok_range},
+    {"LOCAL",       tok_local},
     {"SOLVE",       tok_solve},
     {"THREADSAFE",  tok_threadsafe},
     {"GLOBAL",      tok_global},

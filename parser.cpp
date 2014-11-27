@@ -4,6 +4,19 @@
 #include "util.h"
 
 
+bool Parser::expect(TOK tok, std::string const& str) {
+    if(tok==token_.type) {
+        return true;
+    }
+
+    error(
+        str.size()>0 ?
+            str
+        :   std::string("unexpected token ")+colorize(token_.name, kYellow));
+
+    return false;
+}
+
 void Parser::error(std::string msg) {
     std::string location_info = pprintf("%:% ", module_.name(), token_.location);
     if(status_==ls_error) {
@@ -16,13 +29,19 @@ void Parser::error(std::string msg) {
     }
 }
 
-Parser::Parser(Module& m)
+Parser::Parser(Module& m, bool advance)
 :   module_(m),
     Lexer(m.buffer())
 {
     // prime the first token
     get_token();
 
+    if(advance) {
+        description_pass();
+    }
+}
+
+bool Parser::description_pass() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
     while(token_.type!=tok_eof) {
@@ -78,27 +97,33 @@ Parser::Parser(Module& m)
         }
         if(status() == ls_error) {
             std::cerr << colorize("error: ", kRed) << error_string_ << std::endl;
-            break;
+            return false;
         }
     }
 
+    // output the contents of the descriptive blocks
     std::cout << module_.state_block();
     std::cout << module_.units_block();
     std::cout << module_.parameter_block();
     std::cout << module_.neuron_block();
     std::cout << module_.assigned_block();
+
     // create the lookup information for the identifiers based on information
     // in the descriptive blocks
     build_identifiers();
 
-    if(status() == ls_error) { // check for errors when building identifier table
+    // check for errors when building identifier table
+    if(status() == ls_error) {
         std::cerr << colorize("error : ", kRed) << error_string_ << std::endl;
+        return false;
     }
 
     // perform the second pass
     // iterate of the verb blocks (functions, procedures, derivatives, etc...)
     // and build their ASTs
     // look up all symbols that were constructed in build_identifiers
+
+    return true;
 }
 
 // this will skip the block that follows
@@ -728,3 +753,110 @@ void Parser::build_identifiers() {
 }
 
 // parse a procedure
+ProcedureExpression* Parser::parse_procedure() {
+    // consume PROCEDURE statement
+    assert(token_.type == tok_procedure);
+    get_token();
+
+    // check that a valid identifier name was specified by the user
+    if( !expect( tok_identifier ) ) return nullptr;
+
+    // remember location and name of proceduce
+    Token identifier = token_;
+
+    // todo : perform lookup to ensure that name is not already taken
+
+    // consume the procedure name
+    get_token();
+
+    // argument list
+    if( !expect(tok_lparen) ) return nullptr;
+
+    // read the argument list
+    std::vector<Expression*> args;
+    for(auto const& t : comma_separated_identifiers()) {
+        args.push_back(new IdentifierExpression(t.location, t.name));
+    }
+    get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+
+    // check for closing left brace ) on parameter list
+    if(!expect(tok_rparen) || status()==ls_error) return nullptr;
+
+    get_token();
+
+    // check for opening left brace {
+    if(!expect(tok_lbrace)) return nullptr;
+
+    get_token();
+    std::vector<Expression*> body;
+
+    while(1) {
+        if(token_.type == tok_rbrace)
+            break;
+
+        Expression *e = parse_primary();
+        if(e==nullptr) {
+            return nullptr;
+        }
+
+        body.push_back(e);
+    }
+
+    //return new ProcedureExpression( identifier.location,
+    ProcedureExpression* e =
+        new ProcedureExpression( identifier.location,
+                                 identifier.name,
+                                 args,
+                                 body);
+
+    std::cout << e->to_string() << std::endl;
+
+    return e;
+}
+
+Expression *Parser::parse_primary() {
+    Expression *e;
+
+    switch(token_.type) {
+        case tok_local :
+            std::cout << colorize("parsing LOCAL declaration",kGreen) << std::endl;
+            return nullptr; //parse_local();
+        case tok_identifier :
+            // check for function call
+            if(peek().type == tok_lparen) {
+                std::cout << colorize("parsing call",kGreen) << std::endl;
+                return nullptr; //parse_call();
+            }
+            if(peek().type == tok_eq) {
+                std::cout << colorize("parsing assignment",kGreen) << std::endl;
+                return parse_assignment();
+            }
+            error("I don't know how to handle this expression");
+            return nullptr;
+        default :
+            error(pprintf("unexpected token %", colorize(token_.name,kYellow)));
+            return nullptr;
+
+    }
+}
+
+Expression *Parser::parse_assignment() {
+    //AssignmentExpression *e;
+    Expression* LHS = new IdentifierExpression(location(), token_.name);
+    get_token();
+
+    // assert because this should never happen, regardless of user code
+    assert(token_.type==tok_eq);
+    get_token(); // eat = sign
+
+    //Expression* RHS = parse_expression();
+    Expression* RHS = new IdentifierExpression(location(), token_.name);
+    get_token();
+
+    if(RHS==nullptr) {
+        return nullptr;
+    }
+
+    return new AssignmentExpression(location_, LHS, RHS);
+}
+
