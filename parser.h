@@ -15,7 +15,7 @@ public:
     Expression* parse_high_level();
     Expression* parse_identifier();
     Expression* parse_expression();
-    Expression* parse_binop(Expression *, int);
+    Expression* parse_binop(Expression *, Token);
 
     std::string const& error_message() {
         return error_string_;

@@ -288,6 +288,8 @@ TEST(Parser, procedure) {
 "  a = 3"
 "  b = x * y + 2"
 "  y = x + y * 2"
+"  y = a + b +c + d + e"
+"  y = a + b *c + d + e"
 "}";
     std::vector<char> input(str, str+strlen(str));
     Module m(input);
@@ -300,6 +302,18 @@ TEST(Parser, procedure) {
 }
 
 TEST(Parser, expression) {
+    {
+        const char* str = "a = b";
+        std::vector<char> input(str, str+strlen(str));
+        Module m(input);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+        std::cout << e->to_string() << std::endl;
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+        if(p.status()==ls_error)
+            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+    }
     {
         const char* str = "  b = x * y + 2";
         std::vector<char> input(str, str+strlen(str));

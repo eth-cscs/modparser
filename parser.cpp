@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 
 #include "parser.h"
 #include "util.h"
@@ -830,54 +831,6 @@ ProcedureExpression* Parser::parse_procedure() {
     return e;
 }
 
-/*
-Expression *Parser::parse_primary() {
-    Expression *e;
-
-    switch(token_.type) {
-        case tok_local :
-            std::cout << colorize("parsing LOCAL declaration",kGreen) << std::endl;
-            return nullptr; //parse_local();
-        case tok_identifier :
-            // check for function call
-            if(peek().type == tok_lparen) {
-                std::cout << colorize("parsing call",kGreen) << std::endl;
-                return nullptr; //parse_call();
-            }
-            if(peek().type == tok_eq) {
-                std::cout << colorize("parsing assignment",kGreen) << std::endl;
-                return parse_assignment();
-            }
-            error("I don't know how to handle this expression");
-            return nullptr;
-        default :
-            error(pprintf("unexpected token %", colorize(token_.name,kYellow)));
-            return nullptr;
-
-    }
-}
-
-Expression *Parser::parse_assignment() {
-    //AssignmentExpression *e;
-    Expression* LHS = new IdentifierExpression(location(), token_.name);
-    get_token();
-
-    // assert because this should never happen, regardless of user code
-    assert(token_.type==tok_eq);
-    get_token(); // eat = sign
-
-    //Expression* RHS = parse_expression();
-    Expression* RHS = new IdentifierExpression(location(), token_.name);
-    get_token();
-
-    if(RHS==nullptr) {
-        return nullptr;
-    }
-
-    return new AssignmentExpression(location_, LHS, RHS);
-}
-*/
-
 // this is the first port of call when parsing a new line inside a verb block
 // it tests to see whether the expression is:
 //      :: LOCAL identifier
@@ -961,44 +914,49 @@ Expression *Parser::parse_expression() {
     // todo: also test to see whether the AST already contains an assignment,
     //       could be done with a flag that is reset for each top level expression?
 
-    // we parse a binary expression
-    return parse_binop(lhs, 0);
+    // we parse a binary expression if followed by an operator
+    if( binop_precedence(token_.type)>0 ) {
+        Token op = token_;  // save the operator
+        get_token();        // consume the operator
+        return parse_binop(lhs, op);
+    }
+    std::cout << colorize("exitting with no binop", kRed) << std::endl;
+    return lhs;
 }
 
-Expression *Parser::parse_binop(Expression *lhs, int lhs_precidence) {
+Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
+    // only way out of the loop below is by return:
+    //      :: return with nullptr on error
+    //      :: return when loop runs out of operators
+    //          i.e. if(pp<0)
+    //      :: return when recursion applied to remainder of expression
+    //          i.e. if(p_op>p_left)
     while(1) {
-        // look for a binary operator
-        // get the precedence of the current token (less than 0 implies no binary op)
-        int op_precedence = binop_precedence(token_.type);
+        // get precedence of the left operator
+        int p_left = binop_precedence(op_left.type);
 
-        //  if no binop, parsing of expression is finished and we return the LHS
-        if(op_precedence < 0) {
-            return lhs;
+        Expression* e = parse_identifier();
+        if(!e) return nullptr;
+
+        Token op = token_;
+        int p_op = binop_precedence(op.type);
+
+        //  if no binop, parsing of expression is finished with (op_left lhs e)
+        if(p_op < 0) {
+            return new BinaryExpression(op_left.location, op_left.type, lhs, e);
         }
 
-        std::cout << "(lhs, rhs) (" << lhs_precidence << ", " << op_precedence << ")";
-        std::cout << "(" << token_string(token_.type) << ")" << std::endl;;
-
-        Token op = token_;                      // save the operator token
-        get_token();                            // consume operator
-        Expression* rhs = parse_identifier();   // get the next identifier
-
-        // binop has lower precedence than original binop
-        // be greedy: include just the next expression
-        if(lhs_precidence > op_precedence) {
-            std::cout << "  greedy" << std::endl;
-            //Expression* rhs = parse_identifier(); // todo unary
-            lhs = new BinaryExpression(op.location, op.type, lhs, rhs);
-            //return lhs==nullptr ? nullptr : parse_binop(lhs, op_precedence);
-        }
-        // 
-        else {
-            std::cout << "  patient" << std::endl;
+        get_token(); // consume op
+        if(p_op > p_left) {
+            Expression *rhs = parse_binop(e, op);
+            if(!rhs) return nullptr;
+            return new BinaryExpression(op_left.location, op_left.type, lhs, rhs);
         }
 
-        // the binary operator binds more strongly than the lhs one
-        Expression* rhs = parse_expression();
-        return rhs==nullptr ? nullptr : new BinaryExpression(op.location, op.type, lhs, rhs);
+        lhs = new BinaryExpression(op_left.location, op_left.type, lhs, e);
+        op_left = op;
     }
+    assert(false);
+    return nullptr;
 }
 
