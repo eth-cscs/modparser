@@ -842,7 +842,6 @@ Expression *Parser::parse_high_level() {
             return nullptr; //parse_local();
         // there are other cases like SOLVE
         case tok_identifier :
-            std::cout << colorize("parsing expression",kGreen) << std::endl;
             return parse_line_expression();
         default:
             error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.name));
@@ -1017,7 +1016,7 @@ Expression *Parser::parse_parenthesis_expression() {
     Expression* e = parse_expression();
 
     // check for closing parenthesis ')'
-    if( !expect(tok_rparen) ) return nullptr;
+    if( !e || !expect(tok_rparen) ) return nullptr;
 
     get_token(); // consume ')'
 
