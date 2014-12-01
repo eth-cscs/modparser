@@ -46,6 +46,7 @@ Token Lexer::parse() {
             // end of file
             case 0      :       // end of string
             case EOF    :       // end of file
+                t.name = "eof";
                 t.type = tok_eof;
                 return t;
 
@@ -402,6 +403,7 @@ static TokenString token_strings[] = {
     {"METHOD",      tok_method},
     {"if",          tok_if},
     {"else",        tok_else},
+    {"eof",         tok_eof},
     {"error",       tok_reserved},
 };
 

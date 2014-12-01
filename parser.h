@@ -14,7 +14,12 @@ public:
     //Expression* parse_assignment();
     Expression* parse_high_level();
     Expression* parse_identifier();
+    Expression* parse_number();
+    Expression* parse_call();
     Expression* parse_expression();
+    Expression* parse_primary();
+    Expression* parse_parenthesis_expression();
+    Expression* parse_line_expression();
     Expression* parse_binop(Expression *, Token);
 
     std::string const& error_message() {

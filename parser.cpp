@@ -843,7 +843,7 @@ Expression *Parser::parse_high_level() {
         // there are other cases like SOLVE
         case tok_identifier :
             std::cout << colorize("parsing expression",kGreen) << std::endl;
-            return parse_expression();
+            return parse_line_expression();
         default:
             error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.name));
             return nullptr;
@@ -852,6 +852,8 @@ Expression *Parser::parse_high_level() {
 }
 
 Expression *Parser::parse_identifier() {
+    assert(token_.type==tok_identifier);
+
     // save name and location of the identifier
     Token idtoken = token_;
     Expression* id = new IdentifierExpression(token_.location, token_.name);
@@ -859,69 +861,177 @@ Expression *Parser::parse_identifier() {
     // consume identifier
     get_token();
 
-    // check for a function call
-    if(token_.type == tok_lparen) {
-        std::vector<Expression*> args;
-
-        // parse a function call
-        get_token(); // consume '('
-
-        while(token_.type != tok_rparen) {
-            Expression *e = parse_expression();
-            if(!e) return nullptr;
-
-            args.push_back(e);
-
-            // reached the end of the argument list
-            if(token_.type == tok_rparen) break;
-
-            // insist on a comma between arguments
-            if( !expect(tok_comma, "call arguments must be separated by ','") )
-                return nullptr;
-            get_token(); // consume ','
-        }
-
-        // check that we have a closing parenthesis
-        if(!expect(tok_rparen, "function call missing closing ')'") )
-            return nullptr;
-        get_token(); // consume ')'
-
-        error("call expressions not yet implemented");
-        return nullptr;
-        //return CallExpression(token_.location, id, args);
-    }
-
     // return variable identifier
     return id;
 }
 
+Expression *Parser::parse_call() {
+    // save name and location of the identifier
+    Token idtoken = token_;
+    //Expression* id = new IdentifierExpression(token_.location, token_.name);
 
-// parse an expression
+    // consume identifier
+    get_token();
+
+    // check for a function call
+    // assert this is so
+    assert(token_.type == tok_lparen);
+
+    std::vector<Expression*> args;
+
+    // parse a function call
+    get_token(); // consume '('
+
+    while(token_.type != tok_rparen) {
+        Expression *e = parse_expression();
+        if(!e) return nullptr;
+
+        args.push_back(e);
+
+        // reached the end of the argument list
+        if(token_.type == tok_rparen) break;
+
+        // insist on a comma between arguments
+        if( !expect(tok_comma, "call arguments must be separated by ','") )
+            return nullptr;
+        get_token(); // consume ','
+    }
+
+    // check that we have a closing parenthesis
+    if(!expect(tok_rparen, "function call missing closing ')'") ) {
+        return nullptr;
+    }
+    get_token(); // consume ')'
+
+    return new CallExpression(token_.location, idtoken.name, args);
+}
+
+
+// parse a full line expression, i.e. one of
+//      :: procedure call        e.g. rates(v+0.01)
+//      :: assignment expression e.g. x = y + 3
+// to parse a subexpression, see parse_expression()
 // proceeds by first parsing the LHS (which may be a variable or function call)
-// then attempts to parse the RHS
-//
-// NOTE: for now we ignore whether a new line has been started: we simply keep
-// consuming tokens until a full expression has been formed, or an error is
-// encountered.
-Expression *Parser::parse_expression() {
-    Expression *lhs = parse_identifier();
+// then attempts to parse the RHS if
+//      1. the lhs is not a procedure call
+//      2. the operator that follows is =
+Expression *Parser::parse_line_expression() {
+    int line = location_.line;
+    Expression *lhs;
+    if(peek().type == tok_lparen) {
+        lhs = parse_call();
+        // we have to ensure that a procedure call is alone on the line
+        // to avoid :
+        //      :: assigning to it            e.g. foo() = x + 6
+        //      :: stray symbols coming after e.g. foo() + x
+        // here we assume that foo is a procedure call, if it is an eroneous
+        // function call this has to be caught in the second pass..
+        // or optimized away with a warning
+        if(!lhs) return nullptr;
+        if(location_.line == line && token_.type != tok_eof) {
+            error(pprintf(
+                "expected a new line after call expression, found '%'",
+                colorize(token_.name, kYellow)));
+            return nullptr;
+        }
+        return lhs;
+    } else {
+        lhs = parse_primary();
+    }
 
     if(lhs==nullptr) { // error
         return nullptr;
     }
 
-    // todo: if this is assignment we should assert that lhs is an lvalue
-    // todo: also test to see whether the AST already contains an assignment,
-    //       could be done with a flag that is reset for each top level expression?
+    // we parse a binary expression if followed by an operator
+    if(token_.type == tok_eq) {
+        Token op = token_;  // save the '=' operator with location
+        get_token();        // consume the '=' operator
+        return parse_binop(lhs, op);
+    } else if(line == location_.line && token_.type != tok_eof){
+        error(pprintf("expected an assignment '%' or new line, found '%'",
+                      colorize("=", kYellow),
+                      colorize(token_.name, kYellow)));
+        return nullptr;
+    }
+
+    return lhs;
+}
+
+Expression *Parser::parse_expression() {
+    if(token_.type == tok_lparen) {
+        return parse_parenthesis_expression();
+    }
+    Expression *lhs = parse_primary();
+
+    if(lhs==nullptr) { // error
+        return nullptr;
+    }
 
     // we parse a binary expression if followed by an operator
     if( binop_precedence(token_.type)>0 ) {
+        if(token_.type==tok_eq) {
+            error("assignment '=' not allowed in sub-expression");
+            return nullptr;
+        }
         Token op = token_;  // save the operator
         get_token();        // consume the operator
         return parse_binop(lhs, op);
     }
-    std::cout << colorize("exitting with no binop", kRed) << std::endl;
+
     return lhs;
+}
+
+// expects one of :
+//  ::  number
+//  ::  identifier
+//  ::  call
+//  ::  parenthesis expression (parsed recursively)
+Expression *Parser::parse_primary() {
+    switch(token_.type) {
+        case tok_number:
+            return parse_number();
+        case tok_identifier:
+            if( peek().type == tok_lparen ) {
+                return parse_call();
+            }
+            return parse_identifier();
+        case tok_lparen:
+            return parse_parenthesis_expression();
+        default: // fall through to return nullptr at end of function
+            error( pprintf( "unexpected token '%' in expression",
+                            colorize(token_.name, kYellow) ));
+    }
+
+    return nullptr;
+}
+
+Expression *Parser::parse_parenthesis_expression() {
+    // never call unless at start of parenthesis
+    assert(token_.type==tok_lparen);
+
+    get_token(); // consume '('
+
+    // NO! this has to handle a full expression
+    //Expression* e = parse_primary();
+    Expression* e = parse_expression();
+
+    // check for closing parenthesis ')'
+    if( !expect(tok_rparen) ) return nullptr;
+
+    get_token(); // consume ')'
+
+    return e;
+}
+
+Expression* Parser::parse_number() {
+    assert(token_.type = tok_number);
+
+    Expression *e = new NumberExpression(token_.location, token_.name);
+
+    get_token(); // consume the number
+
+    return e;
 }
 
 Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
@@ -935,7 +1045,7 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
         // get precedence of the left operator
         int p_left = binop_precedence(op_left.type);
 
-        Expression* e = parse_identifier();
+        Expression* e = parse_primary();
         if(!e) return nullptr;
 
         Token op = token_;

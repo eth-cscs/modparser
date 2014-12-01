@@ -56,8 +56,14 @@ std::string to_string(T val) {
     return str.str();
 }
 
-
-enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow};
+//'\e[1;31m' # Red
+//'\e[1;32m' # Green
+//'\e[1;33m' # Yellow
+//'\e[1;34m' # Blue
+//'\e[1;35m' # Purple
+//'\e[1;36m' # Cyan
+//'\e[1;37m' # White
+enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow, kPurple, kCyan};
 
 static std::string colorize(std::string const& s, stringColor c) {
     switch(c) {
@@ -69,7 +75,11 @@ static std::string colorize(std::string const& s, stringColor c) {
             return "\033[1;32m" + s + "\033[0m";
         case kBlue  :
             return "\033[1;34m" + s + "\033[0m";
-        case kYellow   :
+        case kYellow:
             return "\033[1;33m" + s + "\033[0m";
+        case kPurple:
+            return "\033[1;35m" + s + "\033[0m";
+        case kCyan  :
+            return "\033[1;36m" + s + "\033[0m";
     }
 }

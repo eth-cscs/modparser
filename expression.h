@@ -31,17 +31,13 @@ public:
     IdentifierExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
     {
-        //std::cout << colorize("IdentifierExpression", kGreen) << std::endl;
     }
 
     std::string to_string() const override {
-        //return pprintf("[% %]", colorize("id", kBlue), colorize(name_,kYellow));
-        return pprintf("%", colorize(name_,kYellow));
+        return colorize(pprintf("%", name_), kYellow);
     }
 
-    ~IdentifierExpression() {
-        //std::cout << colorize("~IdentifierExpression", kYellow) << std::endl;
-    }
+    ~IdentifierExpression() {}
 private:
     // there has to be some pointer to a table of identifiers
     std::string name_;
@@ -58,7 +54,7 @@ public:
     double value() const {return value_;};
 
     std::string to_string() const override {
-        return pprintf("%", value_);
+        return colorize(pprintf("%", value_), kPurple);
     }
 
     ~NumberExpression() {}
@@ -87,6 +83,33 @@ public:
 private:
     std::string name_;
     std::vector<Expression*> args_;
+};
+
+class CallExpression : public Expression {
+public:
+    CallExpression(Location loc, std::string const& name, std::vector<Expression*>const &args)
+        : Expression(loc), name_(name), args_(args)
+    {}
+
+    std::vector<Expression*> const& args() {
+        return args_;
+    }
+    std::string const& name() const {
+        return name_;
+    }
+
+    std::string to_string() const override {
+        std::string str = colorize("call", kBlue) + " " + colorize(name_, kYellow) + " (";
+        for(auto arg : args_)
+            str += arg->to_string() + ", ";
+        str += ")";
+
+        return str;
+    }
+
+private:
+    std::string name_;
+    std::vector<Expression *> args_;
 };
 
 class ProcedureExpression : public Expression {

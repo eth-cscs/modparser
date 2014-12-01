@@ -301,42 +301,60 @@ TEST(Parser, procedure) {
         std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
 }
 
-TEST(Parser, expression) {
-    {
-        const char* str = "a = b";
+Module make_module(const char* str) {
         std::vector<char> input(str, str+strlen(str));
-        Module m(input);
+        return Module(input);
+}
+
+// test parsing of line expressions
+TEST(Parser, parse_line_expression) {
+    std::vector<const char*> good_expressions =
+    {
+"x=2",
+"x=2*y",
+"x=y + 2 * z",
+"x=(y + 2) * z",
+"x=(y + 2) * z ^ 3",
+"x=(y + 2 * z ^ 3)",
+"foo(x+3, y, exp(21.4))",
+    };
+
+    for(auto const& expression : good_expressions) {
+        auto m = make_module(expression);
         Parser p(m, false);
-        Expression *e = p.parse_expression();
-        std::cout << e->to_string() << std::endl;
+        Expression *e = p.parse_line_expression();
+
+        if(e) std::cout << e->to_string() << std::endl;
         EXPECT_NE(e, nullptr);
         EXPECT_EQ(p.status(), ls_happy);
+
         if(p.status()==ls_error)
-            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
     }
+
+    std::vector<const char*> bad_expressions =
     {
-        const char* str = "  b = x * y + 2";
-        std::vector<char> input(str, str+strlen(str));
-        Module m(input);
+"x=2+       ",
+"x=         ",
+"x=)y + 2 * z",
+"x=(y + 2   ",
+"x=(y ++ z  ",
+"x/=3       ",
+"foo+8      ",
+"foo()=8    ",
+    };
+
+    for(auto const& expression : bad_expressions) {
+        auto m = make_module(expression);
         Parser p(m, false);
-        Expression *e = p.parse_expression();
-        std::cout << e->to_string() << std::endl;
-        EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), ls_happy);
+        Expression *e = p.parse_line_expression();
+
+        EXPECT_EQ(e, nullptr);
+        EXPECT_EQ(p.status(), ls_error);
+
+        if(e) std::cout << e->to_string() << std::endl;
         if(p.status()==ls_error)
-            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
-    }
-    {
-        const char* str = "  b = x + y * 2";
-        std::vector<char> input(str, str+strlen(str));
-        Module m(input);
-        Parser p(m, false);
-        Expression *e = p.parse_expression();
-        std::cout << e->to_string() << std::endl;
-        EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), ls_happy);
-        if(p.status()==ls_error)
-            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
     }
 }
 
