@@ -256,7 +256,7 @@ TEST(Lexer, errors) {
     EXPECT_EQ(lexer.status(), ls_error);
 
     // assert that the correct error message was generated
-    EXPECT_EQ(lexer.error_message(), "found unexpected character 'a' when reading a number '1a'");
+    //EXPECT_EQ(lexer.error_message(), "found unexpected character 'a' when reading a number '1a'");
 }
 
 /**************************************************************
@@ -282,21 +282,48 @@ TEST(Parser, open) {
 }
 
 TEST(Parser, procedure) {
-    const char* str = "PROCEDURE foo(x, y) { a = 3 }";
-    /*
+    //const char* str = "PROCEDURE foo(x, y) { a = 3 }";
+    const char* str = ""
 "PROCEDURE foo(x, y) {"
 "  a = 3"
-"  b = 2 + x"
-"  y = 2*b"
+"  b = x * y + 2"
+"  y = x + y * 2"
 "}";
-    */
     std::vector<char> input(str, str+strlen(str));
     Module m(input);
     Parser p(m, false);
     Expression *e = p.parse_procedure();
-    EXPECT_EQ(e, nullptr);
+    EXPECT_NE(e, nullptr);
     EXPECT_EQ(p.status(), ls_happy);
-    std::cout << p.error_message() << std::endl;
+    if(p.status()==ls_error)
+        std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+}
+
+TEST(Parser, expression) {
+    {
+        const char* str = "  b = x * y + 2";
+        std::vector<char> input(str, str+strlen(str));
+        Module m(input);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+        std::cout << e->to_string() << std::endl;
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+        if(p.status()==ls_error)
+            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+    }
+    {
+        const char* str = "  b = x + y * 2";
+        std::vector<char> input(str, str+strlen(str));
+        Module m(input);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+        std::cout << e->to_string() << std::endl;
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+        if(p.status()==ls_error)
+            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+    }
 }
 
 /**************************************************************

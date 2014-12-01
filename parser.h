@@ -10,8 +10,12 @@ public:
     bool description_pass();
 
     Expression* parse_prototype();
-    Expression* parse_primary();
-    Expression* parse_assignment();
+    //Expression* parse_primary();
+    //Expression* parse_assignment();
+    Expression* parse_high_level();
+    Expression* parse_identifier();
+    Expression* parse_expression();
+    Expression* parse_binop(Expression *, int);
 
     std::string const& error_message() {
         return error_string_;
@@ -51,7 +55,8 @@ private:
     Parser();
     Parser(Parser const &);
 
-    bool expect(TOK, std::string const& str="");
+    bool expect(TOK, const char *str="");
+    bool expect(TOK, std::string const& str);
 
     // hash table for lookup of variable and call names
     std::unordered_map<std::string, Identifier*> identifiers_;

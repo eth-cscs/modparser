@@ -4,6 +4,7 @@
 //      github.com/D-Programming-Language/dmd
 #include <cassert>
 
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -111,6 +112,8 @@ public:
     {
         assert(begin_<=end_);
         keywords_init();
+        token_strings_init();
+        binop_prec_init();
     }
 
     Lexer(std::vector<char> const& v)
@@ -138,6 +141,10 @@ public:
 
     // lookup table used for checking if an identifier matches a keyword
     static std::unordered_map<std::string, TOK> keyword_map;
+    // for stringifying a token type
+    static std::map<TOK, std::string> token_map;
+    // binary operator precedence
+    static std::map<TOK, int> binop_prec_;
 
     LStat status() {return status_;}
 
@@ -145,6 +152,10 @@ public:
 protected:
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
+    void token_strings_init();
+    void binop_prec_init();
+
+    int binop_precedence(TOK tok);
 
     // helper for determining if an identifier string matches a keyword
     TOK get_identifier_type(std::string const& identifier);
@@ -160,3 +171,4 @@ protected:
     Token token_;
 };
 
+extern std::string token_string(TOK token);

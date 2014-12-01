@@ -16,6 +16,7 @@ public:
 
     virtual ~Expression() {};
 
+    // This printer should be implemented with a visitor pattern
     // expressions must provide a method for stringification
     virtual std::string to_string() const = 0;
 
@@ -34,7 +35,8 @@ public:
     }
 
     std::string to_string() const override {
-        return pprintf("[% %]", colorize("id", kBlue), colorize(name_,kYellow));
+        //return pprintf("[% %]", colorize("id", kBlue), colorize(name_,kYellow));
+        return pprintf("%", colorize(name_,kYellow));
     }
 
     ~IdentifierExpression() {
@@ -124,12 +126,37 @@ private:
     std::vector<Expression *> body_;
 };
 
-class AssignmentExpression : public Expression {
+// unary expressions
+class UnaryExpression : public Expression {
+protected:
+    Expression *e_;
+    TOK op_;
+public:
+    UnaryExpression(Location loc, TOK op, Expression* e)
+        : Expression(loc), op_(op), e_(e)
+    {}
+
+    std::string to_string() const {
+        return pprintf("(% %)", colorize(token_string(op_),kBlue), e_->to_string());
+    }
+};
+
+class MinusUnaryExpression : public UnaryExpression {
+public:
+    MinusUnaryExpression(Location loc, Expression* e)
+        : UnaryExpression(loc, tok_minus, e)
+    {}
+};
+
+// binary expressions
+class BinaryExpression : public Expression {
+protected:
     Expression *lhs_;
     Expression *rhs_;
+    TOK op_;
 public:
-    AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
-        : Expression(loc), lhs_(lhs), rhs_(rhs)
+    BinaryExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
+        : Expression(loc), op_(op), lhs_(lhs), rhs_(rhs)
     {}
 
     Expression* lhs() {return lhs_;}
@@ -138,6 +165,49 @@ public:
     const Expression* rhs() const {return rhs_;}
 
     std::string to_string() const {
-        return pprintf("(% %, %)", colorize("assign",kBlue), lhs_->to_string(), rhs_->to_string());
+        return pprintf("(% % %)", colorize(token_string(op_),kBlue), lhs_->to_string(), rhs_->to_string());
     }
 };
+
+class AssignmentExpression : public BinaryExpression {
+public:
+    AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_eq, lhs, rhs)
+    {}
+};
+
+class AddBinaryExpression : public BinaryExpression {
+public:
+    AddBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_plus, lhs, rhs)
+    {}
+};
+
+class SubBinaryExpression : public BinaryExpression {
+public:
+    SubBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_minus, lhs, rhs)
+    {}
+};
+
+class MulBinaryExpression : public BinaryExpression {
+public:
+    MulBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_times, lhs, rhs)
+    {}
+};
+
+class DivBinaryExpression : public BinaryExpression {
+public:
+    DivBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_divide, lhs, rhs)
+    {}
+};
+
+class PowBinaryExpression : public BinaryExpression {
+public:
+    PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, tok_divide, lhs, rhs)
+    {}
+};
+

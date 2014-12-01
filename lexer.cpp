@@ -357,6 +357,95 @@ void Lexer::keywords_init() {
     }
 }
 
+struct TokenString {
+    const char *name;
+    TOK token;
+};
+
+static TokenString token_strings[] = {
+    {"=",           tok_eq},
+    {"+",           tok_plus},
+    {"-",           tok_minus},
+    {"*",           tok_times},
+    {"/",           tok_divide},
+    {"^",           tok_pow},
+    {",",           tok_comma},
+    {"'",           tok_prime},
+    {"{",           tok_lbrace},
+    {"}",           tok_rbrace},
+    {"(",           tok_lparen},
+    {")",           tok_rparen},
+    {"identifier",  tok_identifier},
+    {"number",      tok_number},
+    {"TITLE",       tok_title},
+    {"NEURON",      tok_neuron},
+    {"UNITS",       tok_units},
+    {"PARAMETER",   tok_parameter},
+    {"ASSIGNED",    tok_assigned},
+    {"STATE",       tok_state},
+    {"BREAKPOINT",  tok_breakpoint},
+    {"DERIVATIVE",  tok_derivative},
+    {"PROCEDURE",   tok_procedure},
+    {"INITIAL",     tok_initial},
+    {"UNITSOFF",    tok_unitsoff},
+    {"UNITSON",     tok_unitson},
+    {"SUFFIX",      tok_suffix},
+    {"NONSPECIFIC_CURRENT", tok_nonspecific_current},
+    {"USEION",      tok_useion},
+    {"READ",        tok_read},
+    {"WRITE",       tok_write},
+    {"RANGE",       tok_range},
+    {"LOCAL",       tok_local},
+    {"SOLVE",       tok_solve},
+    {"THREADSAFE",  tok_threadsafe},
+    {"GLOBAL",      tok_global},
+    {"METHOD",      tok_method},
+    {"if",          tok_if},
+    {"else",        tok_else},
+    {"error",       tok_reserved},
+};
+
+std::map<TOK, std::string> Lexer::token_map;
+
+void Lexer::token_strings_init() {
+    // check whether the map has already been initialized
+    if(token_map.size()>0)
+        return;
+
+    int i;
+    for(i = 0; token_strings[i].token!=tok_reserved; ++i) {
+        token_map.insert( {token_strings[i].token, token_strings[i].name} );
+    }
+    // insert the last token: tok_reserved
+    token_map.insert( {token_strings[i].token, token_strings[i].name} );
+}
+
+std::string token_string(TOK token) {
+    auto pos = Lexer::token_map.find(token);
+    return pos==Lexer::token_map.end() ? std::string("<unknown token>") : pos->second;
+}
+
+std::map<TOK, int> Lexer::binop_prec_;
+
+void Lexer::binop_prec_init() {
+    if(binop_prec_.size()>0)
+        return;
+
+    binop_prec_[tok_eq]     = 2;
+    binop_prec_[tok_plus]   = 10;
+    binop_prec_[tok_minus]  = 10;
+    binop_prec_[tok_times]  = 20;
+    binop_prec_[tok_divide] = 20;
+    binop_prec_[tok_pow]    = 30;
+}
+
+int Lexer::binop_precedence(TOK tok) {
+    auto r = binop_prec_.find(tok);
+    if(r==binop_prec_.end())
+        return -1;
+    return r->second;
+}
+
 // pre  : identifier is a valid identifier ([_a-zA-Z][_a-zA-Z0-9]*)
 // post : if(identifier is a keyword) return tok_<keyword>
 //        else                        return tok_identifier

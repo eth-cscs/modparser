@@ -3,6 +3,19 @@
 #include "parser.h"
 #include "util.h"
 
+// specialize on const char* for lazy evaluation of compile time strings
+bool Parser::expect(TOK tok, const char* str) {
+    if(tok==token_.type) {
+        return true;
+    }
+
+    error(
+        strlen(str)>0 ?
+            str
+        :   std::string("unexpected token ")+colorize(token_.name, kYellow));
+
+    return false;
+}
 
 bool Parser::expect(TOK tok, std::string const& str) {
     if(tok==token_.type) {
@@ -102,11 +115,13 @@ bool Parser::description_pass() {
     }
 
     // output the contents of the descriptive blocks
+    /*
     std::cout << module_.state_block();
     std::cout << module_.units_block();
     std::cout << module_.parameter_block();
     std::cout << module_.neuron_block();
     std::cout << module_.assigned_block();
+    */
 
     // create the lookup information for the identifiers based on information
     // in the descriptive blocks
@@ -748,7 +763,7 @@ void Parser::build_identifiers() {
     }
 
     for(auto var : identifiers_) {
-        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+        //std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
     }
 }
 
@@ -794,7 +809,8 @@ ProcedureExpression* Parser::parse_procedure() {
         if(token_.type == tok_rbrace)
             break;
 
-        Expression *e = parse_primary();
+        //Expression *e = parse_primary();
+        Expression *e = parse_high_level();
         if(e==nullptr) {
             return nullptr;
         }
@@ -814,6 +830,7 @@ ProcedureExpression* Parser::parse_procedure() {
     return e;
 }
 
+/*
 Expression *Parser::parse_primary() {
     Expression *e;
 
@@ -858,5 +875,130 @@ Expression *Parser::parse_assignment() {
     }
 
     return new AssignmentExpression(location_, LHS, RHS);
+}
+*/
+
+// this is the first port of call when parsing a new line inside a verb block
+// it tests to see whether the expression is:
+//      :: LOCAL identifier
+//      :: expression
+Expression *Parser::parse_high_level() {
+    switch(token_.type) {
+        case tok_local :
+            std::cout << colorize("parsing LOCAL",kGreen) << std::endl;
+            return nullptr; //parse_local();
+        // there are other cases like SOLVE
+        case tok_identifier :
+            std::cout << colorize("parsing expression",kGreen) << std::endl;
+            return parse_expression();
+        default:
+            error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.name));
+            return nullptr;
+    }
+    return nullptr;
+}
+
+Expression *Parser::parse_identifier() {
+    // save name and location of the identifier
+    Token idtoken = token_;
+    Expression* id = new IdentifierExpression(token_.location, token_.name);
+
+    // consume identifier
+    get_token();
+
+    // check for a function call
+    if(token_.type == tok_lparen) {
+        std::vector<Expression*> args;
+
+        // parse a function call
+        get_token(); // consume '('
+
+        while(token_.type != tok_rparen) {
+            Expression *e = parse_expression();
+            if(!e) return nullptr;
+
+            args.push_back(e);
+
+            // reached the end of the argument list
+            if(token_.type == tok_rparen) break;
+
+            // insist on a comma between arguments
+            if( !expect(tok_comma, "call arguments must be separated by ','") )
+                return nullptr;
+            get_token(); // consume ','
+        }
+
+        // check that we have a closing parenthesis
+        if(!expect(tok_rparen, "function call missing closing ')'") )
+            return nullptr;
+        get_token(); // consume ')'
+
+        error("call expressions not yet implemented");
+        return nullptr;
+        //return CallExpression(token_.location, id, args);
+    }
+
+    // return variable identifier
+    return id;
+}
+
+
+// parse an expression
+// proceeds by first parsing the LHS (which may be a variable or function call)
+// then attempts to parse the RHS
+//
+// NOTE: for now we ignore whether a new line has been started: we simply keep
+// consuming tokens until a full expression has been formed, or an error is
+// encountered.
+Expression *Parser::parse_expression() {
+    Expression *lhs = parse_identifier();
+
+    if(lhs==nullptr) { // error
+        return nullptr;
+    }
+
+    // todo: if this is assignment we should assert that lhs is an lvalue
+    // todo: also test to see whether the AST already contains an assignment,
+    //       could be done with a flag that is reset for each top level expression?
+
+    // we parse a binary expression
+    return parse_binop(lhs, 0);
+}
+
+Expression *Parser::parse_binop(Expression *lhs, int lhs_precidence) {
+    while(1) {
+        // look for a binary operator
+        // get the precedence of the current token (less than 0 implies no binary op)
+        int op_precedence = binop_precedence(token_.type);
+
+        //  if no binop, parsing of expression is finished and we return the LHS
+        if(op_precedence < 0) {
+            return lhs;
+        }
+
+        std::cout << "(lhs, rhs) (" << lhs_precidence << ", " << op_precedence << ")";
+        std::cout << "(" << token_string(token_.type) << ")" << std::endl;;
+
+        Token op = token_;                      // save the operator token
+        get_token();                            // consume operator
+        Expression* rhs = parse_identifier();   // get the next identifier
+
+        // binop has lower precedence than original binop
+        // be greedy: include just the next expression
+        if(lhs_precidence > op_precedence) {
+            std::cout << "  greedy" << std::endl;
+            //Expression* rhs = parse_identifier(); // todo unary
+            lhs = new BinaryExpression(op.location, op.type, lhs, rhs);
+            //return lhs==nullptr ? nullptr : parse_binop(lhs, op_precedence);
+        }
+        // 
+        else {
+            std::cout << "  patient" << std::endl;
+        }
+
+        // the binary operator binds more strongly than the lhs one
+        Expression* rhs = parse_expression();
+        return rhs==nullptr ? nullptr : new BinaryExpression(op.location, op.type, lhs, rhs);
+    }
 }
 

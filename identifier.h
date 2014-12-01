@@ -154,11 +154,6 @@ static std::string yesno(bool val) {
 };
 
 // to_string functions
-template <typename T>
-std::string to_string(T val) {
-    return std::string("<can't stringify type>");
-}
-
 static std::string to_string(ionKind i) {
     switch(i) {
         case k_ion_none : return std::string("none");

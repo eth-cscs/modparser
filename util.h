@@ -49,6 +49,14 @@ std::string pprintf(const char *s, T value, Args... args) {
     return errstring;
 }
 
+template <typename T>
+std::string to_string(T val) {
+    std::stringstream str;
+    str << val;
+    return str.str();
+}
+
+
 enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow};
 
 static std::string colorize(std::string const& s, stringColor c) {
