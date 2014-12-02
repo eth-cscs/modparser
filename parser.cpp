@@ -58,6 +58,7 @@ Parser::Parser(Module& m, bool advance)
 bool Parser::description_pass() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
+    Expression *e; // for use when parsing blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -88,15 +89,14 @@ bool Parser::description_pass() {
                 break;
             case tok_initial :
                 get_token(); // consume INITIAL symbol
-                verb_blocks_.push_back({token_, line_});
+                //verb_blocks_.push_back({token_, line_});
                 skip_block();
                 break;
             case tok_procedure :
-                {
-                    get_token();
-                    auto e = parse_prototype();
-                }
-                skip_block();
+                e = parse_procedure();
+                if(!e) break;
+                //std::cout << e->to_string() << std::endl;
+                procedures_.push_back(e);
                 break;
             case tok_derivative :
                 {
@@ -807,18 +807,18 @@ ProcedureExpression* Parser::parse_procedure() {
     std::vector<Expression*> body;
 
     while(1) {
-        //std::cout << colorize("parsing line starting with ", kPurple) << colorize(token_.name, kYellow);
         if(token_.type == tok_rbrace)
             break;
 
         Expression *e = parse_high_level();
-        //std::cout << (e==nullptr ? "fail" : "success") << std::endl;
         if(e==nullptr) {
             return nullptr;
         }
 
         body.push_back(e);
     }
+
+    get_token(); // eat closing '}'
 
     //return new ProcedureExpression( identifier.location,
     ProcedureExpression* e =
@@ -954,10 +954,6 @@ Expression *Parser::parse_line_expression() {
 }
 
 Expression *Parser::parse_expression() {
-    if(token_.type == tok_lparen) {
-        return parse_parenthesis_expression();
-    }
-    //Expression *lhs = parse_primary();
     Expression *lhs = parse_unaryop();
 
     if(lhs==nullptr) { // error

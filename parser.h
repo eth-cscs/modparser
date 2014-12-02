@@ -39,6 +39,7 @@ private:
     std::vector<Token> comma_separated_identifiers();
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
+    std::vector<Expression *> procedures_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
