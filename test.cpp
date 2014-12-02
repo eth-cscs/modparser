@@ -362,6 +362,34 @@ TEST(Parser, parse_local) {
     }
 }
 
+TEST(Parser, parse_unary_expression) {
+    std::vector<const char*> good_expressions =
+    {
+"+x             ",
+"-x             ",
+"(x + -y)       ",
+"-(x - + -y)    ",
+"exp(x + y)     ",
+"-exp(x + -y)   ",
+    };
+
+    for(auto const& expression : good_expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_unaryop();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==ls_error)
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
+}
+
 // test parsing of parenthesis expressions
 TEST(Parser, parse_parenthesis_expression) {
     std::vector<const char*> good_expressions =
@@ -417,13 +445,15 @@ TEST(Parser, parse_parenthesis_expression) {
 TEST(Parser, parse_line_expression) {
     std::vector<const char*> good_expressions =
     {
-"x=2",
-"x=2*y",
+"x=2        ",
+"x = -y\n   "
+"x=2*y      ",
 "x=y + 2 * z",
-"x=(y + 2) * z",
-"x=(y + 2) * z ^ 3",
-"x=(y + 2 * z ^ 3)",
-"foo(x+3, y, exp(21.4))",
+"x=(y + 2) * z      ",
+"x=(y + 2) * z ^ 3  ",
+"x=(y + 2 * z ^ 3)  ",
+"foo(x+3, y, bar(21.4))",
+"y=exp(x+3) + log(exp(x/y))",
     };
 
     for(auto const& expression : good_expressions) {

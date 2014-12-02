@@ -48,6 +48,9 @@ enum TOK {
     tok_solve, tok_method,
     tok_threadsafe, tok_global,
 
+    // unary operators
+    tok_exp, tok_sin, tok_cos, tok_log,
+
     // logical keywords
     tok_if, tok_else,
 

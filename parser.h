@@ -21,6 +21,7 @@ public:
     Expression* parse_parenthesis_expression();
     Expression* parse_line_expression();
     Expression* parse_binop(Expression *, Token);
+    Expression* parse_unaryop();
     Expression* parse_local();
 
     std::string const& error_message() {
@@ -38,6 +39,11 @@ private:
     std::vector<Token> comma_separated_identifiers();
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
+
+    // helpers for generating unary and binary AST nodes according to
+    // a token type passed by the user
+    Expression* unary_expression(Location, TOK, Expression*);
+    Expression* binary_expression(Location, TOK, Expression*, Expression*);
 
     // functions for parsing descriptive blocks
     // these are called in the first pass, and do not

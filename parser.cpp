@@ -928,9 +928,10 @@ Expression *Parser::parse_line_expression() {
                 colorize(token_.name, kYellow)));
             return nullptr;
         }
-        return lhs;
+        return lhs  ;
     } else {
-        lhs = parse_primary();
+        //lhs = parse_primary();
+        lhs = parse_unaryop();
     }
 
     if(lhs==nullptr) { // error
@@ -956,7 +957,8 @@ Expression *Parser::parse_expression() {
     if(token_.type == tok_lparen) {
         return parse_parenthesis_expression();
     }
-    Expression *lhs = parse_primary();
+    //Expression *lhs = parse_primary();
+    Expression *lhs = parse_unaryop();
 
     if(lhs==nullptr) { // error
         return nullptr;
@@ -976,11 +978,102 @@ Expression *Parser::parse_expression() {
     return lhs;
 }
 
-// expects one of :
-//  ::  number
-//  ::  identifier
-//  ::  call
-//  ::  parenthesis expression (parsed recursively)
+Expression* Parser::unary_expression( Location loc,
+                                      TOK op,
+                                      Expression* e) {
+    switch(op) {
+        case tok_minus :
+            return new NegUnaryExpression(loc, e);
+        case tok_exp :
+            return new ExpUnaryExpression(loc, e);
+        case tok_cos :
+            return new CosUnaryExpression(loc, e);
+        case tok_sin :
+            return new SinUnaryExpression(loc, e);
+        case tok_log :
+            return new LogUnaryExpression(loc, e);
+       default :
+            error(  colorize(token_string(op), kYellow)
+                  + " is not a valid unary operator");
+            return nullptr;
+    }
+    assert(false); // something catastrophic went wrong
+    return nullptr;
+}
+
+Expression* Parser::binary_expression( Location loc,
+                                       TOK op,
+                                       Expression* lhs,
+                                       Expression* rhs) {
+    switch(op) {
+        case tok_eq     :
+            return new AssignmentExpression(loc, lhs, rhs);
+        case tok_plus   :
+            return new AddBinaryExpression(loc, lhs, rhs);
+        case tok_minus  :
+            return new SubBinaryExpression(loc, lhs, rhs);
+        case tok_times  :
+            return new MulBinaryExpression(loc, lhs, rhs);
+        case tok_divide :
+            return new DivBinaryExpression(loc, lhs, rhs);
+        case tok_pow    :
+            return new PowBinaryExpression(loc, lhs, rhs);
+        default         :
+            error(  colorize(token_string(op), kYellow)
+                  + " is not a valid binary operator");
+            return nullptr;
+    }
+
+    assert(false); // something catastrophic went wrong
+    return nullptr;
+}
+
+/// Parse a unary expression.
+/// If called when the current node in the AST is not a unary expression the call
+/// will be forwarded to parse_primary. This mechanism makes it possible to parse
+/// all nodes in the expression using parse_unary, which simplifies the call sites
+/// with either a primary or unary node is to be parsed.
+/// It also simplifies parsing nested unary functions, e.g. x + - - y
+Expression *Parser::parse_unaryop() {
+    Expression *e;
+    Token op = token_;
+    switch(token_.type) {
+        case tok_plus  :
+            // plus sign is simply ignored
+            get_token(); // consume '+'
+            return parse_unaryop();
+        case tok_minus :
+            get_token();       // consume '-'
+            e = parse_unaryop(); // handle recursive unary
+            if(!e) return nullptr;
+            return unary_expression(token_.location, op.type, e);
+        case tok_exp   :
+        case tok_sin   :
+        case tok_cos   :
+        case tok_log   :
+            get_token();        // consume operator (exp, sin, cos or log)
+            if(token_.type!=tok_lparen) {
+                error(  "missing parenthesis after call to "
+                      + colorize(op.name, kYellow) );
+                return nullptr;
+            }
+            e = parse_unaryop(); // handle recursive unary
+            if(!e) return nullptr;
+            return unary_expression(token_.location, op.type, e);
+        default     :
+            return parse_primary();
+    }
+    // not a unary expression, so simply parse primary
+    assert(false); // all cases should be handled by the switch
+    return nullptr;
+}
+
+/// parse a primary expression node
+/// expects one of :
+///  ::  number
+///  ::  identifier
+///  ::  call
+///  ::  parenthesis expression (parsed recursively)
 Expression *Parser::parse_primary() {
     switch(token_.type) {
         case tok_number:
@@ -1006,8 +1099,6 @@ Expression *Parser::parse_parenthesis_expression() {
 
     get_token(); // consume '('
 
-    // NO! this has to handle a full expression
-    //Expression* e = parse_primary();
     Expression* e = parse_expression();
 
     // check for closing parenthesis ')'
@@ -1039,7 +1130,8 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
         // get precedence of the left operator
         int p_left = binop_precedence(op_left.type);
 
-        Expression* e = parse_primary();
+        //Expression* e = parse_primary();
+        Expression* e = parse_unaryop();
         if(!e) return nullptr;
 
         Token op = token_;
@@ -1047,23 +1139,27 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
 
         //  if no binop, parsing of expression is finished with (op_left lhs e)
         if(p_op < 0) {
-            return new BinaryExpression(op_left.location, op_left.type, lhs, e);
+            return binary_expression(op_left.location, op_left.type, lhs, e);
         }
 
         get_token(); // consume op
         if(p_op > p_left) {
             Expression *rhs = parse_binop(e, op);
             if(!rhs) return nullptr;
-            return new BinaryExpression(op_left.location, op_left.type, lhs, rhs);
+            return binary_expression(op_left.location, op_left.type, lhs, rhs);
         }
 
-        lhs = new BinaryExpression(op_left.location, op_left.type, lhs, e);
+        lhs = binary_expression(op_left.location, op_left.type, lhs, e);
         op_left = op;
     }
     assert(false);
     return nullptr;
 }
 
+/// parse a local variable definition
+/// a local variable definition is a line with the form
+///     LOCAL x
+/// where x is a valid identifier name
 Expression *Parser::parse_local() {
     assert(token_.type==tok_local);
     int line = location_.line;

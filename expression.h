@@ -167,7 +167,11 @@ private:
     std::vector<Expression *> body_;
 };
 
+////////////////////////////////////////////////////////////
 // unary expressions
+////////////////////////////////////////////////////////////
+
+/// Unary expression
 class UnaryExpression : public Expression {
 protected:
     Expression *e_;
@@ -178,18 +182,57 @@ public:
     {}
 
     std::string to_string() const {
-        return pprintf("(% %)", colorize(token_string(op_),kBlue), e_->to_string());
+        return pprintf("(% %)", colorize(token_string(op_),kGreen), e_->to_string());
     }
 };
 
-class MinusUnaryExpression : public UnaryExpression {
+/// negation unary expression, i.e. -x
+class NegUnaryExpression : public UnaryExpression {
 public:
-    MinusUnaryExpression(Location loc, Expression* e)
+    NegUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_minus, e)
     {}
 };
 
+/// exponential unary expression, i.e. e^x or exp(x)
+class ExpUnaryExpression : public UnaryExpression {
+public:
+    ExpUnaryExpression(Location loc, Expression* e)
+        : UnaryExpression(loc, tok_exp, e)
+    {}
+};
+
+// logarithm unary expression, i.e. log_10(x)
+class LogUnaryExpression : public UnaryExpression {
+public:
+    LogUnaryExpression(Location loc, Expression* e)
+        : UnaryExpression(loc, tok_log, e)
+    {}
+};
+
+// cosine unary expression, i.e. cos(x)
+class CosUnaryExpression : public UnaryExpression {
+public:
+    CosUnaryExpression(Location loc, Expression* e)
+        : UnaryExpression(loc, tok_cos, e)
+    {}
+};
+
+// sin unary expression, i.e. sin(x)
+class SinUnaryExpression : public UnaryExpression {
+public:
+    SinUnaryExpression(Location loc, Expression* e)
+        : UnaryExpression(loc, tok_sin, e)
+    {}
+};
+
+////////////////////////////////////////////////////////////
 // binary expressions
+////////////////////////////////////////////////////////////
+
+/// binary expression base class
+/// never used directly in the AST, instead the specializations that derive from
+/// it are inserted into the AST.
 class BinaryExpression : public Expression {
 protected:
     Expression *lhs_;
@@ -248,7 +291,7 @@ public:
 class PowBinaryExpression : public BinaryExpression {
 public:
     PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_divide, lhs, rhs)
+        : BinaryExpression(loc, tok_pow, lhs, rhs)
     {}
 };
 
