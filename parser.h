@@ -21,6 +21,7 @@ public:
     Expression* parse_parenthesis_expression();
     Expression* parse_line_expression();
     Expression* parse_binop(Expression *, Token);
+    Expression* parse_local();
 
     std::string const& error_message() {
         return error_string_;

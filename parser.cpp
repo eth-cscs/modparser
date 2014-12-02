@@ -807,11 +807,12 @@ ProcedureExpression* Parser::parse_procedure() {
     std::vector<Expression*> body;
 
     while(1) {
+        //std::cout << colorize("parsing line starting with ", kPurple) << colorize(token_.name, kYellow);
         if(token_.type == tok_rbrace)
             break;
 
-        //Expression *e = parse_primary();
         Expression *e = parse_high_level();
+        //std::cout << (e==nullptr ? "fail" : "success") << std::endl;
         if(e==nullptr) {
             return nullptr;
         }
@@ -826,8 +827,6 @@ ProcedureExpression* Parser::parse_procedure() {
                                  args,
                                  body);
 
-    std::cout << e->to_string() << std::endl;
-
     return e;
 }
 
@@ -838,9 +837,7 @@ ProcedureExpression* Parser::parse_procedure() {
 Expression *Parser::parse_high_level() {
     switch(token_.type) {
         case tok_local :
-            std::cout << colorize("parsing LOCAL",kGreen) << std::endl;
-            return nullptr; //parse_local();
-        // there are other cases like SOLVE
+            return parse_local();
         case tok_identifier :
             return parse_line_expression();
         default:
@@ -867,7 +864,6 @@ Expression *Parser::parse_identifier() {
 Expression *Parser::parse_call() {
     // save name and location of the identifier
     Token idtoken = token_;
-    //Expression* id = new IdentifierExpression(token_.location, token_.name);
 
     // consume identifier
     get_token();
@@ -904,7 +900,6 @@ Expression *Parser::parse_call() {
 
     return new CallExpression(token_.location, idtoken.name, args);
 }
-
 
 // parse a full line expression, i.e. one of
 //      :: procedure call        e.g. rates(v+0.01)
@@ -970,7 +965,7 @@ Expression *Parser::parse_expression() {
     // we parse a binary expression if followed by an operator
     if( binop_precedence(token_.type)>0 ) {
         if(token_.type==tok_eq) {
-            error("assignment '=' not allowed in sub-expression");
+            error("assignment '"+colorize("=",kYellow)+"' not allowed in sub-expression");
             return nullptr;
         }
         Token op = token_;  // save the operator
@@ -1069,3 +1064,27 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
     return nullptr;
 }
 
+Expression *Parser::parse_local() {
+    assert(token_.type==tok_local);
+    int line = location_.line;
+
+    get_token(); // consume LOCAL
+
+    if(token_.type != tok_identifier) {
+        error(pprintf("'%' is not a valid name for a local variable",
+                    colorize(token_.name, kYellow)));
+        return nullptr;
+    }
+
+    Expression *e = new LocalExpression(location_, token_.name);
+    get_token(); // consume identifier
+
+    // check that the rest of the line was empty
+    // this is to stop people doing things like 'LOCAL x = 3'
+    if(line == location_.line) {
+        error(pprintf( "invalid token '%' after LOCAL declaration",
+                       colorize(token_.name, kYellow)));
+        return nullptr;
+    }
+    return e;
+}

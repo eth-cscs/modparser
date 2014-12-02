@@ -8,6 +8,8 @@
 #include "parser.h"
 #include "util.h"
 
+//#define VERBOSE_TEST
+
 /**************************************************************
  * lexer tests
  **************************************************************/
@@ -285,25 +287,130 @@ TEST(Parser, procedure) {
     //const char* str = "PROCEDURE foo(x, y) { a = 3 }";
     const char* str = ""
 "PROCEDURE foo(x, y) {"
-"  a = 3"
-"  b = x * y + 2"
-"  y = x + y * 2"
-"  y = a + b +c + d + e"
-"  y = a + b *c + d + e"
+"  LOCAL a\n"
+"  LOCAL b\n"
+"  LOCAL c\n"
+"  a = 3\n"
+"  b = x * y + 2\n"
+"  y = x + y * 2\n"
+"  y = a + b +c + a + b\n"
+"  y = a + b *c + a + b\n"
 "}";
     std::vector<char> input(str, str+strlen(str));
     Module m(input);
     Parser p(m, false);
     Expression *e = p.parse_procedure();
+#ifdef VERBOSE_TEST
+    //if(e) std::cout << e->to_string() << std::endl;
+#endif
     EXPECT_NE(e, nullptr);
     EXPECT_EQ(p.status(), ls_happy);
     if(p.status()==ls_error)
         std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
 }
 
+// helper
 Module make_module(const char* str) {
         std::vector<char> input(str, str+strlen(str));
         return Module(input);
+}
+
+
+TEST(Parser, parse_local) {
+    std::vector<const char*> good_expressions =
+    {
+"LOCAL xyz\n",
+"LOCAL xyz : comment\n"
+    };
+
+    for(auto const& expression : good_expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_local();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==ls_error)
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
+
+    std::vector<const char*> bad_expressions =
+    {
+"LOCAL 2",
+"LOCAL x = 3",
+"LOCAL x - 3",
+    };
+
+    for(auto const& expression : bad_expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_local();
+
+        EXPECT_EQ(e, nullptr);
+        EXPECT_EQ(p.status(), ls_error);
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==ls_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
+    }
+}
+
+// test parsing of parenthesis expressions
+TEST(Parser, parse_parenthesis_expression) {
+    std::vector<const char*> good_expressions =
+    {
+"(x+2)                  ",
+"((x))                  ",
+"(((x)))                ",
+"(x + (x * (y*(2)) + 4))",
+    };
+
+    for(auto const& expression : good_expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_parenthesis_expression();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==ls_error)
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
+
+    std::vector<const char*> bad_expressions =
+    {
+"(x             ",
+"((x+3)         ",
+"(x+ +)         ",
+"(x=3)          ",
+"(a + (b*2^(x)) ",
+    };
+
+    for(auto const& expression : bad_expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_parenthesis_expression();
+
+        EXPECT_EQ(e, nullptr);
+        EXPECT_EQ(p.status(), ls_error);
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==ls_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
+    }
 }
 
 // test parsing of line expressions
@@ -324,10 +431,13 @@ TEST(Parser, parse_line_expression) {
         Parser p(m, false);
         Expression *e = p.parse_line_expression();
 
+#ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
+#endif
         EXPECT_NE(e, nullptr);
         EXPECT_EQ(p.status(), ls_happy);
 
+        // always print the compiler errors, because they are unexpected
         if(p.status()==ls_error)
             std::cout << colorize("error", kRed) << p.error_message() << std::endl;
     }
@@ -352,9 +462,11 @@ TEST(Parser, parse_line_expression) {
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), ls_error);
 
+#ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
         if(p.status()==ls_error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
     }
 }
 

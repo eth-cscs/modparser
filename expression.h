@@ -62,6 +62,24 @@ private:
     double value_;
 };
 
+// declaration of a LOCAL variable
+class LocalExpression : public Expression {
+public:
+    LocalExpression(Location loc, std::string const& name)
+        : Expression(loc), name_(name)
+    {
+    }
+
+    std::string to_string() const override {
+        return colorize("local", kBlue) + " " + colorize(name_,kYellow);
+    }
+
+    ~LocalExpression() {}
+private:
+    // there has to be some pointer to a table of identifiers
+    std::string name_;
+};
+
 // a proceduce prototype
 class PrototypeExpression : public Expression {
 public:

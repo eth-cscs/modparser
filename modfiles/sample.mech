@@ -1,0 +1,51 @@
+# module name
+module Ca-NT
+
+# import data from global model...
+using v       from model
+using celcius from model
+using area    from model
+
+# the tools module could provide a set of standardised calls
+using rand  from tools
+using rand_gaussian  from tools
+
+# ion channels...
+using ik      from potassium
+using potassium.ik from ion
+using potassium.ik from ion as ik
+using ik=potassium.ik from ion
+
+# variable declarations
+let mA   : unit = milliamp
+let htau : range, global
+let mtau : range, global = 10
+let pi   : const, global = 3.14
+
+# procedures
+procedure rates(v)
+    let x = v + 0.01
+    htau = exp(v)
+    mtau = rand()
+end
+
+procedure trates(v)
+    let qt = q10^((celsius-22)/10)
+    minf=1-1/(1+exp((v-vhalfm)/km))
+    hinf=1/(1+exp((v-vhalfh)/kh))
+
+    mtau = 0.6
+    htau = 1500
+end
+
+# functions must be pure (no side effects)
+# in this case 'no side effects' means don't affect any mechanism/model state
+# should be able to call rand(), which obviously is not pure
+function double(x)
+    return 2 * x
+end
+
+procedure trates()
+    # we promise to inline functions
+    s = double(htau)
+end
