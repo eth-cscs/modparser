@@ -821,11 +821,10 @@ ProcedureExpression* Parser::parse_procedure() {
     }
 
     //return new ProcedureExpression( identifier.location,
-    ProcedureExpression* e =
-        new ProcedureExpression( identifier.location,
-                                 identifier.name,
-                                 args,
-                                 body);
+    ProcedureExpression* e = new ProcedureExpression( identifier.location,
+                                                      identifier.name,
+                                                      args,
+                                                      body);
 
     return e;
 }
