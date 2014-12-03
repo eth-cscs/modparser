@@ -807,12 +807,10 @@ ProcedureExpression* Parser::parse_procedure() {
     std::vector<Expression*> body;
 
     while(1) {
-        //std::cout << colorize("parsing line starting with ", kPurple) << colorize(token_.name, kYellow);
         if(token_.type == tok_rbrace)
             break;
 
         Expression *e = parse_high_level();
-        //std::cout << (e==nullptr ? "fail" : "success") << std::endl;
         if(e==nullptr) {
             return nullptr;
         }
