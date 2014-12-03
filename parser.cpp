@@ -58,6 +58,7 @@ Parser::Parser(Module& m, bool advance)
 bool Parser::description_pass() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
+    Expression *e; // for use when parsing blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -87,16 +88,16 @@ bool Parser::description_pass() {
                 skip_block();
                 break;
             case tok_initial :
-                get_token(); // consume INITIAL symbol
-                verb_blocks_.push_back({token_, line_});
-                skip_block();
+                e = parse_procedure();
+                if(!e) break;
+                //std::cout << e->to_string() << std::endl;
+                procedures_.push_back(e);
                 break;
             case tok_procedure :
-                {
-                    get_token();
-                    auto e = parse_prototype();
-                }
-                skip_block();
+                e = parse_procedure();
+                if(!e) break;
+                //std::cout << e->to_string() << std::endl;
+                procedures_.push_back(e);
                 break;
             case tok_derivative :
                 {
@@ -768,37 +769,48 @@ void Parser::build_identifiers() {
     }
 }
 
-// parse a procedure
+/// parse a procedure
+/// can handle both PROCEDURE and INITIAL blocks
+/// an initial block is stored as a procedure with name 'initial' and empty argument list
 ProcedureExpression* Parser::parse_procedure() {
-    // consume PROCEDURE statement
-    assert(token_.type == tok_procedure);
-    get_token();
-
-    // check that a valid identifier name was specified by the user
-    if( !expect( tok_identifier ) ) return nullptr;
-
-    // remember location and name of proceduce
-    Token identifier = token_;
-
-    // todo : perform lookup to ensure that name is not already taken
-
-    // consume the procedure name
-    get_token();
-
-    // argument list
-    if( !expect(tok_lparen) ) return nullptr;
-
-    // read the argument list
+    Token identifier;
     std::vector<Expression*> args;
-    for(auto const& t : comma_separated_identifiers()) {
-        args.push_back(new IdentifierExpression(t.location, t.name));
+
+    // the only difference between PROCEDURE and INITIAL blocks is how the prototype is handled
+    if(token_.type == tok_procedure) {
+        get_token(); // consume PROCEDURE token
+
+        // check that a valid identifier name was specified by the user
+        if( !expect( tok_identifier ) ) return nullptr;
+        identifier = token_; // save the identifier token
+
+        // consume the procedure name
+        get_token();
+
+        // get the argument list
+        if( !expect(tok_lparen) ) return nullptr;
+
+        // read the argument list
+        for(auto const& t : comma_separated_identifiers()) {
+            args.push_back(new IdentifierExpression(t.location, t.name));
+        }
+        get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+
+        // check for closing left brace ) on parameter list
+        if(!expect(tok_rparen) || status()==ls_error) return nullptr;
+
+        get_token(); // consume ')'
+
     }
-    get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+    else if(token_.type == tok_initial) {
+        // save false token used to create procedure with name initial
+        identifier.type = tok_identifier;
+        identifier.name = "initial";
+        identifier.location = location_;
 
-    // check for closing left brace ) on parameter list
-    if(!expect(tok_rparen) || status()==ls_error) return nullptr;
-
-    get_token();
+        get_token(); // consume IDENTIFIER
+    }
+    else assert(false); // should never be called in this case
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
@@ -807,18 +819,18 @@ ProcedureExpression* Parser::parse_procedure() {
     std::vector<Expression*> body;
 
     while(1) {
-        //std::cout << colorize("parsing line starting with ", kPurple) << colorize(token_.name, kYellow);
         if(token_.type == tok_rbrace)
             break;
 
         Expression *e = parse_high_level();
-        //std::cout << (e==nullptr ? "fail" : "success") << std::endl;
         if(e==nullptr) {
             return nullptr;
         }
 
         body.push_back(e);
     }
+
+    get_token(); // eat closing '}'
 
     //return new ProcedureExpression( identifier.location,
     ProcedureExpression* e = new ProcedureExpression( identifier.location,
@@ -953,10 +965,6 @@ Expression *Parser::parse_line_expression() {
 }
 
 Expression *Parser::parse_expression() {
-    if(token_.type == tok_lparen) {
-        return parse_parenthesis_expression();
-    }
-    //Expression *lhs = parse_primary();
     Expression *lhs = parse_unaryop();
 
     if(lhs==nullptr) { // error

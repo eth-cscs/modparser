@@ -10,8 +10,6 @@ public:
     bool description_pass();
 
     Expression* parse_prototype();
-    //Expression* parse_primary();
-    //Expression* parse_assignment();
     Expression* parse_high_level();
     Expression* parse_identifier();
     Expression* parse_number();
@@ -39,6 +37,7 @@ private:
     std::vector<Token> comma_separated_identifiers();
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
+    std::vector<Expression *> procedures_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
