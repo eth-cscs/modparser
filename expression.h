@@ -33,14 +33,33 @@ public:
     {
     }
 
+    std::string const& name() const {
+        return name_;
+    }
+
     std::string to_string() const override {
         return colorize(pprintf("%", name_), kYellow);
     }
 
     ~IdentifierExpression() {}
-private:
+protected:
     // there has to be some pointer to a table of identifiers
     std::string name_;
+};
+
+// an identifier for a derivative
+class DerivativeExpression : public IdentifierExpression {
+public:
+    DerivativeExpression(Location loc, std::string const& name)
+        : IdentifierExpression(loc, name)
+    {
+    }
+
+    std::string to_string() const override {
+        return colorize("diff",kBlue) + "(" + colorize(name(), kYellow) + ")";
+    }
+
+    ~DerivativeExpression() {}
 };
 
 

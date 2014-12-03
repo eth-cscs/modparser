@@ -98,11 +98,9 @@ bool Parser::description_pass() {
                 procedures_.push_back(e);
                 break;
             case tok_derivative :
-                {
-                    get_token();
-                    auto e = parse_prototype();
-                }
-                skip_block();
+                e = parse_procedure();
+                if(!e) break;
+                procedures_.push_back(e);
                 break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
@@ -810,6 +808,15 @@ ProcedureExpression* Parser::parse_procedure() {
 
         get_token(); // consume IDENTIFIER
     }
+    else if(token_.type == tok_derivative) {
+        get_token(); // eat DERIVATIVE
+
+        // check that a valid identifier name was specified by the user
+        if( !expect( tok_identifier ) ) return nullptr;
+        identifier = token_; // save the identifier token
+
+        get_token(); // eat procedure name
+    }
     else assert(false); // should never be called in this case
 
     // check for opening left brace {
@@ -923,7 +930,8 @@ Expression *Parser::parse_call() {
 Expression *Parser::parse_line_expression() {
     int line = location_.line;
     Expression *lhs;
-    if(peek().type == tok_lparen) {
+    Token next = peek();
+    if(next.type == tok_lparen) {
         lhs = parse_call();
         // we have to ensure that a procedure call is alone on the line
         // to avoid :
@@ -940,6 +948,16 @@ Expression *Parser::parse_line_expression() {
             return nullptr;
         }
         return lhs  ;
+    } else if(next.type == tok_prime) {
+        lhs = new DerivativeExpression(location_, token_.name);
+        // consume both name and derivative operator
+        get_token();
+        get_token();
+        // a derivative statement must be followed by '='
+        if(token_.type!=tok_eq) {
+            error("a derivative declaration must have an assignment of the form\n  x' = expression\n  where x is a state variable");
+            return nullptr;
+        }
     } else {
         //lhs = parse_primary();
         lhs = parse_unaryop();
