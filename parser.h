@@ -10,8 +10,6 @@ public:
     bool description_pass();
 
     Expression* parse_prototype();
-    //Expression* parse_primary();
-    //Expression* parse_assignment();
     Expression* parse_high_level();
     Expression* parse_identifier();
     Expression* parse_number();

@@ -277,7 +277,7 @@ TEST(Module, open) {
 /**************************************************************
  * parser tests
  **************************************************************/
-TEST(Parser, open) {
+TEST(Parser, parser_full_file) {
     Module m("./modfiles/test.mod");
     Parser p(m);
     EXPECT_EQ(p.status(), ls_happy);
