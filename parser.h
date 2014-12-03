@@ -26,10 +26,19 @@ public:
         return error_string_;
     }
 
-    // functions for parsing verb blocks
-    // called in the second pass
-    // exposed via public interface to facilitate unit testing
     ProcedureExpression* parse_procedure();
+
+    std::vector<Expression*>&
+    procedures() { return procedures_; }
+
+    std::vector<Expression*>const&
+    procedures() const { return procedures_; }
+
+    std::unordered_map<std::string, Identifier*>&
+    identifiers() { return identifiers_; }
+
+    std::unordered_map<std::string, Identifier*>const&
+    identifiers() const { return identifiers_; }
 
 private:
     Module &module_;

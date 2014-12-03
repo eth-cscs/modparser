@@ -90,13 +90,11 @@ bool Parser::description_pass() {
             case tok_initial :
                 e = parse_procedure();
                 if(!e) break;
-                //std::cout << e->to_string() << std::endl;
                 procedures_.push_back(e);
                 break;
             case tok_procedure :
                 e = parse_procedure();
                 if(!e) break;
-                //std::cout << e->to_string() << std::endl;
                 procedures_.push_back(e);
                 break;
             case tok_derivative :
@@ -764,9 +762,11 @@ void Parser::build_identifiers() {
         id->set_range(k_range);
     }
 
+    /*
     for(auto var : identifiers_) {
-        //std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
     }
+    */
 }
 
 /// parse a procedure

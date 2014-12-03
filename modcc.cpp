@@ -5,6 +5,8 @@
 #include "parser.h"
 #include "util.h"
 
+#define VERBOSE
+
 int main(int argc, char **argv) {
     if(argc < 2) {
         std::cout << colorize("error: ", kRed)
@@ -30,6 +32,20 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    #ifdef VERBOSE
+    std::cout << "====================================" << std::endl
+              << "            variables"                << std::endl
+              << "====================================" << std::endl;
+    for(auto const &var : p.identifiers()) {
+        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+    }
+    std::cout << "====================================" << std::endl
+              << "            procedures"               << std::endl
+              << "====================================" << std::endl;
+    for(auto const &proc: p.procedures()) {
+        std::cout << proc->to_string() << std::endl << std::endl;
+    }
+    #endif
     #ifdef WITH_PROFILING
     for(int i=0; i<10; ++i) {
         Parser p(m);
@@ -40,8 +56,7 @@ int main(int argc, char **argv) {
     }
     #endif
 
-    std::cout << colorize("succesfully parsed ", kYellow)
-              << colorize(argv[1], kGreen)
+    std::cout << "succesfully parsed " + colorize(argv[1], kGreen)
               << std::endl;
     return 0;
 }
