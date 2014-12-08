@@ -54,6 +54,9 @@ enum TOK {
     // logical keywords
     tok_if, tok_else,
 
+    // solver methods
+    tok_cnexp,
+
     tok_reserved, // placeholder for generating keyword lookup
 };
 

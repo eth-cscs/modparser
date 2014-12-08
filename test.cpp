@@ -329,6 +329,31 @@ Module make_module(const char* str) {
         return Module(input);
 }
 
+TEST(Parser, parse_solve) {
+    const char* expression = "SOLVE states METHOD cnexp";
+
+    auto m = make_module(expression);
+    Parser p(m, false);
+    Expression *e = p.parse_solve();
+
+#ifdef VERBOSE_TEST
+    if(e) std::cout << e->to_string() << std::endl;
+#endif
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    if(e) {
+        SolveExpression* s = dynamic_cast<SolveExpression*>(e);
+        EXPECT_EQ(s->method(), k_cnexp);
+        EXPECT_EQ(s->name(), "states");
+    }
+
+    // always print the compiler errors, because they are unexpected
+    if(p.status()==ls_error) {
+        std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
+}
+
 
 TEST(Parser, parse_local) {
     std::vector<const char*> good_expressions =

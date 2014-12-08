@@ -99,6 +99,42 @@ private:
     std::string name_;
 };
 
+// a SOLVE statement
+class SolveExpression : public Expression {
+public:
+    SolveExpression(Location loc, std::string const& name, solverMethod method)
+        : Expression(loc), name_(name), method_(method), derivative_expression_(nullptr)
+    {}
+
+    std::string to_string() const override {
+        return colorize("solve", kBlue) + "(" + colorize(name_,kYellow) + ", " + colorize(::to_string(method_),kGreen) + ")";
+    }
+
+    std::string const& name() const {
+        return name_;
+    }
+
+    solverMethod method() const {
+        return method_;
+    }
+
+    Expression* derivative_expression() const {
+        return derivative_expression_;
+    }
+
+    void derivative_expression(Expression *e) {
+        derivative_expression_ = e;
+    }
+
+    ~SolveExpression() {}
+private:
+    // there has to be some pointer to a table of identifiers
+    std::string name_;
+    solverMethod method_;
+
+    Expression *derivative_expression_;
+};
+
 // a proceduce prototype
 class PrototypeExpression : public Expression {
 public:
