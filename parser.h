@@ -10,8 +10,6 @@ public:
     bool description_pass();
 
     Expression* parse_prototype();
-    //Expression* parse_primary();
-    //Expression* parse_assignment();
     Expression* parse_high_level();
     Expression* parse_identifier();
     Expression* parse_number();
@@ -23,15 +21,25 @@ public:
     Expression* parse_binop(Expression *, Token);
     Expression* parse_unaryop();
     Expression* parse_local();
+    Expression* parse_solve();
 
     std::string const& error_message() {
         return error_string_;
     }
 
-    // functions for parsing verb blocks
-    // called in the second pass
-    // exposed via public interface to facilitate unit testing
     ProcedureExpression* parse_procedure();
+
+    std::vector<Expression*>&
+    procedures() { return procedures_; }
+
+    std::vector<Expression*>const&
+    procedures() const { return procedures_; }
+
+    std::unordered_map<std::string, Identifier*>&
+    identifiers() { return identifiers_; }
+
+    std::unordered_map<std::string, Identifier*>const&
+    identifiers() const { return identifiers_; }
 
 private:
     Module &module_;
@@ -39,6 +47,7 @@ private:
     std::vector<Token> comma_separated_identifiers();
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
+    std::vector<Expression *> procedures_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user

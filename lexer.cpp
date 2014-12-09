@@ -343,6 +343,7 @@ static Keyword keywords[] = {
     {"METHOD",      tok_method},
     {"if",          tok_if},
     {"else",        tok_else},
+    {"cnexp",       tok_cnexp},
     {"exp",         tok_exp},
     {"sin",         tok_sin},
     {"cos",         tok_cos},
@@ -412,6 +413,7 @@ static TokenString token_strings[] = {
     {"log",         tok_log},
     {"cos",         tok_cos},
     {"sin",         tok_sin},
+    {"cnexp",       tok_cnexp},
     {"error",       tok_reserved},
 };
 

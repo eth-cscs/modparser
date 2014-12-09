@@ -277,15 +277,15 @@ TEST(Module, open) {
 /**************************************************************
  * parser tests
  **************************************************************/
-TEST(Parser, open) {
+TEST(Parser, parser_full_file) {
     Module m("./modfiles/test.mod");
     Parser p(m);
     EXPECT_EQ(p.status(), ls_happy);
 }
 
 TEST(Parser, procedure) {
-    //const char* str = "PROCEDURE foo(x, y) { a = 3 }";
-    const char* str = ""
+    std::vector< const char*> calls =
+{
 "PROCEDURE foo(x, y) {"
 "  LOCAL a\n"
 "  LOCAL b\n"
@@ -295,24 +295,63 @@ TEST(Parser, procedure) {
 "  y = x + y * 2\n"
 "  y = a + b +c + a + b\n"
 "  y = a + b *c + a + b\n"
-"}";
-    std::vector<char> input(str, str+strlen(str));
-    Module m(input);
-    Parser p(m, false);
-    Expression *e = p.parse_procedure();
+"}"
+,
+"PROCEDURE trates(v) {\n"
+"    LOCAL qt\n"
+"    qt=q10^((celsius-22)/10)\n"
+"    minf=1-1/(1+exp((v-vhalfm)/km))\n"
+"    hinf=1/(1+exp((v-vhalfh)/kh))\n"
+"    mtau = 0.6\n"
+"    htau = 1500\n"
+"}"
+};
+    for(auto const& str : calls) {
+        std::vector<char> input(str, str+strlen(str));
+        Module m(input);
+        Parser p(m, false);
+        Expression *e = p.parse_procedure();
 #ifdef VERBOSE_TEST
-    //if(e) std::cout << e->to_string() << std::endl;
+        if(e) std::cout << e->to_string() << std::endl;
 #endif
-    EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), ls_happy);
-    if(p.status()==ls_error)
-        std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+        if(p.status()==ls_error) {
+            std::cout << str << std::endl;
+            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+        }
+    }
 }
 
 // helper
 Module make_module(const char* str) {
         std::vector<char> input(str, str+strlen(str));
         return Module(input);
+}
+
+TEST(Parser, parse_solve) {
+    const char* expression = "SOLVE states METHOD cnexp";
+
+    auto m = make_module(expression);
+    Parser p(m, false);
+    Expression *e = p.parse_solve();
+
+#ifdef VERBOSE_TEST
+    if(e) std::cout << e->to_string() << std::endl;
+#endif
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    if(e) {
+        SolveExpression* s = dynamic_cast<SolveExpression*>(e);
+        EXPECT_EQ(s->method(), k_cnexp);
+        EXPECT_EQ(s->name(), "states");
+    }
+
+    // always print the compiler errors, because they are unexpected
+    if(p.status()==ls_error) {
+        std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
 }
 
 
@@ -394,6 +433,8 @@ TEST(Parser, parse_unary_expression) {
 TEST(Parser, parse_parenthesis_expression) {
     std::vector<const char*> good_expressions =
     {
+"((celsius-22)/10)      ",
+"((celsius-22)+10)      ",
 "(x+2)                  ",
 "((x))                  ",
 "(((x)))                ",
@@ -413,7 +454,8 @@ TEST(Parser, parse_parenthesis_expression) {
 
         // always print the compiler errors, because they are unexpected
         if(p.status()==ls_error)
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+            std::cout << colorize(expression,kCyan) << "\t"
+                      << colorize("error", kRed) << p.error_message() << std::endl;
     }
 
     std::vector<const char*> bad_expressions =
@@ -445,6 +487,8 @@ TEST(Parser, parse_parenthesis_expression) {
 TEST(Parser, parse_line_expression) {
     std::vector<const char*> good_expressions =
     {
+"qt=q10^((celsius-22)/10)"
+"x=2        ",
 "x=2        ",
 "x = -y\n   "
 "x=2*y      ",

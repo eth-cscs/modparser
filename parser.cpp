@@ -58,6 +58,7 @@ Parser::Parser(Module& m, bool advance)
 bool Parser::description_pass() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
+    Expression *e; // for use when parsing blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -78,32 +79,15 @@ bool Parser::description_pass() {
             case tok_assigned :
                 parse_assigned_block();
                 break;
+            // INITIAL, DERIVATIVE, PROCEDURE and BREAKPOINT blocks
+            // are all lowered to ProcedureExpression
             case tok_breakpoint :
-                // we calculate the character that points to the first
-                // given line_ and token_.location, we can compute the current_
-                // required to reset state in the lexer
-                get_token(); // consume BREAKPOINT symbol
-                verb_blocks_.push_back({token_, line_});
-                skip_block();
-                break;
-            case tok_initial :
-                get_token(); // consume INITIAL symbol
-                verb_blocks_.push_back({token_, line_});
-                skip_block();
-                break;
-            case tok_procedure :
-                {
-                    get_token();
-                    auto e = parse_prototype();
-                }
-                skip_block();
-                break;
+            case tok_initial    :
             case tok_derivative :
-                {
-                    get_token();
-                    auto e = parse_prototype();
-                }
-                skip_block();
+            case tok_procedure  :
+                e = parse_procedure();
+                if(!e) break;
+                procedures_.push_back(e);
                 break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
@@ -763,42 +747,72 @@ void Parser::build_identifiers() {
         id->set_range(k_range);
     }
 
+    /*
     for(auto var : identifiers_) {
-        //std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
     }
+    */
 }
 
-// parse a procedure
+/// parse a procedure
+/// can handle both PROCEDURE and INITIAL blocks
+/// an initial block is stored as a procedure with name 'initial' and empty argument list
 ProcedureExpression* Parser::parse_procedure() {
-    // consume PROCEDURE statement
-    assert(token_.type == tok_procedure);
-    get_token();
-
-    // check that a valid identifier name was specified by the user
-    if( !expect( tok_identifier ) ) return nullptr;
-
-    // remember location and name of proceduce
-    Token identifier = token_;
-
-    // todo : perform lookup to ensure that name is not already taken
-
-    // consume the procedure name
-    get_token();
-
-    // argument list
-    if( !expect(tok_lparen) ) return nullptr;
-
-    // read the argument list
+    Token identifier;
     std::vector<Expression*> args;
-    for(auto const& t : comma_separated_identifiers()) {
-        args.push_back(new IdentifierExpression(t.location, t.name));
+
+    // the only difference between PROCEDURE and INITIAL blocks is how the prototype is handled
+    if(token_.type == tok_procedure) {
+        get_token(); // consume PROCEDURE token
+
+        // check that a valid identifier name was specified by the user
+        if( !expect( tok_identifier ) ) return nullptr;
+        identifier = token_; // save the identifier token
+
+        // consume the procedure name
+        get_token();
+
+        // get the argument list
+        if( !expect(tok_lparen) ) return nullptr;
+
+        // read the argument list
+        for(auto const& t : comma_separated_identifiers()) {
+            args.push_back(new IdentifierExpression(t.location, t.name));
+        }
+        get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+
+        // check for closing left brace ) on parameter list
+        if(!expect(tok_rparen) || status()==ls_error) return nullptr;
+
+        get_token(); // consume ')'
+
     }
-    get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+    else if(token_.type == tok_initial) {
+        // save false token used to create procedure with name initial
+        identifier.type = tok_identifier;
+        identifier.name = "initial";
+        identifier.location = location_;
 
-    // check for closing left brace ) on parameter list
-    if(!expect(tok_rparen) || status()==ls_error) return nullptr;
+        get_token(); // consume IDENTIFIER
+    }
+    else if(token_.type == tok_breakpoint) {
+        // save false token used to create procedure with name initial
+        identifier.type = tok_identifier;
+        identifier.name = "breakpoint";
+        identifier.location = location_;
 
-    get_token();
+        get_token(); // consume BREAKPOINT
+    }
+    else if(token_.type == tok_derivative) {
+        get_token(); // eat DERIVATIVE
+
+        // check that a valid identifier name was specified by the user
+        if( !expect( tok_identifier ) ) return nullptr;
+        identifier = token_; // save the identifier token
+
+        get_token(); // eat procedure name
+    }
+    else assert(false); // should never be called in this case
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
@@ -818,6 +832,8 @@ ProcedureExpression* Parser::parse_procedure() {
         body.push_back(e);
     }
 
+    get_token(); // eat closing '}'
+
     //return new ProcedureExpression( identifier.location,
     ProcedureExpression* e = new ProcedureExpression( identifier.location,
                                                       identifier.name,
@@ -833,6 +849,8 @@ ProcedureExpression* Parser::parse_procedure() {
 //      :: expression
 Expression *Parser::parse_high_level() {
     switch(token_.type) {
+        case tok_solve :
+            return parse_solve();
         case tok_local :
             return parse_local();
         case tok_identifier :
@@ -909,7 +927,8 @@ Expression *Parser::parse_call() {
 Expression *Parser::parse_line_expression() {
     int line = location_.line;
     Expression *lhs;
-    if(peek().type == tok_lparen) {
+    Token next = peek();
+    if(next.type == tok_lparen) {
         lhs = parse_call();
         // we have to ensure that a procedure call is alone on the line
         // to avoid :
@@ -926,6 +945,16 @@ Expression *Parser::parse_line_expression() {
             return nullptr;
         }
         return lhs  ;
+    } else if(next.type == tok_prime) {
+        lhs = new DerivativeExpression(location_, token_.name);
+        // consume both name and derivative operator
+        get_token();
+        get_token();
+        // a derivative statement must be followed by '='
+        if(token_.type!=tok_eq) {
+            error("a derivative declaration must have an assignment of the form\n  x' = expression\n  where x is a state variable");
+            return nullptr;
+        }
     } else {
         //lhs = parse_primary();
         lhs = parse_unaryop();
@@ -951,10 +980,6 @@ Expression *Parser::parse_line_expression() {
 }
 
 Expression *Parser::parse_expression() {
-    if(token_.type == tok_lparen) {
-        return parse_parenthesis_expression();
-    }
-    //Expression *lhs = parse_primary();
     Expression *lhs = parse_unaryop();
 
     if(lhs==nullptr) { // error
@@ -1175,9 +1200,53 @@ Expression *Parser::parse_local() {
     // check that the rest of the line was empty
     // this is to stop people doing things like 'LOCAL x = 3'
     if(line == location_.line) {
-        error(pprintf( "invalid token '%' after LOCAL declaration",
-                       colorize(token_.name, kYellow)));
-        return nullptr;
+        if(token_.type != tok_eof) {
+            error(pprintf( "invalid token '%' after LOCAL declaration",
+                        colorize(token_.name, kYellow)));
+            return nullptr;
+        }
     }
     return e;
 }
+
+/// parse a SOLVE statement
+/// a SOLVE statement specifies a procedure and a method
+///     SOLVE procedure METHOD method
+Expression *Parser::parse_solve() {
+    assert(token_.type==tok_solve);
+    int line = location_.line;
+    std::string name;
+    solverMethod method;
+
+    get_token(); // consume the SOLVE keyword
+
+    if(token_.type != tok_identifier) goto solve_statment_error;
+
+    name = token_.name; // save name of procedure
+    get_token(); // consume the procedure identifier
+
+    if(token_.type != tok_method) goto solve_statment_error;
+
+    get_token(); // consume the METHOD keyword
+
+    // for now the parser only knows the cnexp method, because that is the only
+    // method used by the modules in CoreNeuron
+    if(token_.type != tok_cnexp) goto solve_statment_error;
+    method = k_cnexp;
+
+    get_token(); // consume the method description
+
+    // check that the rest of the line was empty
+    if(line == location_.line) {
+        if(token_.type != tok_eof) goto solve_statment_error;
+    }
+
+    return new SolveExpression(location_, name, method);
+
+solve_statment_error:
+    error( "SOLVE statements must have the form\n"
+           "  SOLVE x METHOD cnexp\n"
+           "where 'x' is the name of a DERIVATIVE block");
+    return nullptr;
+}
+

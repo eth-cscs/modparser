@@ -37,6 +37,11 @@ enum ionKind {
     k_ion_K         ///< potassium ion
 };
 
+/// methods for time stepping state
+enum solverMethod {
+    k_cnexp // the only method we have at the moment
+};
+
 ///
 /// base class for all identifier types (variables and functions)
 ///
@@ -178,6 +183,13 @@ static std::string to_string(linkageKind v) {
         case k_extern_link: return std::string("external");
     }
     return std::string("<error : undefined visibilityKind>");
+}
+
+static std::string to_string(solverMethod m) {
+    switch(m) {
+        case k_cnexp : return std::string("cnexp");
+    }
+    return std::string("<error : undefined solverMethod>");
 }
 
 // ostream writers
