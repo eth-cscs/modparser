@@ -6,9 +6,16 @@
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
+#include "perfvisitor.h"
 #include "util.h"
 
 //#define VERBOSE_TEST
+
+// helper for making a module
+Module make_module(const char* str) {
+        std::vector<char> input(str, str+strlen(str));
+        return Module(input);
+}
 
 /**************************************************************
  * lexer tests
@@ -262,6 +269,25 @@ TEST(Lexer, errors) {
 }
 
 /**************************************************************
+ * visitors
+ **************************************************************/
+TEST(FlopVisitor, simple_expressions) {
+    FlopVisitor *visitor = new FlopVisitor();
+    const char* expression = "exp(x)";
+
+    auto m = make_module(expression);
+    Parser p(m, false);
+    Expression *e = p.parse_expression();
+
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    e->accept(visitor);
+    std::cout << e->to_string() << std::endl;
+    std::cout << visitor->flops << std::endl;
+}
+
+/**************************************************************
  * module tests
  **************************************************************/
 TEST(Module, open) {
@@ -321,12 +347,6 @@ TEST(Parser, procedure) {
             std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
         }
     }
-}
-
-// helper
-Module make_module(const char* str) {
-        std::vector<char> input(str, str+strlen(str));
-        return Module(input);
 }
 
 TEST(Parser, parse_solve) {

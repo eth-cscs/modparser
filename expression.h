@@ -7,6 +7,7 @@
 #include "lexer.h"
 #include "util.h"
 #include "identifier.h"
+#include "visitor.h"
 
 class Expression {
 public:
@@ -21,6 +22,10 @@ public:
     virtual std::string to_string() const = 0;
 
     Location const& location() const {return location_;};
+
+    // force all derived classes to implement visitor
+    // this might be a bad idea
+    virtual void accept(Visitor *v) = 0; //{v->visit(this);}
 protected:
     Location location_;
 };
@@ -42,6 +47,8 @@ public:
     }
 
     ~IdentifierExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 protected:
     // there has to be some pointer to a table of identifiers
     std::string name_;
@@ -60,6 +67,8 @@ public:
     }
 
     ~DerivativeExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 
@@ -77,6 +86,8 @@ public:
     }
 
     ~NumberExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 private:
     double value_;
 };
@@ -94,6 +105,8 @@ public:
     }
 
     ~LocalExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 private:
     // there has to be some pointer to a table of identifiers
     std::string name_;
@@ -127,6 +140,8 @@ public:
     }
 
     ~SolveExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 private:
     // there has to be some pointer to a table of identifiers
     std::string name_;
@@ -153,6 +168,8 @@ public:
     ~PrototypeExpression() {
         //std::cout << colorize("~PrototypeExpression", kYellow) << std::endl;
     }
+
+    void accept(Visitor *v) override {v->visit(this);}
 private:
     std::string name_;
     std::vector<Expression*> args_;
@@ -180,6 +197,7 @@ public:
         return str;
     }
 
+    void accept(Visitor *v) override {v->visit(this);}
 private:
     std::string name_;
     std::vector<Expression *> args_;
@@ -216,6 +234,8 @@ public:
         return str;
     }
 
+    void accept(Visitor *v) override {v->visit(this);}
+
 private:
     std::string name_;
     std::vector<Expression *> args_;
@@ -239,6 +259,11 @@ public:
     std::string to_string() const {
         return pprintf("(% %)", colorize(token_string(op_),kGreen), e_->to_string());
     }
+
+    Expression* expression() {return e_;}
+    const Expression* expression() const {return e_;}
+
+    void accept(Visitor *v) override {std::cout << "here unary\n"; v->visit(this);}
 };
 
 /// negation unary expression, i.e. -x
@@ -247,6 +272,8 @@ public:
     NegUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_minus, e)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 /// exponential unary expression, i.e. e^x or exp(x)
@@ -255,6 +282,9 @@ public:
     ExpUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_exp, e)
     {}
+
+    //void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override {std::cout << "here exp\n"; v->visit(this);}
 };
 
 // logarithm unary expression, i.e. log_10(x)
@@ -263,6 +293,8 @@ public:
     LogUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_log, e)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 // cosine unary expression, i.e. cos(x)
@@ -271,6 +303,8 @@ public:
     CosUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_cos, e)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 // sin unary expression, i.e. sin(x)
@@ -279,6 +313,8 @@ public:
     SinUnaryExpression(Location loc, Expression* e)
         : UnaryExpression(loc, tok_sin, e)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 ////////////////////////////////////////////////////////////
@@ -306,6 +342,8 @@ public:
     std::string to_string() const {
         return pprintf("(% % %)", colorize(token_string(op_),kBlue), lhs_->to_string(), rhs_->to_string());
     }
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class AssignmentExpression : public BinaryExpression {
@@ -313,6 +351,8 @@ public:
     AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_eq, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class AddBinaryExpression : public BinaryExpression {
@@ -327,6 +367,8 @@ public:
     SubBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_minus, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class MulBinaryExpression : public BinaryExpression {
@@ -334,6 +376,8 @@ public:
     MulBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_times, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class DivBinaryExpression : public BinaryExpression {
@@ -341,6 +385,8 @@ public:
     DivBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_divide, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class PowBinaryExpression : public BinaryExpression {
@@ -348,5 +394,7 @@ public:
     PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_pow, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 

@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "util.h"
+#include "perfvisitor.h"
 
 // specialize on const char* for lazy evaluation of compile time strings
 bool Parser::expect(TOK tok, const char* str) {

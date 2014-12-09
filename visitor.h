@@ -1,3 +1,5 @@
+#pragma once
+
 #include "util.h"
 
 // forward declarations
@@ -23,9 +25,9 @@ class DivBinaryExpression;
 class PowBinaryExpression;
 
 /// visitor base class
-/// the visitors for all AST nodes are defined by default to throw an assertion
-/// by default some node types call the default visitor for a parent
-/// for example, all BinaryExpression types call the visitor defined for
+/// The visitors for all AST nodes throw an assertion
+/// by default, with node types calling the default visitor for a parent
+/// For example, all BinaryExpression types call the visitor defined for
 /// BinaryExpression, so by overriding just the base implementation, all of the
 /// children get that implementation for free, which might be useful for some
 /// use cases.
@@ -60,7 +62,7 @@ public:
 /// A visitor with boolean state that can be used to terminate traversal
 class StoppableVisitor : public Visitor {
 public:
-    StoppableVisitor() : stop_(false);
+    StoppableVisitor() : stop_(false) {}
     bool stop() const {
         return stop_;
     }
