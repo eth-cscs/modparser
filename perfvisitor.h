@@ -31,12 +31,14 @@ static std::ostream& operator << (std::ostream& os, FlopAccumulator const& f) {
 
 class FlopVisitor : public Visitor {
 public:
-    void visit(Expression *e) override {
-        std::cout << colorize("here base", kGreen) << std::endl;
-    }
+    void visit(Expression *e) override {}
 
-    // we have to traverse the statements in a procedure
-    void visit(ProcedureExpression *e) override {}
+    // traverse the statements in a procedure
+    void visit(ProcedureExpression *e) override {
+        for(auto expression : e->body()) {
+            expression->accept(this);
+        }
+    }
 
     ////////////////////////////////////////////////////
     // specializations for each type of unary expression
@@ -44,7 +46,7 @@ public:
     // any missed specializations
     ////////////////////////////////////////////////////
     void visit(NegUnaryExpression *e) override {
-        std::cout << colorize("here unary", kGreen) << std::endl;
+        std::cout << colorize("unary neg", kGreen) << std::endl;
         // this is a simplification
         // we would have to perform analysis of parent nodes to ensure that
         // the negation actually translates into an operation
@@ -55,28 +57,26 @@ public:
         flops.sub++;
     }
     void visit(ExpUnaryExpression *e) override {
-        std::cout << colorize("here exp", kGreen) << std::endl;
-        if(e->expression() != nullptr) {
-            e->expression()->accept(this);
-        }
+        // there is something catasrophically wrong if there is a nullptr
+        // for the expression in an unary expression, so assert instead of
+        // simply testing with if
+        assert(e->expression());
+        e->expression()->accept(this);
         flops.exp++;
     }
     void visit(LogUnaryExpression *e) override {
-        if(e->expression() != nullptr) {
-            e->expression()->accept(this);
-        }
+        assert(e->expression());
+        e->expression()->accept(this);
         flops.log++;
     }
     void visit(CosUnaryExpression *e) override {
-        if(e->expression() != nullptr) {
-            e->expression()->accept(this);
-        }
+        assert(e->expression());
+        e->expression()->accept(this);
         flops.cos++;
     }
     void visit(SinUnaryExpression *e) override {
-        if(e->expression() != nullptr) {
-            e->expression()->accept(this);
-        }
+        assert(e->expression());
+        e->expression()->accept(this);
         flops.sin++;
     }
 
@@ -85,30 +85,59 @@ public:
     // leave UnaryExpression to assert false, to catch
     // any missed specializations
     ////////////////////////////////////////////////////
+    void visit(BinaryExpression *e) {
+        // there must be a specialization of the flops counter for every type
+        // of binary expression: if we get here there has been an attempt to
+        // visit a binary expression for which no visitor is implemented
+        assert(false);
+    }
     void visit(AssignmentExpression *e) {
-        if(e->rhs() != nullptr) {
-            e->rhs()->accept(this);
-        }
+        //std::cout << colorize("bin ass", kGreen) << std::endl;
+
+        // there is something catasrophically wrong if there is a nullptr on
+        // either side of a binary expression, so assert instead of simply
+        // testing with if
+        assert(e->rhs());
+        e->rhs()->accept(this);
     }
     void visit(AddBinaryExpression *e)  {
-        if(e->lhs() != nullptr) {
-            e->lhs()->accept(this);
-        }
-        if(e->rhs() != nullptr) {
-            e->rhs()->accept(this);
-        }
+        //std::cout << colorize("bin add", kGreen) << std::endl;
+
+        assert(e->rhs()); assert(e->lhs());
+        e->lhs()->accept(this);
+        e->rhs()->accept(this);
         flops.add++;
     }
     void visit(SubBinaryExpression *e)  {
+        //std::cout << colorize("bin sub", kGreen) << std::endl;
+
+        assert(e->rhs()); assert(e->lhs());
+        e->lhs()->accept(this);
+        e->rhs()->accept(this);
         flops.sub++;
     }
     void visit(MulBinaryExpression *e)  {
+        //std::cout << colorize("bin mul", kGreen) << std::endl;
+
+        assert(e->rhs()); assert(e->lhs());
+        e->lhs()->accept(this);
+        e->rhs()->accept(this);
         flops.mul++;
     }
     void visit(DivBinaryExpression *e)  {
+        //std::cout << colorize("bin div", kGreen) << std::endl;
+
+        assert(e->rhs()); assert(e->lhs());
+        e->lhs()->accept(this);
+        e->rhs()->accept(this);
         flops.div++;
     }
     void visit(PowBinaryExpression *e)  {
+        //std::cout << colorize("bin pow", kGreen) << std::endl;
+
+        assert(e->rhs()); assert(e->lhs());
+        e->lhs()->accept(this);
+        e->rhs()->accept(this);
         flops.pow++;
     }
 

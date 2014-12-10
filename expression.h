@@ -283,8 +283,7 @@ public:
         : UnaryExpression(loc, tok_exp, e)
     {}
 
-    //void accept(Visitor *v) override {v->visit(this);}
-    void accept(Visitor *v) override {std::cout << "here exp\n"; v->visit(this);}
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 // logarithm unary expression, i.e. log_10(x)
@@ -352,6 +351,10 @@ public:
         : BinaryExpression(loc, tok_eq, lhs, rhs)
     {}
 
+    std::string to_string() const override {
+        return pprintf("(% % %)", colorize("=",kBlue), lhs_->to_string(), rhs_->to_string());
+    }
+
     void accept(Visitor *v) override {v->visit(this);}
 };
 
@@ -360,6 +363,12 @@ public:
     AddBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_plus, lhs, rhs)
     {}
+
+    //std::string to_string() const override {
+        //return pprintf("(% % %)", colorize("=",kBlue), lhs_->to_string(), rhs_->to_string());
+    //}
+
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 class SubBinaryExpression : public BinaryExpression {

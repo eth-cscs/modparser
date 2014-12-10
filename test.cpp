@@ -271,20 +271,154 @@ TEST(Lexer, errors) {
 /**************************************************************
  * visitors
  **************************************************************/
-TEST(FlopVisitor, simple_expressions) {
-    FlopVisitor *visitor = new FlopVisitor();
-    const char* expression = "exp(x)";
-
-    auto m = make_module(expression);
+Expression* parse_expression_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
     Parser p(m, false);
     Expression *e = p.parse_expression();
-
     EXPECT_NE(e, nullptr);
     EXPECT_EQ(p.status(), ls_happy);
 
+    return e;
+}
+
+Expression* parse_line_expression_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_line_expression();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
+Expression* parse_procedure_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_procedure();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
+TEST(FlopVisitor, basic) {
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("x+y");
     e->accept(visitor);
-    std::cout << e->to_string() << std::endl;
-    std::cout << visitor->flops << std::endl;
+    EXPECT_EQ(visitor->flops.add, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("x-y");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.sub, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("x*y");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.mul, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("x/y");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.div, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("exp(x)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.exp, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("log(x)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.log, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("cos(x)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.cos, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("sin(x)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.sin, 1);
+    }
+}
+
+TEST(FlopVisitor, compund) {
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("x+y*z/a-b");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 1);
+    EXPECT_EQ(visitor->flops.sub, 1);
+    EXPECT_EQ(visitor->flops.mul, 1);
+    EXPECT_EQ(visitor->flops.div, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("exp(x+y+z)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 2);
+    EXPECT_EQ(visitor->flops.exp, 1);
+    }
+
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_expression_helper("exp(x+y) + 3/(12 + z)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 3);
+    EXPECT_EQ(visitor->flops.div, 1);
+    EXPECT_EQ(visitor->flops.exp, 1);
+    }
+
+    // test asssignment expression
+    {
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_line_expression_helper("x = exp(x+y) + 3/(12 + z)");
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 3);
+    EXPECT_EQ(visitor->flops.div, 1);
+    EXPECT_EQ(visitor->flops.exp, 1);
+    }
+}
+
+TEST(FlopVisitor, procedure) {
+    {
+    const char *expression =
+"PROCEDURE trates(v) {\n"
+"    LOCAL qt\n"
+"    qt=q10^((celsius-22)/10)\n"
+"    minf=1-1/(1+exp((v-vhalfm)/km))\n"
+"    hinf=1/(1+exp((v-vhalfh)/kh))\n"
+"    mtau = 0.6\n"
+"    htau = 1500\n"
+"}";
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_procedure_helper(expression);
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 2);
+    EXPECT_EQ(visitor->flops.sub, 4);
+    EXPECT_EQ(visitor->flops.mul, 0);
+    EXPECT_EQ(visitor->flops.div, 5);
+    EXPECT_EQ(visitor->flops.exp, 2);
+    EXPECT_EQ(visitor->flops.pow, 1);
+    }
 }
 
 /**************************************************************
