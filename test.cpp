@@ -17,6 +17,46 @@ Module make_module(const char* str) {
         return Module(input);
 }
 
+Expression* parse_expression_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_expression();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
+Expression* parse_line_expression_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_line_expression();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
+Expression* parse_procedure_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_procedure();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
+Expression* parse_function_helper(const char* expression_string) {
+    auto m = make_module(expression_string);
+    Parser p(m, false);
+    Expression *e = p.parse_function();
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    return e;
+}
+
 /**************************************************************
  * lexer tests
  **************************************************************/
@@ -271,36 +311,6 @@ TEST(Lexer, errors) {
 /**************************************************************
  * visitors
  **************************************************************/
-Expression* parse_expression_helper(const char* expression_string) {
-    auto m = make_module(expression_string);
-    Parser p(m, false);
-    Expression *e = p.parse_expression();
-    EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), ls_happy);
-
-    return e;
-}
-
-Expression* parse_line_expression_helper(const char* expression_string) {
-    auto m = make_module(expression_string);
-    Parser p(m, false);
-    Expression *e = p.parse_line_expression();
-    EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), ls_happy);
-
-    return e;
-}
-
-Expression* parse_procedure_helper(const char* expression_string) {
-    auto m = make_module(expression_string);
-    Parser p(m, false);
-    Expression *e = p.parse_procedure();
-    EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), ls_happy);
-
-    return e;
-}
-
 TEST(FlopVisitor, basic) {
     {
     FlopVisitor *visitor = new FlopVisitor();
@@ -421,6 +431,28 @@ TEST(FlopVisitor, procedure) {
     }
 }
 
+TEST(FlopVisitor, function) {
+    {
+    const char *expression =
+"FUNCTION foo(v) {\n"
+"    LOCAL qt\n"
+"    qt=q10^((celsius-22)/10)\n"
+"    minf=1-1/(1+exp((v-vhalfm)/km))\n"
+"    hinf=1/(1+exp((v-vhalfh)/kh))\n"
+"    foo = minf + hinf\n"
+"}";
+    FlopVisitor *visitor = new FlopVisitor();
+    Expression *e = parse_function_helper(expression);
+    e->accept(visitor);
+    EXPECT_EQ(visitor->flops.add, 3);
+    EXPECT_EQ(visitor->flops.sub, 4);
+    EXPECT_EQ(visitor->flops.mul, 0);
+    EXPECT_EQ(visitor->flops.div, 5);
+    EXPECT_EQ(visitor->flops.exp, 2);
+    EXPECT_EQ(visitor->flops.pow, 1);
+    }
+}
+
 /**************************************************************
  * module tests
  **************************************************************/
@@ -509,12 +541,6 @@ TEST(Parser, function) {
             std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
         }
     }
-}
-
-// helper
-Module make_module(const char* str) {
-        std::vector<char> input(str, str+strlen(str));
-        return Module(input);
 }
 
 TEST(Parser, parse_solve) {

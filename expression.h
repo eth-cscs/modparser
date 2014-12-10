@@ -273,6 +273,8 @@ public:
         return str;
     }
 
+    void accept(Visitor *v) override {v->visit(this);}
+
 private:
     std::string name_;
     std::vector<Expression *> args_;

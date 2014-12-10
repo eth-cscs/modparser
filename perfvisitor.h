@@ -40,6 +40,13 @@ public:
         }
     }
 
+    // traverse the statements in a function
+    void visit(FunctionExpression *e) override {
+        for(auto expression : e->body()) {
+            expression->accept(this);
+        }
+    }
+
     ////////////////////////////////////////////////////
     // specializations for each type of unary expression
     // leave UnaryExpression to assert false, to catch
