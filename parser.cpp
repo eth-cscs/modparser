@@ -90,6 +90,11 @@ bool Parser::description_pass() {
                 if(!e) break;
                 procedures_.push_back(e);
                 break;
+            case tok_function  :
+                e = parse_function();
+                if(!e) break;
+                functions_.push_back(e);
+                break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
                 break;
@@ -758,7 +763,7 @@ void Parser::build_identifiers() {
 /// parse a procedure
 /// can handle both PROCEDURE and INITIAL blocks
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
-ProcedureExpression* Parser::parse_procedure() {
+Expression* Parser::parse_procedure() {
     Token identifier;
     std::vector<Expression*> args;
 
@@ -835,13 +840,58 @@ ProcedureExpression* Parser::parse_procedure() {
 
     get_token(); // eat closing '}'
 
-    //return new ProcedureExpression( identifier.location,
-    ProcedureExpression* e = new ProcedureExpression( identifier.location,
-                                                      identifier.name,
-                                                      args,
-                                                      body);
+    return new ProcedureExpression( identifier.location, identifier.name, args, body);
+}
 
-    return e;
+Expression* Parser::parse_function() {
+    Token identifier;
+    std::vector<Expression*> args;
+    assert(token_.type == tok_function);
+
+    get_token(); // consume FUNCTION token
+
+    // check that a valid identifier name was specified by the user
+    if( !expect( tok_identifier ) ) return nullptr;
+    identifier = token_; // save the identifier token
+
+    // consume the procedure name
+    get_token();
+
+    // get the argument list
+    if( !expect(tok_lparen) ) return nullptr;
+
+    // read the argument list
+    for(auto const& t : comma_separated_identifiers()) {
+        args.push_back(new IdentifierExpression(t.location, t.name));
+    }
+    get_token(); // comma_separated_identifiers doesn't consume last symbol in list
+
+    // check for closing left brace ) on parameter list
+    if(!expect(tok_rparen) || status()==ls_error) return nullptr;
+
+    get_token(); // consume ')'
+
+    // check for opening left brace {
+    if(!expect(tok_lbrace)) return nullptr;
+
+    get_token();
+    std::vector<Expression*> body;
+
+    while(1) {
+        if(token_.type == tok_rbrace)
+            break;
+
+        Expression *e = parse_high_level();
+        if(e==nullptr) {
+            return nullptr;
+        }
+
+        body.push_back(e);
+    }
+
+    get_token(); // eat closing '}'
+
+    return new FunctionExpression( identifier.location, identifier.name, args, body);
 }
 
 // this is the first port of call when parsing a new line inside a verb block

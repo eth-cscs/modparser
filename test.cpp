@@ -483,6 +483,40 @@ TEST(Parser, procedure) {
     }
 }
 
+TEST(Parser, function) {
+    std::vector< const char*> calls =
+{
+"FUNCTION foo(x, y) {"
+"  LOCAL a\n"
+"  a = 3\n"
+"  b = x * y + 2\n"
+"  y = x + y * 2\n"
+"  foo = a * x + y\n"
+"}"
+};
+    for(auto const& str : calls) {
+        std::vector<char> input(str, str+strlen(str));
+        Module m(input);
+        Parser p(m, false);
+        Expression *e = p.parse_function();
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), ls_happy);
+        if(p.status()==ls_error) {
+            std::cout << str << std::endl;
+            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+        }
+    }
+}
+
+// helper
+Module make_module(const char* str) {
+        std::vector<char> input(str, str+strlen(str));
+        return Module(input);
+}
+
 TEST(Parser, parse_solve) {
     const char* expression = "SOLVE states METHOD cnexp";
 

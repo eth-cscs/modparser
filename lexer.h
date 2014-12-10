@@ -38,7 +38,7 @@ enum TOK {
     tok_title,
     tok_neuron, tok_units, tok_parameter,
     tok_assigned, tok_state, tok_breakpoint,
-    tok_derivative, tok_procedure, tok_initial,
+    tok_derivative, tok_procedure, tok_initial, tok_function,
 
     // keywoards inside blocks
     tok_unitsoff, tok_unitson,

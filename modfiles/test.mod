@@ -71,3 +71,8 @@ DERIVATIVE states {
     h' = (hinf-h)/htau
 }
 
+FUNCTION okcinf(Vm)  {
+    LOCAL a
+    a = 1.25*(10^8)*(cai)*(cai)
+    okcinf = a/(a+b)
+}
