@@ -1,5 +1,7 @@
 #pragma once
 
+#include "expression.h"
+
 /// indicate how a variable is accessed
 /// access is (read, written, or both)
 /// the distinction between write only and read only is required because
@@ -37,9 +39,10 @@ enum ionKind {
     k_ion_K         ///< potassium ion
 };
 
-/// methods for time stepping state
-enum solverMethod {
-    k_cnexp // the only method we have at the moment
+/// ion channel that the variable belongs to
+enum callKind {
+    k_function,     ///< function call
+    k_procedure,    ///< procedure call
 };
 
 ///
@@ -47,16 +50,22 @@ enum solverMethod {
 ///
 class Identifier {
 public:
-    Identifier(std::string const& name)
-    :   name_(name)
+    Identifier(std::string const& name, Expression* e=nullptr)
+    :   name_(name), expression_(e)
     {}
 
-    virtual bool is_variable() const = 0;
-    virtual bool is_call()     const = 0;
+    virtual bool is_variable()  const = 0;
+    virtual bool is_procedure() const = 0;
+    virtual bool is_function()  const = 0;
 
     std::string const& name() const {return name_;}
+
+    Expression* expression() { return expression_; }
+    const Expression* expression() const { return expression_; }
+
 protected:
     std::string name_;
+    Expression *expression_;
 };
 
 ///
@@ -64,31 +73,24 @@ protected:
 ///
 class Call : public Identifier {
 public:
-    Call(std::string const& name, int n)
-        : Identifier(name), num_args_(n)
-    {}
+    Call(std::string const& name, callKind type, Expression* e)
+        : Identifier(name, e), type_(type)
+    {
+        // assert that the expression is actually an appropriate call expression
+        if(is_procedure()) {
+            assert(dynamic_cast<ProcedureExpression*>(e));
+        }
+        else {
+            assert(dynamic_cast<FunctionExpression*>(e));
+        }
+    }
 
     bool is_variable() const override {return false;}
-    bool is_call()     const override {return true;}
+    bool is_procedure() const {return type_==k_procedure;}
+    bool is_function()  const {return type_==k_function;}
 
 protected:
-    int num_args_;
-
-    // this has to store the AST for the function body
-};
-
-///
-/// procedure
-///
-class Procedure : public Call {
-public:
-    Procedure(std::string const& name, int n)
-        : Call(name, n)
-    {}
-
-    bool is_variable() const override {return false;}
-    bool is_call()     const override {return true;}
-private:
+    callKind type_;
 };
 
 /// definition of a variable
@@ -139,7 +141,8 @@ public:
     bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
 
     bool is_variable() const override {return true;}
-    bool is_call()     const override {return false;}
+    bool is_function() const override {return false;}
+    bool is_procedure() const override {return false;}
 protected:
     Variable();
 
@@ -183,13 +186,6 @@ static std::string to_string(linkageKind v) {
         case k_extern_link: return std::string("external");
     }
     return std::string("<error : undefined visibilityKind>");
-}
-
-static std::string to_string(solverMethod m) {
-    switch(m) {
-        case k_cnexp : return std::string("cnexp");
-    }
-    return std::string("<error : undefined solverMethod>");
 }
 
 // ostream writers

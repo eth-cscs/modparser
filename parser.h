@@ -7,7 +7,8 @@
 class Parser : public Lexer {
 public:
     explicit Parser(Module& m, bool advance=true);
-    bool description_pass();
+    bool parse();
+    bool semantic();
 
     Expression* parse_prototype();
     Expression* parse_high_level();
@@ -43,19 +44,21 @@ public:
     functions() const { return functions_; }
 
     std::unordered_map<std::string, Identifier*>&
-    identifiers() { return identifiers_; }
+    symbols() { return symbols_; }
 
     std::unordered_map<std::string, Identifier*>const&
-    identifiers() const { return identifiers_; }
+    symbols() const { return symbols_; }
 
 private:
     Module &module_;
 
     std::vector<Token> comma_separated_identifiers();
     std::vector<Token> unit_description();
-    std::vector<std::pair<Token, const char*>> verb_blocks_;
     std::vector<Expression *> procedures_;
     std::vector<Expression *> functions_;
+
+    // hash table for lookup of variable and call names
+    std::unordered_map<std::string, Identifier*> symbols_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
@@ -75,10 +78,11 @@ private:
     void skip_block();
 
     /// build the identifier list
-    void build_identifiers();
+    void add_variables_to_symbols();
 
     // helper function for logging errors
     void error(std::string msg);
+    void error(std::string msg, Location loc);
 
     // disable default and copy assignment
     Parser();
@@ -86,8 +90,5 @@ private:
 
     bool expect(TOK, const char *str="");
     bool expect(TOK, std::string const& str);
-
-    // hash table for lookup of variable and call names
-    std::unordered_map<std::string, Identifier*> identifiers_;
 };
 

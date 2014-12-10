@@ -25,27 +25,36 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // parse the module data
-    Parser p(m);
+    // initialize the parser
+    Parser p(m, false);
+
+    std::cout << "parsing " + colorize(argv[1], kGreen) + "..." << std::endl;
+
+    // parse
+    p.parse();
     if(p.status() != ls_happy) {
-        // return with error
+        std::cerr << colorize("error: ", kRed) << p.error_message() << std::endl;
         return 1;
     }
+    std::cout << "... parsed" << std::endl;
+
+    // semantic analysis
+    p.semantic();
+    if(p.status() != ls_happy) {
+        std::cerr << colorize("error: ", kRed) << p.error_message() << std::endl;
+        return 1;
+    }
+    std::cout << "... semantic analysis " << std::endl;
 
     #ifdef VERBOSE
     std::string twiz = colorize("=", kGreen) + colorize("=", kYellow) + colorize("=", kRed);
     twiz += twiz;
-    std::cout << twiz + " variables " + twiz << std::endl;
-    for(auto const &var : p.identifiers()) {
-        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
-    }
-    std::cout << twiz + " procedures " + twiz << std::endl;
-    for(auto const &proc: p.procedures()) {
-        std::cout << proc->to_string() << std::endl << std::endl;
-    }
-    std::cout << twiz + " functions " + twiz << std::endl;
-    for(auto const &fun: p.functions()) {
-        std::cout << fun->to_string() << std::endl << std::endl;
+    std::cout << twiz + " symbols " + twiz << std::endl;
+    for(auto const &var : p.symbols()) {
+        if(var.second->is_variable())
+            std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+        else
+            std::cout << var.second->expression()->to_string() << std::endl;
     }
     #endif
     #ifdef WITH_PROFILING
@@ -58,7 +67,5 @@ int main(int argc, char **argv) {
     }
     #endif
 
-    std::cout << "succesfully parsed " + colorize(argv[1], kGreen)
-              << std::endl;
     return 0;
 }

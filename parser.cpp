@@ -44,6 +44,18 @@ void Parser::error(std::string msg) {
     }
 }
 
+void Parser::error(std::string msg, Location loc) {
+    std::string location_info = pprintf("%:% ", module_.name(), loc);
+    if(status_==ls_error) {
+        // append to current string
+        error_string_ += "\n" + colorize(location_info, kGreen) + msg;
+    }
+    else {
+        error_string_ = colorize(location_info, kGreen) + msg;
+        status_ = ls_error;
+    }
+}
+
 Parser::Parser(Module& m, bool advance)
 :   module_(m),
     Lexer(m.buffer())
@@ -52,11 +64,11 @@ Parser::Parser(Module& m, bool advance)
     get_token();
 
     if(advance) {
-        description_pass();
+        parse();
     }
 }
 
-bool Parser::description_pass() {
+bool Parser::parse() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
     Expression *e; // for use when parsing blocks
@@ -114,20 +126,57 @@ bool Parser::description_pass() {
     std::cout << module_.assigned_block();
     */
 
-    // create the lookup information for the identifiers based on information
-    // in the descriptive blocks
-    build_identifiers();
-
     // check for errors when building identifier table
     if(status() == ls_error) {
         std::cerr << colorize("error : ", kRed) << error_string_ << std::endl;
         return false;
     }
 
-    // perform the second pass
-    // iterate of the verb blocks (functions, procedures, derivatives, etc...)
-    // and build their ASTs
-    // look up all symbols that were constructed in build_identifiers
+    return true;
+}
+
+bool Parser::semantic() {
+    // create the lookup information for the symbols based on information
+    // in the descriptive blocks
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create the symbol table
+    // there are three types of symbol to look up
+    //  1. variables
+    //  2. function calls
+    //  3. procedure calls
+    // the symbol table is generated, then we can traverse the AST and verify
+    // that all symbols are correctly used
+    ////////////////////////////////////////////////////////////////////////////
+
+    // first add variables
+    add_variables_to_symbols();
+
+    // add functions and procedures
+    //for(auto fun: functions_) {
+    for(auto f: functions_) {
+        auto fun = static_cast<FunctionExpression*>(f);
+        // check to see if the symbol has already been defined
+        bool is_found = (symbols_.find(fun->name()) != symbols_.end());
+        if(is_found) {
+            error( pprintf("function '%' clashes with previously defined symbol", fun->name()),
+                   fun->location() );
+            return false;
+        }
+        // add symbol to table
+        symbols_[fun->name()] = new Call(fun->name(), k_function, f);
+    }
+    for(auto p: procedures_) {
+        auto proc = static_cast<ProcedureExpression*>(p);
+        bool is_found = (symbols_.find(proc->name()) != symbols_.end());
+        if(is_found) {
+            error( pprintf("procedure '%' clashes with previously defined symbol", proc->name()),
+                   proc->location() );
+            return false;
+        }
+        // add symbol to table
+        symbols_[proc->name()] = new Call(proc->name(), k_procedure, p);
+    }
 
     return true;
 }
@@ -637,7 +686,7 @@ void Parser::parse_title() {
 }
 
 // must be called between the first and second parses
-void Parser::build_identifiers() {
+void Parser::add_variables_to_symbols() {
     // add state variables
     for(auto const &var : module_.state_block()) {
         Variable *id = new Variable(var);
@@ -651,7 +700,7 @@ void Parser::build_identifiers() {
         id->set_range(k_range);             // always a range
         id->set_access(k_readwrite);
 
-        identifiers_[var] = id;
+        symbols_[var] = id;
     }
 
     // add the parameters
@@ -680,7 +729,7 @@ void Parser::build_identifiers() {
             id->set_linkage(k_extern_link);
         }
 
-        identifiers_[name] = id;
+        symbols_[name] = id;
     }
 
     // add the assigned variables
@@ -697,19 +746,19 @@ void Parser::build_identifiers() {
         id->set_range(k_range);
         id->set_access(k_readwrite);
 
-        identifiers_[name] = id;
+        symbols_[name] = id;
     }
 
     ////////////////////////////////////////////////////
     // parse the NEURON block data, and use it to update
-    // the variables in identifiers_
+    // the variables in symbols_
     ////////////////////////////////////////////////////
     // first the ION channels
     for(auto const& ion : module_.neuron_block().ions) {
         // assume that the ion channel variable has already been declared
         // we check for this, and throw an error if not
         for(auto const& var : ion.read) {
-            auto id = dynamic_cast<Variable*>(identifiers_[var]);
+            auto id = dynamic_cast<Variable*>(symbols_[var]);
             if(id==nullptr) { // assert that variable is alredy set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -725,7 +774,7 @@ void Parser::build_identifiers() {
             id->set_ion_channel(ion.kind());
         }
         for(auto const& var : ion.write) {
-            auto id = dynamic_cast<Variable*>(identifiers_[var]);
+            auto id = dynamic_cast<Variable*>(symbols_[var]);
             if(id==nullptr) { // assert that variable is alredy set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -743,18 +792,18 @@ void Parser::build_identifiers() {
     }
     // then GLOBAL variables channels
     for(auto const& var : module_.neuron_block().globals) {
-        auto id = dynamic_cast<Variable*>(identifiers_[var]);
+        auto id = dynamic_cast<Variable*>(symbols_[var]);
         id->set_visibility(k_global_visibility);
     }
 
     // then RANGE variables
     for(auto const& var : module_.neuron_block().ranges) {
-        auto id = dynamic_cast<Variable*>(identifiers_[var]);
+        auto id = dynamic_cast<Variable*>(symbols_[var]);
         id->set_range(k_range);
     }
 
     /*
-    for(auto var : identifiers_) {
+    for(auto var : symbols_) {
         std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
     }
     */

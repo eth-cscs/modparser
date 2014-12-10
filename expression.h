@@ -3,11 +3,21 @@
 #include <string>
 #include <vector>
 
-#include "expression.h"
 #include "lexer.h"
 #include "util.h"
-#include "identifier.h"
 #include "visitor.h"
+
+/// methods for time stepping state
+enum solverMethod {
+    k_cnexp // the only method we have at the moment
+};
+
+static std::string to_string(solverMethod m) {
+    switch(m) {
+        case k_cnexp : return std::string("cnexp");
+    }
+    return std::string("<error : undefined solverMethod>");
+}
 
 class Expression {
 public:
