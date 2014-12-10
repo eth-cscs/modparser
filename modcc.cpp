@@ -33,17 +33,19 @@ int main(int argc, char **argv) {
     }
 
     #ifdef VERBOSE
-    std::cout << "====================================" << std::endl
-              << "            variables"                << std::endl
-              << "====================================" << std::endl;
+    std::string twiz = colorize("=", kGreen) + colorize("=", kYellow) + colorize("=", kRed);
+    twiz += twiz;
+    std::cout << twiz + " variables " + twiz << std::endl;
     for(auto const &var : p.identifiers()) {
         std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
     }
-    std::cout << "====================================" << std::endl
-              << "            procedures"               << std::endl
-              << "====================================" << std::endl;
+    std::cout << twiz + " procedures " + twiz << std::endl;
     for(auto const &proc: p.procedures()) {
         std::cout << proc->to_string() << std::endl << std::endl;
+    }
+    std::cout << twiz + " functions " + twiz << std::endl;
+    for(auto const &fun: p.functions()) {
+        std::cout << fun->to_string() << std::endl << std::endl;
     }
     #endif
     #ifdef WITH_PROFILING

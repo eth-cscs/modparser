@@ -222,6 +222,43 @@ private:
     std::vector<Expression *> body_;
 };
 
+class FunctionExpression : public Expression {
+public:
+    FunctionExpression( Location loc,
+                         std::string const& name,
+                         std::vector<Expression*> const& args,
+                         std::vector<Expression*>const & body)
+        : Expression(loc), name_(name), args_(args), body_(body)
+    {}
+
+    std::vector<Expression*> const& args() {
+        return args_;
+    }
+    std::vector<Expression*> const& body() {
+        return body_;
+    }
+    std::string const& name() const {
+        return name_;
+    }
+
+    std::string to_string() const override {
+        std::string str = colorize("function", kBlue) + " " + colorize(name_, kYellow) + "\n";
+        str += colorize("  args",kBlue) + " : ";
+        for(auto arg : args_)
+            str += arg->to_string() + " ";
+        str += "\n  "+colorize("body", kBlue)+" :";
+        for(auto ex : body_)
+            str += "\n    " + ex->to_string();
+
+        return str;
+    }
+
+private:
+    std::string name_;
+    std::vector<Expression *> args_;
+    std::vector<Expression *> body_;
+};
+
 ////////////////////////////////////////////////////////////
 // unary expressions
 ////////////////////////////////////////////////////////////

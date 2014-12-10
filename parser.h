@@ -23,17 +23,24 @@ public:
     Expression* parse_local();
     Expression* parse_solve();
 
+    Expression* parse_procedure();
+    Expression* parse_function();
+
     std::string const& error_message() {
         return error_string_;
     }
-
-    ProcedureExpression* parse_procedure();
 
     std::vector<Expression*>&
     procedures() { return procedures_; }
 
     std::vector<Expression*>const&
     procedures() const { return procedures_; }
+
+    std::vector<Expression*>&
+    functions() { return functions_; }
+
+    std::vector<Expression*>const&
+    functions() const { return functions_; }
 
     std::unordered_map<std::string, Identifier*>&
     identifiers() { return identifiers_; }
@@ -48,6 +55,7 @@ private:
     std::vector<Token> unit_description();
     std::vector<std::pair<Token, const char*>> verb_blocks_;
     std::vector<Expression *> procedures_;
+    std::vector<Expression *> functions_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
