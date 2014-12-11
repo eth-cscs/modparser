@@ -117,15 +117,6 @@ bool Parser::parse() {
         }
     }
 
-    // output the contents of the descriptive blocks
-    /*
-    std::cout << module_.state_block();
-    std::cout << module_.units_block();
-    std::cout << module_.parameter_block();
-    std::cout << module_.neuron_block();
-    std::cout << module_.assigned_block();
-    */
-
     // check for errors when building identifier table
     if(status() == ls_error) {
         std::cerr << colorize("error : ", kRed) << error_string_ << std::endl;
@@ -153,14 +144,16 @@ bool Parser::semantic() {
     add_variables_to_symbols();
 
     // add functions and procedures
-    //for(auto fun: functions_) {
     for(auto f: functions_) {
         auto fun = static_cast<FunctionExpression*>(f);
         // check to see if the symbol has already been defined
         bool is_found = (symbols_.find(fun->name()) != symbols_.end());
         if(is_found) {
-            error( pprintf("function '%' clashes with previously defined symbol", fun->name()),
-                   fun->location() );
+            error(
+                pprintf("function '%' clashes with previously defined symbol",
+                        fun->name()),
+                fun->location()
+            );
             return false;
         }
         // add symbol to table
@@ -170,8 +163,11 @@ bool Parser::semantic() {
         auto proc = static_cast<ProcedureExpression*>(p);
         bool is_found = (symbols_.find(proc->name()) != symbols_.end());
         if(is_found) {
-            error( pprintf("procedure '%' clashes with previously defined symbol", proc->name()),
-                   proc->location() );
+            error(
+                pprintf("procedure '%' clashes with previously defined symbol",
+                        proc->name()),
+                proc->location()
+            );
             return false;
         }
         // add symbol to table
@@ -932,12 +928,12 @@ Expression *Parser::parse_high_level() {
     return nullptr;
 }
 
-Expression *Parser::parse_identifier() {
+Expression *Parser::parse_variable() {
     assert(token_.type==tok_identifier);
 
     // save name and location of the identifier
     Token idtoken = token_;
-    Expression* id = new IdentifierExpression(token_.location, token_.name);
+    Expression* id = new VariableExpression(token_.location, token_.name);
 
     // consume identifier
     get_token();
@@ -1174,7 +1170,7 @@ Expression *Parser::parse_primary() {
             if( peek().type == tok_lparen ) {
                 return parse_call();
             }
-            return parse_identifier();
+            return parse_variable();
         case tok_lparen:
             return parse_parenthesis_expression();
         default: // fall through to return nullptr at end of function

@@ -41,9 +41,9 @@ protected:
 };
 
 // an identifier
-class IdentifierExpression : public Expression {
+class VariableExpression : public Expression {
 public:
-    IdentifierExpression(Location loc, std::string const& name)
+    VariableExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
     {
     }
@@ -56,7 +56,7 @@ public:
         return colorize(pprintf("%", name_), kYellow);
     }
 
-    ~IdentifierExpression() {}
+    ~VariableExpression() {}
 
     void accept(Visitor *v) override {v->visit(this);}
 protected:
@@ -65,10 +65,10 @@ protected:
 };
 
 // an identifier for a derivative
-class DerivativeExpression : public IdentifierExpression {
+class DerivativeExpression : public VariableExpression {
 public:
     DerivativeExpression(Location loc, std::string const& name)
-        : IdentifierExpression(loc, name)
+        : VariableExpression(loc, name)
     {
     }
 

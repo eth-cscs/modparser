@@ -4,7 +4,7 @@
 
 // forward declarations
 class Expression;
-class IdentifierExpression;
+class VariableExpression;
 class NumberExpression;
 class LocalExpression;
 class PrototypeExpression;
@@ -37,7 +37,7 @@ class PowBinaryExpression;
 class Visitor {
 public:
     virtual void visit(Expression *e)           { assert(false);                }
-    virtual void visit(IdentifierExpression *e) { visit((Expression*) e);       }
+    virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
     virtual void visit(NumberExpression *e)     { visit((Expression*) e);       }
     virtual void visit(LocalExpression *e)      { visit((Expression*) e);       }
     virtual void visit(PrototypeExpression *e)  { visit((Expression*) e);       }

@@ -12,7 +12,7 @@ public:
 
     PrototypeExpression* parse_prototype(std::string);
     Expression* parse_high_level();
-    Expression* parse_identifier();
+    Expression* parse_variable();
     Expression* parse_number();
     Expression* parse_call();
     Expression* parse_expression();
