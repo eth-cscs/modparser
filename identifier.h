@@ -1,7 +1,5 @@
 #pragma once
 
-#include "expression.h"
-
 /// indicate how a variable is accessed
 /// access is (read, written, or both)
 /// the distinction between write only and read only is required because
@@ -39,15 +37,61 @@ enum ionKind {
     k_ion_K         ///< potassium ion
 };
 
-/// ion channel that the variable belongs to
-enum callKind {
+enum symbolKind {
     k_function,     ///< function call
     k_procedure,    ///< procedure call
+    k_variable,     ///< variable at class scope
+    k_local         ///< variable at local scope
 };
+
+static std::string yesno(bool val) {
+    return std::string(val ? "yes" : "no");
+};
+
+// to_string functions
+static std::string to_string(ionKind i) {
+    switch(i) {
+        case k_ion_none : return std::string("none");
+        case k_ion_Ca   : return std::string("calcium");
+        case k_ion_Na   : return std::string("sodium");
+        case k_ion_K    : return std::string("potassium");
+    }
+    return std::string("<error : undefined ionKind>");
+}
+
+static std::string to_string(visibilityKind v) {
+    switch(v) {
+        case k_local_visibility : return std::string("local");
+        case k_global_visibility: return std::string("global");
+    }
+    return std::string("<error : undefined visibilityKind>");
+}
+
+static std::string to_string(linkageKind v) {
+    switch(v) {
+        case k_local_link : return std::string("local");
+        case k_extern_link: return std::string("external");
+    }
+    return std::string("<error : undefined visibilityKind>");
+}
+
+// ostream writers
+static std::ostream& operator<< (std::ostream& os, ionKind i) {
+    return os << to_string(i);
+}
+
+static std::ostream& operator<< (std::ostream& os, visibilityKind v) {
+    return os << to_string(v);
+}
+
+static std::ostream& operator<< (std::ostream& os, linkageKind l) {
+    return os << to_string(l);
+}
 
 ///
 /// base class for all identifier types (variables and functions)
 ///
+/*
 class Identifier {
 public:
     Identifier(std::string const& name, Expression* e=nullptr)
@@ -154,67 +198,6 @@ protected:
     ionKind        ion_channel_ = k_ion_none;
 };
 
-/*************************************************************************
-                   helpers for printing types
-*************************************************************************/
-static std::string yesno(bool val) {
-    return std::string(val ? "yes" : "no");
-};
-
-// to_string functions
-static std::string to_string(ionKind i) {
-    switch(i) {
-        case k_ion_none : return std::string("none");
-        case k_ion_Ca   : return std::string("calcium");
-        case k_ion_Na   : return std::string("sodium");
-        case k_ion_K    : return std::string("potassium");
-    }
-    return std::string("<error : undefined ionKind>");
-}
-
-static std::string to_string(visibilityKind v) {
-    switch(v) {
-        case k_local_visibility : return std::string("local");
-        case k_global_visibility: return std::string("global");
-    }
-    return std::string("<error : undefined visibilityKind>");
-}
-
-static std::string to_string(linkageKind v) {
-    switch(v) {
-        case k_local_link : return std::string("local");
-        case k_extern_link: return std::string("external");
-    }
-    return std::string("<error : undefined visibilityKind>");
-}
-
-// ostream writers
-static std::ostream& operator<< (std::ostream& os, ionKind i) {
-    return os << to_string(i);
-}
-
-static std::ostream& operator<< (std::ostream& os, visibilityKind v) {
-    return os << to_string(v);
-}
-
-static std::ostream& operator<< (std::ostream& os, linkageKind l) {
-    return os << to_string(l);
-}
-
-/*
-static std::ostream& operator<< (std::ostream& os, Variable const& V) {
-    os << colorize("Variable",kBlue) << " " << colorize(V.name(), kYellow) << std::endl;
-    os << "  write          : " << yesno(V.is_writeable()) << std::endl;
-    os << "  read           : " << yesno(V.is_readable()) << std::endl;
-    os << "  range kind     : " << (V.is_range() ? "range" : "scalar") << std::endl;
-    os << "  ion channel    : " << V.ion_channel() << std::endl;
-    os << "  visibility     : " << V.visibility() << std::endl;
-    os << "  linkage        : " << V.linkage() << std::endl;
-    os << "  state variable : " << yesno(V.is_state());
-    return os;
-}
-*/
-
 static std::ostream& operator<< (std::ostream& os, Variable const& V) {
     char name[17];
     snprintf(name, 17, "%-10s", V.name().c_str());
@@ -228,4 +211,4 @@ static std::ostream& operator<< (std::ostream& os, Variable const& V) {
     os << colorize("state", V.is_state() ? kGreen : kRed)    << ")";
     return os;
 }
-
+*/

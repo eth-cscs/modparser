@@ -157,7 +157,7 @@ bool Parser::semantic() {
             return false;
         }
         // add symbol to table
-        symbols_[fun->name()] = new Call(fun->name(), k_function, f);
+        symbols_[fun->name()] = Symbol(k_function, f);
     }
     for(auto p: procedures_) {
         auto proc = static_cast<ProcedureExpression*>(p);
@@ -171,7 +171,7 @@ bool Parser::semantic() {
             return false;
         }
         // add symbol to table
-        symbols_[proc->name()] = new Call(proc->name(), k_procedure, p);
+        symbols_[proc->name()] = Symbol(k_procedure, p);
     }
 
     return true;
@@ -209,7 +209,7 @@ void Parser::skip_block() {
 }
 
 // consume a comma separated list of identifiers
-// IMPORTANT: leaves the current location at begining of the last identifier in the list
+// NOTE: leaves the current location at begining of the last identifier in the list
 // OK:  empty list ""
 // OK:  list with one identifier "a"
 // OK:  list with mutiple identifier "a, b, c, d"
@@ -666,7 +666,7 @@ PrototypeExpression* Parser::parse_prototype(std::string name=std::string()) {
     }
     get_token(); // consume closing parenthesis
 
-    // TODO: make these LocalExpression
+    // pack the arguments into LocalExpressions
     std::vector<Expression*> arg_expressions;
     for(auto const& t : arg_tokens) {
         arg_expressions.push_back(new LocalExpression(t.location, t.name));
@@ -696,68 +696,70 @@ void Parser::parse_title() {
     get_token();
 }
 
-// must be called between the first and second parses
+/// populate the symbol table with class scope variables
 void Parser::add_variables_to_symbols() {
     // add state variables
     for(auto const &var : module_.state_block()) {
-        Variable *id = new Variable(var);
+        // TODO : using an empty Location because the source location is not
+        // recorded when a state block is parsed.
+        VariableExpression *id = new VariableExpression(Location(), var);
 
-        id->set_state(true);    // set state to true
+        id->state(true);    // set state to true
         // state variables are private
         //      what about if the state variables is an ion concentration?
-        id->set_linkage(k_local_link);
-        id->set_visibility(k_local_visibility);
-        id->set_ion_channel(k_ion_none);    // no ion channel
-        id->set_range(k_range);             // always a range
-        id->set_access(k_readwrite);
+        id->linkage(k_local_link);
+        id->visibility(k_local_visibility);
+        id->ion_channel(k_ion_none);    // no ion channel
+        id->range(k_range);             // always a range
+        id->access(k_readwrite);
 
-        symbols_[var] = id;
+        symbols_[var] = Symbol(k_variable, id);
     }
 
     // add the parameters
     for(auto const& var : module_.parameter_block()) {
         auto name = var.name();
-        Variable *id = new Variable(name);
+        VariableExpression *id = new VariableExpression(Location(), name);
 
-        id->set_state(false);           // never a state variable
-        id->set_linkage(k_local_link);
+        id->state(false);           // never a state variable
+        id->linkage(k_local_link);
         // parameters are visible to Neuron
-        id->set_visibility(k_global_visibility);
-        id->set_ion_channel(k_ion_none);
+        id->visibility(k_global_visibility);
+        id->ion_channel(k_ion_none);
         // scalar by default, may later be upgraded to range
-        id->set_range(k_scalar);
-        id->set_access(k_read);
+        id->range(k_scalar);
+        id->access(k_read);
 
         // check for 'special' variables
         if(name == "v") { // global voltage values
-            id->set_linkage(k_extern_link);
-            id->set_range(k_range);
+            id->linkage(k_extern_link);
+            id->range(k_range);
             // argh, the global version cannot be modified, however
             // the local ghost is sometimes modified
             // make this illegal, because it is probably sloppy programming
-            id->set_access(k_read);
+            id->access(k_read);
         } else if(name == "celcius") { // global celcius parameter
-            id->set_linkage(k_extern_link);
+            id->linkage(k_extern_link);
         }
 
-        symbols_[name] = id;
+        symbols_[name] = Symbol(k_variable, id);
     }
 
     // add the assigned variables
     for(auto const& var : module_.assigned_block()) {
         auto name = var.name();
-        Variable *id = new Variable(name);
+        VariableExpression *id = new VariableExpression(Location(), name);
 
-        id->set_state(false);           // never a state variable
-        id->set_linkage(k_local_link);
+        id->state(false);           // never a state variable
+        id->linkage(k_local_link);
         // local visibility by default
-        id->set_visibility(k_local_visibility);
-        id->set_ion_channel(k_ion_none); // can change later
+        id->visibility(k_local_visibility);
+        id->ion_channel(k_ion_none); // can change later
         // ranges because these are assigned to in loop
-        id->set_range(k_range);
-        id->set_access(k_readwrite);
+        id->range(k_range);
+        id->access(k_readwrite);
 
-        symbols_[name] = id;
+        symbols_[name] = Symbol(k_variable, id);
     }
 
     ////////////////////////////////////////////////////
@@ -769,7 +771,8 @@ void Parser::add_variables_to_symbols() {
         // assume that the ion channel variable has already been declared
         // we check for this, and throw an error if not
         for(auto const& var : ion.read) {
-            auto id = dynamic_cast<Variable*>(symbols_[var]);
+            auto id =
+                dynamic_cast<VariableExpression*>(symbols_[var].expression);
             if(id==nullptr) { // assert that variable is alredy set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -780,12 +783,13 @@ void Parser::add_variables_to_symbols() {
                 );
                 return;
             }
-            id->set_access(k_read);
-            id->set_visibility(k_global_visibility);
-            id->set_ion_channel(ion.kind());
+            id->access(k_read);
+            id->visibility(k_global_visibility);
+            id->ion_channel(ion.kind());
         }
         for(auto const& var : ion.write) {
-            auto id = dynamic_cast<Variable*>(symbols_[var]);
+            auto id =
+                dynamic_cast<VariableExpression*>(symbols_[var].expression);
             if(id==nullptr) { // assert that variable is alredy set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -796,28 +800,22 @@ void Parser::add_variables_to_symbols() {
                 );
                 return;
             }
-            id->set_access(k_write);
-            id->set_visibility(k_global_visibility);
-            id->set_ion_channel(ion.kind());
+            id->access(k_write);
+            id->visibility(k_global_visibility);
+            id->ion_channel(ion.kind());
         }
     }
     // then GLOBAL variables channels
     for(auto const& var : module_.neuron_block().globals) {
-        auto id = dynamic_cast<Variable*>(symbols_[var]);
-        id->set_visibility(k_global_visibility);
+        auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
+        id->visibility(k_global_visibility);
     }
 
     // then RANGE variables
     for(auto const& var : module_.neuron_block().ranges) {
-        auto id = dynamic_cast<Variable*>(symbols_[var]);
-        id->set_range(k_range);
+        auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
+        id->range(k_range);
     }
-
-    /*
-    for(auto var : symbols_) {
-        std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
-    }
-    */
 }
 
 /// parse a procedure
@@ -928,12 +926,12 @@ Expression *Parser::parse_high_level() {
     return nullptr;
 }
 
-Expression *Parser::parse_variable() {
+Expression *Parser::parse_identifier() {
     assert(token_.type==tok_identifier);
 
     // save name and location of the identifier
     Token idtoken = token_;
-    Expression* id = new VariableExpression(token_.location, token_.name);
+    Expression* id = new IdentifierExpression(token_.location, token_.name);
 
     // consume identifier
     get_token();
@@ -1170,7 +1168,7 @@ Expression *Parser::parse_primary() {
             if( peek().type == tok_lparen ) {
                 return parse_call();
             }
-            return parse_variable();
+            return parse_identifier();
         case tok_lparen:
             return parse_parenthesis_expression();
         default: // fall through to return nullptr at end of function

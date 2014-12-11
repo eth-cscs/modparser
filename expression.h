@@ -6,6 +6,7 @@
 #include "lexer.h"
 #include "util.h"
 #include "visitor.h"
+#include "identifier.h"
 
 /// methods for time stepping state
 enum solverMethod {
@@ -41,9 +42,9 @@ protected:
 };
 
 // an identifier
-class VariableExpression : public Expression {
+class IdentifierExpression : public Expression {
 public:
-    VariableExpression(Location loc, std::string const& name)
+    IdentifierExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
     {
     }
@@ -56,7 +57,7 @@ public:
         return colorize(pprintf("%", name_), kYellow);
     }
 
-    ~VariableExpression() {}
+    ~IdentifierExpression() {}
 
     void accept(Visitor *v) override {v->visit(this);}
 protected:
@@ -65,10 +66,10 @@ protected:
 };
 
 // an identifier for a derivative
-class DerivativeExpression : public VariableExpression {
+class DerivativeExpression : public IdentifierExpression {
 public:
     DerivativeExpression(Location loc, std::string const& name)
-        : VariableExpression(loc, name)
+        : IdentifierExpression(loc, name)
     {
     }
 
@@ -80,7 +81,6 @@ public:
 
     void accept(Visitor *v) override {v->visit(this);}
 };
-
 
 // a number
 class NumberExpression : public Expression {
@@ -120,6 +120,89 @@ private:
     // there has to be some pointer to a table of identifiers
     std::string name_;
 };
+
+// variable definition
+class VariableExpression : public Expression {
+public:
+    VariableExpression(Location loc, std::string const& name)
+        : Expression(loc), name_(name)
+    {}
+
+    std::string const& name() const {
+        return name_;
+    }
+
+    std::string to_string() const override {
+        //return colorize("variable", kBlue) + "  " + colorize(name_, kYellow);
+
+        char name[17];
+        snprintf(name, 17, "%-10s", name_.c_str());
+        std::string
+            s = colorize("variable",kBlue) + " " + colorize(name, kYellow) + "("
+              + colorize("write", is_writeable() ? kGreen : kRed) + ", "
+              + colorize("read", is_readable() ? kGreen : kRed)   + ", "
+              + (is_range() ? "range" : "scalar")                 + ", "
+              + "ion" + colorize(::to_string(ion_channel()), ion_channel()==k_ion_none ? kRed : kGreen)+ ", "
+              + "vis "  + ::to_string(visibility()) + ", "
+              + "link " + ::to_string(linkage())    + ", "
+              + colorize("state", is_state() ? kGreen : kRed) + ")";
+        return s;
+    }
+
+    void access(accessKind a) {
+        access_ = a;
+    }
+    void visibility(visibilityKind v) {
+        visibility_ = v;
+    }
+    void linkage(linkageKind l) {
+        linkage_ = l;
+    }
+    void range(rangeKind r) {
+        range_kind_ = r;
+    }
+    void ion_channel(ionKind i) {
+        ion_channel_ = i;
+    }
+    void state(bool s) {
+        is_state_ = s;
+    }
+
+    accessKind access() const {
+        return access_;
+    }
+    visibilityKind visibility() const {
+        return visibility_;
+    }
+    linkageKind linkage() const {
+        return linkage_;
+    }
+    ionKind ion_channel() const {
+        return ion_channel_;
+    }
+
+    bool is_ion()       const {return ion_channel_ != k_ion_none;}
+    bool is_state()     const {return is_state_;}
+    bool is_range()     const {return range_kind_  == k_range;}
+    bool is_scalar()    const {return !is_range();}
+    bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
+    bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
+
+    ~VariableExpression() {}
+
+    void accept(Visitor *v) override {v->visit(this);}
+protected:
+    // there has to be some pointer to a table of identifiers
+    std::string name_;
+
+    bool           is_state_    = false;
+    accessKind     access_      = k_readwrite;
+    visibilityKind visibility_  = k_local_visibility;
+    linkageKind    linkage_     = k_extern_link;
+    rangeKind      range_kind_  = k_range;
+    ionKind        ion_channel_ = k_ion_none;
+};
+
 
 // a SOLVE statement
 class SolveExpression : public Expression {

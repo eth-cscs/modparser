@@ -5,7 +5,7 @@
 
 #include "lexer.h"
 #include "util.h"
-#include "identifier.h"
+#include "expression.h"
 
 // describes a relationship with an ion channel
 struct IonDep {

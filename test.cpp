@@ -759,29 +759,6 @@ TEST(Parser, parse_line_expression) {
 }
 
 /**************************************************************
- * expression tests
- **************************************************************/
-TEST(Expression, variable_constructors) {
-    // check that default values for constructor work
-    {
-        Variable v("v");
-        v.set_range(k_range);
-        EXPECT_TRUE(v.is_range());
-        EXPECT_FALSE(v.is_scalar());
-
-        v.set_state(true);
-        EXPECT_TRUE(v.is_state());
-        v.set_state(false);
-        EXPECT_FALSE(v.is_state());
-
-        v.set_ion_channel(k_ion_Na);
-        EXPECT_TRUE(v.is_ion());
-        v.set_ion_channel(k_ion_none);
-        EXPECT_FALSE(v.is_ion());
-    }
-}
-
-/**************************************************************
  * main
  **************************************************************/
 int main(int argc, char **argv) {

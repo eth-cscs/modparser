@@ -51,10 +51,10 @@ int main(int argc, char **argv) {
     twiz += twiz;
     std::cout << twiz + " symbols " + twiz << std::endl;
     for(auto const &var : p.symbols()) {
-        if(var.second->is_variable())
-            std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
-        else
-            std::cout << var.second->expression()->to_string() << std::endl;
+        //if(var.second->is_variable())
+            //std::cout << *dynamic_cast<Variable*>(var.second) << std::endl;
+        //else
+            std::cout << var.second.expression->to_string() << std::endl;
     }
     #endif
     #ifdef WITH_PROFILING

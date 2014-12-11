@@ -4,6 +4,15 @@
 #include "lexer.h"
 #include "module.h"
 
+struct Symbol {
+    symbolKind kind;
+    Expression* expression;
+    Symbol() : expression(nullptr) {}
+    Symbol(symbolKind k, Expression* e)
+        : kind(k), expression(e)
+    {}
+};
+
 class Parser : public Lexer {
 public:
     explicit Parser(Module& m, bool advance=true);
@@ -12,7 +21,7 @@ public:
 
     PrototypeExpression* parse_prototype(std::string);
     Expression* parse_high_level();
-    Expression* parse_variable();
+    Expression* parse_identifier();
     Expression* parse_number();
     Expression* parse_call();
     Expression* parse_expression();
@@ -43,10 +52,10 @@ public:
     std::vector<Expression*>const&
     functions() const { return functions_; }
 
-    std::unordered_map<std::string, Identifier*>&
+    std::unordered_map<std::string, Symbol>&
     symbols() { return symbols_; }
 
-    std::unordered_map<std::string, Identifier*>const&
+    std::unordered_map<std::string, Symbol>const&
     symbols() const { return symbols_; }
 
 private:
@@ -58,7 +67,7 @@ private:
     std::vector<Expression *> functions_;
 
     // hash table for lookup of variable and call names
-    std::unordered_map<std::string, Identifier*> symbols_;
+    std::unordered_map<std::string, Symbol> symbols_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
