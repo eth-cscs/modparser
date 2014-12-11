@@ -37,13 +37,6 @@ enum ionKind {
     k_ion_K         ///< potassium ion
 };
 
-enum symbolKind {
-    k_function,     ///< function call
-    k_procedure,    ///< procedure call
-    k_variable,     ///< variable at class scope
-    k_local         ///< variable at local scope
-};
-
 static std::string yesno(bool val) {
     return std::string(val ? "yes" : "no");
 };

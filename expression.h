@@ -1,12 +1,14 @@
 #pragma once
 
+#include <iostream>
 #include <string>
 #include <vector>
 
-#include "lexer.h"
 #include "util.h"
-#include "visitor.h"
 #include "identifier.h"
+#include "lexer.h"
+#include "scope.h"
+#include "visitor.h"
 
 /// methods for time stepping state
 enum solverMethod {
@@ -34,11 +36,36 @@ public:
 
     Location const& location() const {return location_;};
 
+    Scope* scope() {return scope_;};
+
+    bool has_error() { return error_; }
+    std::string const& has_error() const { return error_string_; }
+
+    // perform semantic analysis
+    virtual void semantic(Scope*)             {assert(false);};
+    virtual void semantic(Scope::symbol_map&) {assert(false);};
+
+    // easy lookup of properties
+    virtual bool is_function_call()  const {return false;}
+    virtual bool is_procedure_call() const {return false;}
+    virtual bool is_identifier()     const {return false;}
+    virtual bool is_number()         const {return false;}
+    virtual bool is_binary()         const {return false;}
+    virtual bool is_unary()          const {return false;}
+    virtual bool is_assignment()     const {return false;}
+
     // force all derived classes to implement visitor
     // this might be a bad idea
-    virtual void accept(Visitor *v) = 0; //{v->visit(this);}
+    virtual void accept(Visitor *v) = 0;
+
 protected:
+    // these are used to flag errors when performing semantic analysis
+    bool error_=false;
+    std::string error_string_;
+
     Location location_;
+
+    Scope* scope_=nullptr;
 };
 
 // an identifier
@@ -46,8 +73,7 @@ class IdentifierExpression : public Expression {
 public:
     IdentifierExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
-    {
-    }
+    {}
 
     std::string const& name() const {
         return name_;
@@ -57,10 +83,18 @@ public:
         return colorize(pprintf("%", name_), kYellow);
     }
 
-    ~IdentifierExpression() {}
+    void semantic(Scope* scp) override;
+
+    Symbol symbol() { return symbol_; };
 
     void accept(Visitor *v) override {v->visit(this);}
+
+    bool is_identifier() const override {return true;}
+
+    ~IdentifierExpression() {}
 protected:
+    Symbol symbol_;
+
     // there has to be some pointer to a table of identifiers
     std::string name_;
 };
@@ -70,8 +104,7 @@ class DerivativeExpression : public IdentifierExpression {
 public:
     DerivativeExpression(Location loc, std::string const& name)
         : IdentifierExpression(loc, name)
-    {
-    }
+    {}
 
     std::string to_string() const override {
         return colorize("diff",kBlue) + "(" + colorize(name(), kYellow) + ")";
@@ -95,6 +128,8 @@ public:
         return colorize(pprintf("%", value_), kPurple);
     }
 
+    bool is_number() const override {return true;}
+
     ~NumberExpression() {}
 
     void accept(Visitor *v) override {v->visit(this);}
@@ -113,10 +148,15 @@ public:
         return colorize("local", kBlue) + " " + colorize(name_,kYellow);
     }
 
+    void semantic(Scope* scp) override;
+
+    Symbol symbol() {return symbol_;}
+
     ~LocalExpression() {}
 
     void accept(Visitor *v) override {v->visit(this);}
 private:
+    Symbol symbol_;
     // there has to be some pointer to a table of identifiers
     std::string name_;
 };
@@ -132,22 +172,7 @@ public:
         return name_;
     }
 
-    std::string to_string() const override {
-        //return colorize("variable", kBlue) + "  " + colorize(name_, kYellow);
-
-        char name[17];
-        snprintf(name, 17, "%-10s", name_.c_str());
-        std::string
-            s = colorize("variable",kBlue) + " " + colorize(name, kYellow) + "("
-              + colorize("write", is_writeable() ? kGreen : kRed) + ", "
-              + colorize("read", is_readable() ? kGreen : kRed)   + ", "
-              + (is_range() ? "range" : "scalar")                 + ", "
-              + "ion" + colorize(::to_string(ion_channel()), ion_channel()==k_ion_none ? kRed : kGreen)+ ", "
-              + "vis "  + ::to_string(visibility()) + ", "
-              + "link " + ::to_string(linkage())    + ", "
-              + colorize("state", is_state() ? kGreen : kRed) + ")";
-        return s;
-    }
+    std::string to_string() const override;
 
     void access(accessKind a) {
         access_ = a;
@@ -272,24 +297,21 @@ public:
         : Expression(loc), name_(name), args_(args)
     {}
 
-    std::vector<Expression*> const& args() {
-        return args_;
-    }
-    std::string const& name() const {
-        return name_;
-    }
+    std::vector<Expression*> const& args() { return args_; }
+    std::string const& name() const { return name_; }
 
-    std::string to_string() const override {
-        std::string str = colorize("call", kBlue) + " " + colorize(name_, kYellow) + " (";
-        for(auto arg : args_)
-            str += arg->to_string() + ", ";
-        str += ")";
+    void semantic(Scope* scp) override;
 
-        return str;
-    }
+    std::string to_string() const override;
 
     void accept(Visitor *v) override {v->visit(this);}
+
+    bool is_function_call()  const override {return symbol_.kind == k_function;}
+    bool is_procedure_call() const override {return symbol_.kind == k_procedure;}
 private:
+    Scope* scope_;
+    Symbol symbol_;
+
     std::string name_;
     std::vector<Expression *> args_;
 };
@@ -313,21 +335,16 @@ public:
         return name_;
     }
 
-    std::string to_string() const override {
-        std::string str = colorize("procedure", kBlue) + " " + colorize(name_, kYellow) + "\n";
-        str += colorize("  args",kBlue) + " : ";
-        for(auto arg : args_)
-            str += arg->to_string() + " ";
-        str += "\n  "+colorize("body", kBlue)+" :";
-        for(auto ex : body_)
-            str += "\n    " + ex->to_string();
+    void semantic(Scope::symbol_map &scp) override;
 
-        return str;
-    }
+    std::string to_string() const override;
 
     void accept(Visitor *v) override {v->visit(this);}
 
 private:
+    Scope* scope_;
+    Symbol symbol_;
+
     std::string name_;
     std::vector<Expression *> args_;
     std::vector<Expression *> body_;
@@ -352,21 +369,16 @@ public:
         return name_;
     }
 
-    std::string to_string() const override {
-        std::string str = colorize("function", kBlue) + " " + colorize(name_, kYellow) + "\n";
-        str += colorize("  args",kBlue) + " : ";
-        for(auto arg : args_)
-            str += arg->to_string() + " ";
-        str += "\n  "+colorize("body", kBlue)+" :";
-        for(auto ex : body_)
-            str += "\n    " + ex->to_string();
+    void semantic(Scope::symbol_map&) override;
 
-        return str;
-    }
+    std::string to_string() const override;
 
     void accept(Visitor *v) override {v->visit(this);}
 
 private:
+    Scope* scope_;
+    Symbol symbol_;
+
     std::string name_;
     std::vector<Expression *> args_;
     std::vector<Expression *> body_;
@@ -390,8 +402,12 @@ public:
         return pprintf("(% %)", colorize(token_string(op_),kGreen), e_->to_string());
     }
 
+    bool is_unary() const override {return true;};
+
     Expression* expression() {return e_;}
     const Expression* expression() const {return e_;}
+
+    void semantic(Scope* scp) override;
 
     void accept(Visitor *v) override {std::cout << "here unary\n"; v->visit(this);}
 };
@@ -468,6 +484,10 @@ public:
     const Expression* lhs() const {return lhs_;}
     const Expression* rhs() const {return rhs_;}
 
+    bool is_binary() const override {return true;}
+
+    void semantic(Scope* scp) override;
+
     std::string to_string() const {
         return pprintf("(% % %)", colorize(token_string(op_),kBlue), lhs_->to_string(), rhs_->to_string());
     }
@@ -481,9 +501,9 @@ public:
         : BinaryExpression(loc, tok_eq, lhs, rhs)
     {}
 
-    std::string to_string() const override {
-        return pprintf("(% % %)", colorize("=",kBlue), lhs_->to_string(), rhs_->to_string());
-    }
+    bool is_assignment() const override {return true;}
+
+    void semantic(Scope* scp) override;
 
     void accept(Visitor *v) override {v->visit(this);}
 };
@@ -493,10 +513,6 @@ public:
     AddBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_plus, lhs, rhs)
     {}
-
-    //std::string to_string() const override {
-        //return pprintf("(% % %)", colorize("=",kBlue), lhs_->to_string(), rhs_->to_string());
-    //}
 
     void accept(Visitor *v) override {v->visit(this);}
 };

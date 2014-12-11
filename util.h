@@ -83,3 +83,13 @@ static std::string colorize(std::string const& s, stringColor c) {
             return "\033[1;36m" + s + "\033[0m";
     }
 }
+
+template <typename T>
+std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
+    os << "[";
+    for(auto it = V.begin(); it!=V.end(); ++it) { // ugly loop, pretty printing
+        os << *it << (it==V.end()-1 ? "" : " ");
+    }
+    return os << "]";
+}
+

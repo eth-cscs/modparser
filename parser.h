@@ -4,15 +4,6 @@
 #include "lexer.h"
 #include "module.h"
 
-struct Symbol {
-    symbolKind kind;
-    Expression* expression;
-    Symbol() : expression(nullptr) {}
-    Symbol(symbolKind k, Expression* e)
-        : kind(k), expression(e)
-    {}
-};
-
 class Parser : public Lexer {
 public:
     explicit Parser(Module& m, bool advance=true);
@@ -83,8 +74,6 @@ private:
     void parse_parameter_block();
     void parse_assigned_block();
     void parse_title();
-
-    void skip_block();
 
     /// build the identifier list
     void add_variables_to_symbols();

@@ -94,9 +94,6 @@ struct AssignedBlock {
 ////////////////////////////////////////////////
 // helpers for pretty printing block information
 ////////////////////////////////////////////////
-template <typename T>
-static std::ostream& operator<< (std::ostream& os, std::vector<T> const& V); // forward declaration
-
 static std::ostream& operator<< (std::ostream& os, Token const& t) {
     return os << t.name;
 }
@@ -112,15 +109,6 @@ static std::ostream& operator<< (std::ostream& os, Id const& V) {
 
 static std::ostream& operator<< (std::ostream& os, UnitsBlock::units_pair const& p) {
     return os << "(" << p.first << ", " << p.second << ")";
-}
-
-template <typename T>
-static std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
-    os << "[";
-    for(auto it = V.begin(); it!=V.end(); ++it) { // ugly loop, pretty printing
-        os << *it << (it==V.end()-1 ? "" : " ");
-    }
-    return os << "]";
 }
 
 static std::ostream& operator<< (std::ostream& os, IonDep const& I) {

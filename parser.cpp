@@ -127,9 +127,6 @@ bool Parser::parse() {
 }
 
 bool Parser::semantic() {
-    // create the lookup information for the symbols based on information
-    // in the descriptive blocks
-
     ////////////////////////////////////////////////////////////////////////////
     // create the symbol table
     // there are three types of symbol to look up
@@ -174,38 +171,30 @@ bool Parser::semantic() {
         symbols_[proc->name()] = Symbol(k_procedure, p);
     }
 
-    return true;
-}
+    ////////////////////////////////////////////////////////////////////////////
+    // now iterate over the functions and procedures and perform semantic
+    // analysis on each. This includes
+    //  -   variable, function and procedure lookup
+    //  -   generate local variable table
+    ////////////////////////////////////////////////////////////////////////////
+    bool errors = false;
+    for(auto e : symbols_) {
+        Symbol s = e.second;
 
-// this will skip the block that follows
-// precondition:
-//      - current token in the stream is the opening brace of the block '{'
-void Parser::skip_block() {
-    //get_token(); // get the opening '{'
-    //assert(token_.type == tok_lbrace);
-
-    get_token(); // consume opening curly brace
-
-    int num_curlys = 0;
-    while(!(token_.type==tok_rbrace && num_curlys==0)) {
-        switch(token_.type) {
-            case tok_lbrace :
-                num_curlys++;
-                break;
-            case tok_rbrace :
-                num_curlys--;
-                break;
-            case tok_eof :
-                error("expect a closing } at the end of a block");
-                return;
-            default :
-                ;
+        if( s.kind == k_function || s.kind == k_procedure ) {
+            // first perform semantic analysis
+            //s.expression->semantic(symbols_);
+            // then use an error visitor to print out all the semantic errors
+            //ErrorVisitor* v = new ErrorVisitor();
+            //s.expression->accept(v);
+            //errors=v->found_errors();
         }
 
-        get_token(); // get the next token
+
     }
 
-    get_token(); //consume the final '}'
+
+    return !errors;
 }
 
 // consume a comma separated list of identifiers
@@ -315,8 +304,10 @@ void Parser::parse_neuron_block() {
             case tok_global :
                 // the ranges are a comma-seperated list of identifiers
                 {
-                    std::vector<Token> identifiers = comma_separated_identifiers();
-                    if(status_==ls_error) { // bail if there was an error reading the list
+                    std::vector<Token> identifiers =
+                        comma_separated_identifiers();
+                    // bail if there was an error reading the list
+                    if(status_==ls_error) {
                         return;
                     }
                     for(auto const &id : identifiers) {
@@ -329,7 +320,8 @@ void Parser::parse_neuron_block() {
             case tok_range  :
                 // the ranges are a comma-seperated list of identifiers
                 {
-                    std::vector<Token> identifiers = comma_separated_identifiers();
+                    std::vector<Token> identifiers =
+                        comma_separated_identifiers();
                     if(status_==ls_error) { // bail if there was an error reading the list
                         return;
                     }

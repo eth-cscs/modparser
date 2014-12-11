@@ -5,9 +5,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(BASE_SOURCES
+    scope.cpp
+    expression.cpp
     lexer.cpp
-    parser.cpp
     module.cpp
+    parser.cpp
 )
 
 set(TEST_SOURCES
