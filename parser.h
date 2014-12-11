@@ -10,7 +10,7 @@ public:
     bool parse();
     bool semantic();
 
-    Expression* parse_prototype();
+    PrototypeExpression* parse_prototype(std::string);
     Expression* parse_high_level();
     Expression* parse_identifier();
     Expression* parse_number();

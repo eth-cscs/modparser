@@ -107,8 +107,7 @@ class LocalExpression : public Expression {
 public:
     LocalExpression(Location loc, std::string const& name)
         : Expression(loc), name_(name)
-    {
-    }
+    {}
 
     std::string to_string() const override {
         return colorize("local", kBlue) + " " + colorize(name_,kYellow);
@@ -165,19 +164,18 @@ class PrototypeExpression : public Expression {
 public:
     PrototypeExpression(Location loc, std::string const& name, std::vector<Expression*> const& args)
         : Expression(loc), name_(name), args_(args)
-    {
-        //std::cout << colorize("PrototypeExpression", kGreen) << std::endl;
-    }
+    {}
 
     std::string const& name() const {return name_;}
+
+    std::vector<Expression*>&      args()       {return args_;}
+    std::vector<Expression*>const& args() const {return args_;}
 
     std::string to_string() const override {
         return name_ + pprintf("(% args : %)", args_.size(), args_);
     }
 
-    ~PrototypeExpression() {
-        //std::cout << colorize("~PrototypeExpression", kYellow) << std::endl;
-    }
+    ~PrototypeExpression() {}
 
     void accept(Visitor *v) override {v->visit(this);}
 private:

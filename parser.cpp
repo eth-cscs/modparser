@@ -632,8 +632,19 @@ unit_error:
     return tokens;
 }
 
-Expression* Parser::parse_prototype() {
+// Returns a prototype expression for a function or procedure call
+// Takes an optional argument that allows the user to specify the
+// name of the prototype, which is used for prototypes where the name
+// is implcitly defined (e.g. INITIAL and BREAKPOINT blocks)
+PrototypeExpression* Parser::parse_prototype(std::string name=std::string()) {
     Token identifier = token_;
+
+    if(name.size()) {
+        // we assume that the current token_ is still pointing at
+        // the keyword, i.e. INITIAL or BREAKPOINT
+        identifier.type = tok_identifier;
+        identifier.name = name;
+    }
 
     // load the parenthesis
     get_token();
@@ -659,9 +670,10 @@ Expression* Parser::parse_prototype() {
     }
     get_token(); // consume closing parenthesis
 
+    // TODO: make these LocalExpression
     std::vector<Expression*> arg_expressions;
     for(auto const& t : arg_tokens) {
-        arg_expressions.push_back(new IdentifierExpression(t.location, t.name));
+        arg_expressions.push_back(new LocalExpression(t.location, t.name));
     }
 
     return new PrototypeExpression(identifier.location, identifier.name, arg_expressions);
@@ -672,7 +684,10 @@ void Parser::parse_title() {
     int this_line = location().line;
 
     Token tok = peek();
-    while(tok.location.line==this_line && tok.type!=tok_eof && status_==ls_happy) {
+    while(   tok.location.line==this_line
+          && tok.type!=tok_eof
+          && status_==ls_happy)
+    {
         get_token();
         title += token_.name;
         tok = peek();
@@ -813,66 +828,34 @@ void Parser::add_variables_to_symbols() {
 /// can handle both PROCEDURE and INITIAL blocks
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
 Expression* Parser::parse_procedure() {
-    Token identifier;
-    std::vector<Expression*> args;
+    PrototypeExpression* proto = nullptr;
 
-    // the only difference between PROCEDURE and INITIAL blocks is how the prototype is handled
-    if(token_.type == tok_procedure) {
-        get_token(); // consume PROCEDURE token
+    switch( token_.type ) {
+        case tok_derivative:
+        case tok_procedure:
+            get_token(); // consume keyword token
 
-        // check that a valid identifier name was specified by the user
-        if( !expect( tok_identifier ) ) return nullptr;
-        identifier = token_; // save the identifier token
+            // check that a valid identifier name was specified by the user
+            if( !expect( tok_identifier ) ) return nullptr;
 
-        // consume the procedure name
-        get_token();
-
-        // get the argument list
-        if( !expect(tok_lparen) ) return nullptr;
-
-        // read the argument list
-        for(auto const& t : comma_separated_identifiers()) {
-            args.push_back(new IdentifierExpression(t.location, t.name));
-        }
-        get_token(); // comma_separated_identifiers doesn't consume last symbol in list
-
-        // check for closing left brace ) on parameter list
-        if(!expect(tok_rparen) || status()==ls_error) return nullptr;
-
-        get_token(); // consume ')'
-
+            proto = parse_prototype();
+            break;
+        case tok_initial:
+            proto = parse_prototype("initial");
+            break;
+        case tok_breakpoint:
+            proto = parse_prototype("breakpoint");
+            break;
+        default:
+            // it is a compiler error if trying to parse_procedure() without
+            // having DERIVATIVE, PROCEDURE, INITIAL or BREAKPOINT keyword
+            assert(false);
     }
-    else if(token_.type == tok_initial) {
-        // save false token used to create procedure with name initial
-        identifier.type = tok_identifier;
-        identifier.name = "initial";
-        identifier.location = location_;
-
-        get_token(); // consume IDENTIFIER
-    }
-    else if(token_.type == tok_breakpoint) {
-        // save false token used to create procedure with name initial
-        identifier.type = tok_identifier;
-        identifier.name = "breakpoint";
-        identifier.location = location_;
-
-        get_token(); // consume BREAKPOINT
-    }
-    else if(token_.type == tok_derivative) {
-        get_token(); // eat DERIVATIVE
-
-        // check that a valid identifier name was specified by the user
-        if( !expect( tok_identifier ) ) return nullptr;
-        identifier = token_; // save the identifier token
-
-        get_token(); // eat procedure name
-    }
-    else assert(false); // should never be called in this case
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
+    get_token(); // consume left brace '{'
 
-    get_token();
     std::vector<Expression*> body;
 
     while(1) {
@@ -887,38 +870,24 @@ Expression* Parser::parse_procedure() {
         body.push_back(e);
     }
 
-    get_token(); // eat closing '}'
+    get_token(); // consume closing '}'
 
-    return new ProcedureExpression( identifier.location, identifier.name, args, body);
+    return new ProcedureExpression(
+                    proto->location(), proto->name(), proto->args(), body);
 }
 
 Expression* Parser::parse_function() {
-    Token identifier;
-    std::vector<Expression*> args;
+    // check for compiler implementation error
     assert(token_.type == tok_function);
 
     get_token(); // consume FUNCTION token
 
     // check that a valid identifier name was specified by the user
     if( !expect( tok_identifier ) ) return nullptr;
-    identifier = token_; // save the identifier token
 
-    // consume the procedure name
-    get_token();
-
-    // get the argument list
-    if( !expect(tok_lparen) ) return nullptr;
-
-    // read the argument list
-    for(auto const& t : comma_separated_identifiers()) {
-        args.push_back(new IdentifierExpression(t.location, t.name));
-    }
-    get_token(); // comma_separated_identifiers doesn't consume last symbol in list
-
-    // check for closing left brace ) on parameter list
-    if(!expect(tok_rparen) || status()==ls_error) return nullptr;
-
-    get_token(); // consume ')'
+    // parse the prototype
+    PrototypeExpression *proto = parse_prototype();
+    if(proto==nullptr) return nullptr;
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
@@ -940,7 +909,8 @@ Expression* Parser::parse_function() {
 
     get_token(); // eat closing '}'
 
-    return new FunctionExpression( identifier.location, identifier.name, args, body);
+    return new FunctionExpression(
+            proto->location(), proto->name(), proto->args(), body);
 }
 
 // this is the first port of call when parsing a new line inside a verb block
