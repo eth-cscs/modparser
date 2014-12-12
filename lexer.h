@@ -80,7 +80,7 @@ struct Location {
 };
 
 static std::ostream& operator<< (std::ostream& os, Location const& L) {
-    return os << L.line << ":" << L.column;
+    return os << "(line " << L.line << ",col " << L.column << ")";
 }
 
 // what is in a token?

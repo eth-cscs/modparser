@@ -22,9 +22,9 @@ private:
     template <typename ExpressionType>
     void print_error(ExpressionType *e) {
         if(e->has_error()) {
-            auto location_info = pprintf("%:% ", module_name_, e->location());
-            auto header = colorize("error ", kRed) + colorize(location_info, kGreen);
-            std::cout << header << " "
+            auto header = colorize("error: ", kRed)
+                        + colorize(pprintf("%:% ", module_name_, e->location()), kWhite);
+            std::cout << header << "\n  "
                       << e->error_message()
                       << std::endl;
             num_errors_++;

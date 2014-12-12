@@ -9,7 +9,7 @@
 
 int main(int argc, char **argv) {
     if(argc < 2) {
-        std::cout << colorize("error: ", kRed)
+        std::cout << red("error: ")
                   << "requires file name to parse" << std::endl;
         return 1;
     }
@@ -19,8 +19,7 @@ int main(int argc, char **argv) {
 
     // check that the module is not empty
     if(m.buffer().size()==0) {
-        std::cout << colorize("error: ", kRed)
-                  << colorize(argv[1], kGreen)
+        std::cout << red("error: ") << white(argv[1])
                   << " invalid or empty file" << std::endl;
         return 1;
     }
@@ -28,26 +27,18 @@ int main(int argc, char **argv) {
     // initialize the parser
     Parser p(m, false);
 
-    std::cout << "parsing " + colorize(argv[1], kGreen) + "..." << std::endl;
-
     // parse
+    std::cout << green("[") + "parsing" + green("]") << std::endl;
     p.parse();
-    if(p.status() != ls_happy) {
-        std::cerr << colorize("error: ", kRed) << p.error_message() << std::endl;
-        return 1;
-    }
-    std::cout << "... parsed" << std::endl;
+    if(p.status() == ls_error) return 1;
 
     // semantic analysis
+    std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
     p.semantic();
-    if(p.status() != ls_happy) {
-        std::cerr << colorize("error: ", kRed) << p.error_message() << std::endl;
-        return 1;
-    }
-    std::cout << "... semantic analysis " << std::endl;
+    if(p.status() == ls_error) return 1;
 
     #ifdef VERBOSE
-    std::string twiz = colorize("=", kGreen) + colorize("=", kYellow) + colorize("=", kRed);
+    std::string twiz = green("=") + yellow("=") + red("=");
     twiz += twiz;
     std::cout << twiz + " symbols " + twiz << std::endl;
     for(auto const &var : p.symbols()) {

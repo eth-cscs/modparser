@@ -37,10 +37,10 @@ void Parser::error(std::string msg) {
     std::string location_info = pprintf("%:% ", module_.name(), token_.location);
     if(status_==ls_error) {
         // append to current string
-        error_string_ += "\n" + colorize(location_info, kGreen) + msg;
+        error_string_ += "\n" + colorize(location_info, kWhite) + "\n  " +msg;
     }
     else {
-        error_string_ = colorize(location_info, kGreen) + msg;
+        error_string_ = colorize(location_info, kWhite) + "\n  " + msg;
         status_ = ls_error;
     }
 }
@@ -113,15 +113,9 @@ bool Parser::parse() {
                 break;
         }
         if(status() == ls_error) {
-            std::cerr << colorize("error: ", kRed) << error_string_ << std::endl;
+            std::cerr << red("error: ") << error_string_ << std::endl;
             return false;
         }
-    }
-
-    // check for errors when building identifier table
-    if(status() == ls_error) {
-        std::cerr << colorize("error : ", kRed) << error_string_ << std::endl;
-        return false;
     }
 
     return true;
@@ -140,6 +134,14 @@ bool Parser::semantic() {
 
     // first add variables
     add_variables_to_symbols();
+
+    // Check for errors when adding variables to the symbol table
+    // Don't quit if there is an error, instead continue with the
+    // semantic analysis so that error messages for other errors can
+    // be displayed
+    if(status() == ls_error) {
+        std::cerr << red("error: ") << error_string_ << std::endl;
+    }
 
     // add functions and procedures
     for(auto f: functions_) {
@@ -189,14 +191,16 @@ bool Parser::semantic() {
             ErrorVisitor* v = new ErrorVisitor(module_.name());
             s.expression->accept(v);
             errors += v->num_errors();
+            delete v;
         }
     }
 
     if(errors) {
-        std::cout << "encountered " << errors << " errors" << std::endl;
+        std::cout << "\nthere were " << errors << " errors in semantic analysis" << std::endl;
+        status_ = ls_error;
     }
 
-    return errors==0;
+    return status() == ls_happy;
 }
 
 // consume a comma separated list of identifiers

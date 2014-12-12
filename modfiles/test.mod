@@ -3,8 +3,8 @@
 NEURON  {
     THREADSAFE
     SUFFIX KdShu2007
-    USEION Ca WRITE ik READ ki
-    RANGE  gkbar, ik, ek, ki
+    USEION Ca WRITE ik READ ki, cai
+    RANGE  gkbar, ik, ek, ki, cai
     GLOBAL minf, mtau, hinf, htau
 }
 
@@ -22,6 +22,7 @@ UNITS   {
 }
 
 PARAMETER {
+    cai
     gkbar   = 0.1  (mho/cm2)
     celsius
     ek      = -100 (mV)    : must be explicitly def. in hoc
@@ -73,6 +74,7 @@ DERIVATIVE states {
 
 FUNCTION okcinf(Vm)  {
     LOCAL a
+    LOCAL b
     a = 1.25*(10^8)*(cai)*(cai)
     okcinf = a/(a+b)
 }

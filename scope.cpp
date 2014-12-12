@@ -28,8 +28,8 @@ Symbol::Symbol(symbolKind k, Expression* e)
 }
 
 std::string Symbol::to_string() const {
-    std::string s = colorize("symbol", kBlue) + " ";
-    s += "(" + colorize(::to_string(kind), kGreen) + ")";
+    std::string s = blue("symbol") + " ";
+    s += "(" + green(::to_string(kind)) + ")";
     return s;
 }
 
@@ -39,7 +39,7 @@ Scope::Scope(symbol_map &s)
 
 Symbol Scope::add_local_symbol(std::string const& name, Expression* e) {
     // check to see if the symbol already exists
-    if( local_symbols_.find(name) == local_symbols_.end() ) {
+    if( local_symbols_.find(name) != local_symbols_.end() ) {
         return Symbol();
     }
 
@@ -76,13 +76,17 @@ std::string Scope::to_string() const {
     std::string s;
     char buffer[16];
 
-    s += colorize("Scope", kBlue) + "\n";
-    s += colorize("  global scope :\n", kBlue);
+    s += blue("Scope") + "\n";
+    s += blue("  global :\n");
     for(auto sym : *global_symbols_) {
         snprintf(buffer, 16, "%-15s", sym.first.c_str());
-        s += "    " + colorize(buffer,kYellow) + " " + sym.second.to_string() + "\n";
+        s += "    " + yellow(buffer) + " " + sym.second.to_string() + "\n";
     }
-    s += colorize("  local scope  :\n", kBlue);
+    s += blue("  local  :\n");
+    for(auto sym : local_symbols_) {
+        snprintf(buffer, 16, "%-15s", sym.first.c_str());
+        s += "    " + yellow(buffer) + " " + sym.second.to_string() + "\n";
+    }
 
     return s;
 }
