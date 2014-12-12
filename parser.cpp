@@ -1308,7 +1308,7 @@ Expression *Parser::parse_solve() {
 solve_statment_error:
     error( "SOLVE statements must have the form\n"
            "  SOLVE x METHOD cnexp\n"
-           "where 'x' is the name of a DERIVATIVE block");
+           "where 'x' is the name of a DERIVATIVE block", loc);
     return nullptr;
 }
 
