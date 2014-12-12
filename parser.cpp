@@ -1276,6 +1276,7 @@ Expression *Parser::parse_local() {
 Expression *Parser::parse_solve() {
     assert(token_.type==tok_solve);
     int line = location_.line;
+    Location loc = location_; // solve location for expression
     std::string name;
     solverMethod method;
 
@@ -1302,7 +1303,7 @@ Expression *Parser::parse_solve() {
         if(token_.type != tok_eof) goto solve_statment_error;
     }
 
-    return new SolveExpression(location_, name, method);
+    return new SolveExpression(loc, name, method);
 
 solve_statment_error:
     error( "SOLVE statements must have the form\n"
