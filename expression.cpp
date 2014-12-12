@@ -1,5 +1,11 @@
 #include "expression.h"
 
+void Expression::semantic(Scope*) {
+    error_ = true;
+    error_string_ =
+        pprintf("I don't know how to semantic() the expression @ %", location_);
+}
+
 void IdentifierExpression::semantic(Scope* scp) {
     scope_ = scp;
 
@@ -27,7 +33,14 @@ void IdentifierExpression::semantic(Scope* scp) {
 void LocalExpression::semantic(Scope* scp) {
     scope_ = scp;
 
+    std::cout << colorize("==", kPurple)
+              << "looking up LOCAL " << name_ << std::endl;
     Symbol s = scope_->find(name_);
+
+    std::cout << colorize("====", kPurple)
+              << "s.expression " << (s.expression ? "yes" : "no") << std::endl;
+    std::cout << colorize("====", kPurple)
+              << "s.kind " << ::to_string(s.kind) << std::endl;
 
     // First check that the variable is undefined
     // Note that we allow for local variables with the same name as
@@ -139,10 +152,12 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
         a->semantic(scope_);
     }
 
+    std::cout << scope_->to_string() << std::endl;
     // perform semantic analysis for each expression in the body
     for(auto e : body_) {
         e->semantic(scope_);
     }
+    std::cout << scope_->to_string() << std::endl;
 
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
@@ -173,11 +188,21 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
 
 void UnaryExpression::semantic(Scope* scp) {
     e_->semantic(scp);
+
+    if(e_->is_procedure_call() || e_->is_procedure_call()) {
+        error_ = true;
+        error_string_ = "a procedure call can't be part of an expression";
+    }
 }
 
 void BinaryExpression::semantic(Scope* scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
+
+    if(rhs_->is_procedure_call() || lhs_->is_procedure_call()) {
+        error_ = true;
+        error_string_ = "a procedure call can't be part of an expression";
+    }
 }
 
 void AssignmentExpression::semantic(Scope* scp) {

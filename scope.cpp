@@ -1,6 +1,41 @@
 #include "scope.h"
+#include "util.h"
 
-Scope::Scope(symbol_map &s) : global_symbols_(&s) {};
+std::string to_string(symbolKind k) {
+    switch (k) {
+        case k_variable:
+            return std::string("global");
+        case k_local:
+            return std::string("local");
+        case k_procedure:
+            return std::string("procedure");
+        case k_function:
+            return std::string("function");
+        case k_no_symbol:
+            return std::string("none");
+    }
+}
+
+Symbol::Symbol()
+    : kind(k_no_symbol), expression(nullptr)
+{}
+
+Symbol::Symbol(symbolKind k, Expression* e)
+    : kind(k), expression(e)
+{
+    // should never have a non-null pointer and invalid symbol
+    assert(!(k==k_no_symbol && e));
+}
+
+std::string Symbol::to_string() const {
+    std::string s = colorize("symbol", kBlue) + " ";
+    s += "(" + colorize(::to_string(kind), kGreen) + ")";
+    return s;
+}
+
+Scope::Scope(symbol_map &s)
+    : global_symbols_(&s)
+{}
 
 Symbol Scope::add_local_symbol(std::string const& name, Expression* e) {
     // check to see if the symbol already exists
@@ -15,7 +50,7 @@ Symbol Scope::add_local_symbol(std::string const& name, Expression* e) {
     return s;
 }
 
-Symbol Scope::find(std::string const& name) {
+Symbol Scope::find(std::string const& name) const {
     // search in local symbols
     auto local = local_symbols_.find(name);
 
@@ -35,5 +70,20 @@ Symbol Scope::find(std::string const& name) {
     // the symbol was not found
     // return a symbol with nullptr for expression
     return Symbol();
+}
+
+std::string Scope::to_string() const {
+    std::string s;
+    char buffer[16];
+
+    s += colorize("Scope", kBlue) + "\n";
+    s += colorize("  global scope :\n", kBlue);
+    for(auto sym : *global_symbols_) {
+        snprintf(buffer, 16, "%-15s", sym.first.c_str());
+        s += "    " + colorize(buffer,kYellow) + " " + sym.second.to_string() + "\n";
+    }
+    s += colorize("  local scope  :\n", kBlue);
+
+    return s;
 }
 

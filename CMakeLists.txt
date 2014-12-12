@@ -5,6 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(BASE_SOURCES
+    errorvisitor.cpp
     scope.cpp
     expression.cpp
     lexer.cpp

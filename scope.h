@@ -6,7 +6,6 @@
 
 // forward declarations
 class Expression;
-class LocalExpression;
 
 enum symbolKind {
     k_function,     ///< function call
@@ -20,16 +19,10 @@ struct Symbol {
     symbolKind kind;
     Expression* expression;
 
-    Symbol()
-        : kind(k_no_symbol), expression(nullptr)
-    {}
+    Symbol();
+    Symbol(symbolKind k, Expression* e);
 
-    Symbol(symbolKind k, Expression* e)
-        : kind(k), expression(e)
-    {
-        // we never want a non-null pointer and invalide symbol
-        assert(!(k==k_no_symbol && e));
-    }
+    std::string to_string() const;
 };
 
 class Scope {
@@ -38,10 +31,12 @@ public:
 
     Scope(symbol_map& s);
     Symbol add_local_symbol(std::string const& name, Expression* e);
-    Symbol find(std::string const& name);
+    Symbol find(std::string const& name) const;
+    std::string to_string() const;
 
 private:
     symbol_map* global_symbols_=nullptr;
     symbol_map  local_symbols_;
 };
 
+std::string to_string(symbolKind k);

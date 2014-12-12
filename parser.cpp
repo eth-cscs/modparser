@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "util.h"
+#include "errorvisitor.h"
 #include "perfvisitor.h"
 
 // specialize on const char* for lazy evaluation of compile time strings
@@ -177,24 +178,25 @@ bool Parser::semantic() {
     //  -   variable, function and procedure lookup
     //  -   generate local variable table
     ////////////////////////////////////////////////////////////////////////////
-    bool errors = false;
+    int errors = 0;
     for(auto e : symbols_) {
         Symbol s = e.second;
 
         if( s.kind == k_function || s.kind == k_procedure ) {
             // first perform semantic analysis
-            //s.expression->semantic(symbols_);
+            s.expression->semantic(symbols_);
             // then use an error visitor to print out all the semantic errors
-            //ErrorVisitor* v = new ErrorVisitor();
-            //s.expression->accept(v);
-            //errors=v->found_errors();
+            ErrorVisitor* v = new ErrorVisitor(module_.name());
+            s.expression->accept(v);
+            errors += v->num_errors();
         }
-
-
     }
 
+    if(errors) {
+        std::cout << "encountered " << errors << " errors" << std::endl;
+    }
 
-    return !errors;
+    return errors==0;
 }
 
 // consume a comma separated list of identifiers

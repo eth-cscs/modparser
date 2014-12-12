@@ -5,7 +5,7 @@
 #include "parser.h"
 #include "util.h"
 
-#define VERBOSE
+//#define VERBOSE
 
 int main(int argc, char **argv) {
     if(argc < 2) {

@@ -39,10 +39,10 @@ public:
     Scope* scope() {return scope_;};
 
     bool has_error() { return error_; }
-    std::string const& has_error() const { return error_string_; }
+    std::string const& error_message() const { return error_string_; }
 
     // perform semantic analysis
-    virtual void semantic(Scope*)             {assert(false);};
+    virtual void semantic(Scope*);
     virtual void semantic(Scope::symbol_map&) {assert(false);};
 
     // easy lookup of properties
@@ -127,6 +127,9 @@ public:
     std::string to_string() const override {
         return colorize(pprintf("%", value_), kPurple);
     }
+
+    // do nothing for number semantic analysis
+    void semantic(Scope* scp) override {};
 
     bool is_number() const override {return true;}
 

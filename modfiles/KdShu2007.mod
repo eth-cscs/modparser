@@ -38,22 +38,22 @@ STATE {
     m h
 }
 
-BREAKPOINT {
-    SOLVE states METHOD cnexp
-    ik = gkbar * m*h*(v-ek)
-}
+:BREAKPOINT {
+:    SOLVE states METHOD cnexp
+:    ik = gkbar * m*h*(v-ek)
+:}
 
-INITIAL {
-    trates(v)
-    m=minf
-    h=hinf
-}
+:INITIAL {
+:    trates(v)
+:    m=minf
+:    h=hinf
+:}
 
-DERIVATIVE states {
-    trates(v)
-    m' = (minf-m)/mtau
-    h' = (hinf-h)/htau
-}
+:DERIVATIVE states {
+:    trates(v)
+:    m' = (minf-m)/mtau
+:    h' = (hinf-h)/htau
+:}
 
 PROCEDURE trates(v) {
     LOCAL qt
