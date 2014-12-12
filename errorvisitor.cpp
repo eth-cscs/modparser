@@ -50,14 +50,3 @@ void ErrorVisitor::visit(CallExpression *e) {
     }
 }
 
-/*
-void ErrorVisitor::print_message(Expression *e) {
-    if(e->has_error()) {
-        std::cout << colorize("error", kRed) << ":"
-                    << e->location() << " "
-                    << e->error_message()
-                    << std::endl;
-        num_errors_++;
-    }
-}
-*/

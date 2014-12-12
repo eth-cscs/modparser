@@ -80,7 +80,7 @@ public:
     }
 
     std::string to_string() const override {
-        return colorize(pprintf("%", name_), kYellow);
+        return yellow(pprintf("%", name_));
     }
 
     void semantic(Scope* scp) override;
@@ -107,7 +107,7 @@ public:
     {}
 
     std::string to_string() const override {
-        return colorize("diff",kBlue) + "(" + colorize(name(), kYellow) + ")";
+        return blue("diff") + "(" + yellow(name()) + ")";
     }
 
     ~DerivativeExpression() {}
@@ -125,7 +125,7 @@ public:
     double value() const {return value_;};
 
     std::string to_string() const override {
-        return colorize(pprintf("%", value_), kPurple);
+        return purple(pprintf("%", value_));
     }
 
     // do nothing for number semantic analysis
@@ -148,7 +148,7 @@ public:
     {}
 
     std::string to_string() const override {
-        return colorize("local", kBlue) + " " + colorize(name_,kYellow);
+        return blue("local") + " " + yellow(name_);
     }
 
     void semantic(Scope* scp) override;
@@ -240,7 +240,7 @@ public:
     {}
 
     std::string to_string() const override {
-        return colorize("solve", kBlue) + "(" + colorize(name_,kYellow) + ", " + colorize(::to_string(method_),kGreen) + ")";
+        return blue("solve") + "(" + yellow(name_) + ", " + green(::to_string(method_)) + ")";
     }
 
     std::string const& name() const {
@@ -402,7 +402,7 @@ public:
     {}
 
     std::string to_string() const {
-        return pprintf("(% %)", colorize(token_string(op_),kGreen), e_->to_string());
+        return pprintf("(% %)", green(token_string(op_)), e_->to_string());
     }
 
     bool is_unary() const override {return true;};
@@ -492,7 +492,7 @@ public:
     void semantic(Scope* scp) override;
 
     std::string to_string() const {
-        return pprintf("(% % %)", colorize(token_string(op_),kBlue), lhs_->to_string(), rhs_->to_string());
+        return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
     }
 
     void accept(Visitor *v) override {v->visit(this);}

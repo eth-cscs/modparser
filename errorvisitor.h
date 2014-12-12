@@ -22,8 +22,7 @@ private:
     template <typename ExpressionType>
     void print_error(ExpressionType *e) {
         if(e->has_error()) {
-            auto header = colorize("error: ", kRed)
-                        + colorize(pprintf("%:% ", module_name_, e->location()), kWhite);
+            auto header = red("error: ") + white(pprintf("%:% ", module_name_, e->location()));
             std::cout << header << "\n  "
                       << e->error_message()
                       << std::endl;

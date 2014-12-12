@@ -1,6 +1,0 @@
-Lexer and parser for the .mod file DSL used in Neuorn.
-
-The aim is to
-    - lex and construct the AST for mod files.
-    - perform analysis across modules for optimization
-    - make it possible to generate output in any language

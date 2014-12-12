@@ -15,7 +15,7 @@ bool Parser::expect(TOK tok, const char* str) {
     error(
         strlen(str)>0 ?
             str
-        :   std::string("unexpected token ")+colorize(token_.name, kYellow));
+        :   std::string("unexpected token ")+yellow(token_.name));
 
     return false;
 }
@@ -28,7 +28,7 @@ bool Parser::expect(TOK tok, std::string const& str) {
     error(
         str.size()>0 ?
             str
-        :   std::string("unexpected token ")+colorize(token_.name, kYellow));
+        :   std::string("unexpected token ")+yellow(token_.name));
 
     return false;
 }
@@ -37,10 +37,10 @@ void Parser::error(std::string msg) {
     std::string location_info = pprintf("%:% ", module_.name(), token_.location);
     if(status_==ls_error) {
         // append to current string
-        error_string_ += "\n" + colorize(location_info, kWhite) + "\n  " +msg;
+        error_string_ += "\n" + white(location_info) + "\n  " +msg;
     }
     else {
-        error_string_ = colorize(location_info, kWhite) + "\n  " + msg;
+        error_string_ = white(location_info) + "\n  " + msg;
         status_ = ls_error;
     }
 }
@@ -49,10 +49,10 @@ void Parser::error(std::string msg, Location loc) {
     std::string location_info = pprintf("%:% ", module_.name(), loc);
     if(status_==ls_error) {
         // append to current string
-        error_string_ += "\n" + colorize(location_info, kGreen) + msg;
+        error_string_ += "\n" + green(location_info) + msg;
     }
     else {
-        error_string_ = colorize(location_info, kGreen) + msg;
+        error_string_ = green(location_info) + msg;
         status_ = ls_error;
     }
 }
@@ -196,7 +196,8 @@ bool Parser::semantic() {
     }
 
     if(errors) {
-        std::cout << "\nthere were " << errors << " errors in semantic analysis" << std::endl;
+        std::cout << "\nthere were " << errors
+                  << " errors in the semantic analysis" << std::endl;
         status_ = ls_error;
     }
 
@@ -251,7 +252,7 @@ std::vector<Token> Parser::comma_separated_identifiers() {
             get_token();
             // assert that the list can't run off the end of a line
             if(peek().location.line > startline) {
-                error("line can't end with a ','");
+                error("line can't end with a '"+yellow(",")+"'");
                 return tokens;
             }
         }
@@ -775,8 +776,7 @@ void Parser::add_variables_to_symbols() {
                 error( pprintf(
                         "variable % from ion channel % has to be"
                         " declared as PARAMETER or ASSIGNED",
-                         colorize(var, kYellow),
-                         colorize(ion.name, kYellow)
+                         yellow(var), yellow(ion.name)
                         )
                 );
                 return;
@@ -792,8 +792,7 @@ void Parser::add_variables_to_symbols() {
                 error( pprintf(
                         "variable % from ion channel % has to be"
                         " declared as PARAMETER or ASSIGNED",
-                         colorize(var, kYellow),
-                         colorize(ion.name, kYellow)
+                         yellow(var), yellow(ion.name)
                         )
                 );
                 return;
@@ -1003,7 +1002,7 @@ Expression *Parser::parse_line_expression() {
         if(location_.line == line && token_.type != tok_eof) {
             error(pprintf(
                 "expected a new line after call expression, found '%'",
-                colorize(token_.name, kYellow)));
+                yellow(token_.name)));
             return nullptr;
         }
         return lhs  ;
@@ -1033,8 +1032,8 @@ Expression *Parser::parse_line_expression() {
         return parse_binop(lhs, op);
     } else if(line == location_.line && token_.type != tok_eof){
         error(pprintf("expected an assignment '%' or new line, found '%'",
-                      colorize("=", kYellow),
-                      colorize(token_.name, kYellow)));
+                      yellow("="),
+                      yellow(token_.name)));
         return nullptr;
     }
 
@@ -1051,7 +1050,7 @@ Expression *Parser::parse_expression() {
     // we parse a binary expression if followed by an operator
     if( binop_precedence(token_.type)>0 ) {
         if(token_.type==tok_eq) {
-            error("assignment '"+colorize("=",kYellow)+"' not allowed in sub-expression");
+            error("assignment '"+yellow("=")+"' not allowed in sub-expression");
             return nullptr;
         }
         Token op = token_;  // save the operator
@@ -1077,7 +1076,7 @@ Expression* Parser::unary_expression( Location loc,
         case tok_log :
             return new LogUnaryExpression(loc, e);
        default :
-            error(  colorize(token_string(op), kYellow)
+            error(  yellow(token_string(op))
                   + " is not a valid unary operator");
             return nullptr;
     }
@@ -1103,7 +1102,7 @@ Expression* Parser::binary_expression( Location loc,
         case tok_pow    :
             return new PowBinaryExpression(loc, lhs, rhs);
         default         :
-            error(  colorize(token_string(op), kYellow)
+            error(  yellow(token_string(op))
                   + " is not a valid binary operator");
             return nullptr;
     }
@@ -1138,7 +1137,7 @@ Expression *Parser::parse_unaryop() {
             get_token();        // consume operator (exp, sin, cos or log)
             if(token_.type!=tok_lparen) {
                 error(  "missing parenthesis after call to "
-                      + colorize(op.name, kYellow) );
+                      + yellow(op.name) );
                 return nullptr;
             }
             e = parse_unaryop(); // handle recursive unary
@@ -1171,7 +1170,7 @@ Expression *Parser::parse_primary() {
             return parse_parenthesis_expression();
         default: // fall through to return nullptr at end of function
             error( pprintf( "unexpected token '%' in expression",
-                            colorize(token_.name, kYellow) ));
+                            yellow(token_.name) ));
     }
 
     return nullptr;
@@ -1252,7 +1251,7 @@ Expression *Parser::parse_local() {
 
     if(token_.type != tok_identifier) {
         error(pprintf("'%' is not a valid name for a local variable",
-                    colorize(token_.name, kYellow)));
+                    yellow(token_.name)));
         return nullptr;
     }
 
@@ -1264,7 +1263,7 @@ Expression *Parser::parse_local() {
     if(line == location_.line) {
         if(token_.type != tok_eof) {
             error(pprintf( "invalid token '%' after LOCAL declaration",
-                        colorize(token_.name, kYellow)));
+                        yellow(token_.name)));
             return nullptr;
         }
     }

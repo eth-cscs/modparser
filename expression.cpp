@@ -15,14 +15,14 @@ void IdentifierExpression::semantic(Scope* scp) {
         error_ = true;
         error_string_ =
             pprintf("the variable '%' is undefined",
-                    colorize(name_, kYellow), location_);
+                    yellow(name_), location_);
         return;
     }
     if(s.kind == k_procedure || s.kind == k_function) {
         error_ = true;
         error_string_ =
             pprintf("the symbol '%' is a function/procedure, not a variable",
-                    colorize(name_, kYellow));
+                    yellow(name_));
         return;
     }
 
