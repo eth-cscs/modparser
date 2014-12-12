@@ -22,9 +22,18 @@ private:
     template <typename ExpressionType>
     void print_error(ExpressionType *e) {
         if(e->has_error()) {
-            auto header = red("error: ") + white(pprintf("%:% ", module_name_, e->location()));
+            auto header = red("error: ")
+                        + white(pprintf("%:% ", module_name_, e->location()));
             std::cout << header << "\n  "
                       << e->error_message()
+                      << std::endl;
+            num_errors_++;
+        }
+        if(e->has_warning()) {
+            auto header = purple("warning: ")
+                        + white(pprintf("%:% ", module_name_, e->location()));
+            std::cout << header << "\n  "
+                      << e->warning_message()
                       << std::endl;
             num_errors_++;
         }

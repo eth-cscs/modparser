@@ -38,8 +38,10 @@ public:
 
     Scope* scope() {return scope_;};
 
-    bool has_error() { return error_; }
-    std::string const& error_message() const { return error_string_; }
+    bool has_error()   { return error_; }
+    bool has_warning() { return warning_; }
+    std::string const& error_message()   const { return error_string_;   }
+    std::string const& warning_message() const { return warning_string_; }
 
     // perform semantic analysis
     virtual void semantic(Scope*);
@@ -61,7 +63,9 @@ public:
 protected:
     // these are used to flag errors when performing semantic analysis
     bool error_=false;
+    bool warning_=false;
     std::string error_string_;
+    std::string warning_string_;
 
     Location location_;
 

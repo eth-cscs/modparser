@@ -927,7 +927,6 @@ Expression *Parser::parse_identifier() {
     assert(token_.type==tok_identifier);
 
     // save name and location of the identifier
-    Token idtoken = token_;
     Expression* id = new IdentifierExpression(token_.location, token_.name);
 
     // consume identifier
@@ -1245,6 +1244,7 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
 /// where x is a valid identifier name
 Expression *Parser::parse_local() {
     assert(token_.type==tok_local);
+    Location loc = location_;
     int line = location_.line;
 
     get_token(); // consume LOCAL
@@ -1255,7 +1255,7 @@ Expression *Parser::parse_local() {
         return nullptr;
     }
 
-    Expression *e = new LocalExpression(location_, token_.name);
+    Expression *e = new LocalExpression(loc, token_.name);
     get_token(); // consume identifier
 
     // check that the rest of the line was empty
@@ -1263,7 +1263,7 @@ Expression *Parser::parse_local() {
     if(line == location_.line) {
         if(token_.type != tok_eof) {
             error(pprintf( "invalid token '%' after LOCAL declaration",
-                        yellow(token_.name)));
+                           yellow(token_.name)), loc);
             return nullptr;
         }
     }
