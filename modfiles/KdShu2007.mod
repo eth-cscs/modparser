@@ -39,7 +39,7 @@ STATE {
 }
 
 BREAKPOINT {
-    :SOLVE states METHOD cnexp
+    SOLVE states METHOD cnexp
     ik = gkbar * m*h*(v-ek)
 }
 

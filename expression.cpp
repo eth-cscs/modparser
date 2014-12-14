@@ -238,3 +238,21 @@ void AssignmentExpression::semantic(Scope* scp) {
     }
 }
 
+void SolveExpression::semantic(Scope* scp) {
+    auto e = scp->find(name_).expression;
+    auto proc = e ? e->is_procedure() : nullptr;
+
+    // this is optimistic: it simply looks for a procedure,
+    // it should also evaluate the procedure to see whether it contains the derivatives
+    if(proc) {
+        // another test like :
+        //if(proc->is_derivative_block())
+        procedure_ = proc;
+    }
+    else {
+        error_ = true;
+        error_string_ = "'" + yellow(name_)
+            + "' is not a valid procedure name for computing the derivatives in a SOLVE statement";
+    }
+}
+

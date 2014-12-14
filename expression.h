@@ -50,6 +50,8 @@ public:
     // easy lookup of properties
     virtual CallExpression*       is_function_call()  {return nullptr;}
     virtual CallExpression*       is_procedure_call() {return nullptr;}
+    virtual FunctionExpression*   is_function()       {return nullptr;}
+    virtual ProcedureExpression*  is_procedure()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
     virtual NumberExpression*     is_number()         {return nullptr;}
     virtual BinaryExpression*     is_binary()         {return nullptr;}
@@ -241,12 +243,16 @@ protected:
 // a SOLVE statement
 class SolveExpression : public Expression {
 public:
-    SolveExpression(Location loc, std::string const& name, solverMethod method)
-        : Expression(loc), name_(name), method_(method), derivative_expression_(nullptr)
+    SolveExpression(
+            Location loc,
+            std::string const& name,
+            solverMethod method)
+    : Expression(loc), name_(name), method_(method), procedure_(nullptr)
     {}
 
     std::string to_string() const override {
-        return blue("solve") + "(" + yellow(name_) + ", " + green(::to_string(method_)) + ")";
+        return blue("solve") + "(" + yellow(name_) + ", "
+            + green(::to_string(method_)) + ")";
     }
 
     std::string const& name() const {
@@ -257,30 +263,35 @@ public:
         return method_;
     }
 
-    Expression* derivative_expression() const {
-        return derivative_expression_;
+    ProcedureExpression* procedure() const {
+        return procedure_;
     }
 
-    void derivative_expression(Expression *e) {
-        derivative_expression_ = e;
+    void procedure(ProcedureExpression *e) {
+        procedure_ = e;
     }
 
-    ~SolveExpression() {}
+    void semantic(Scope* scp) override;
 
     void accept(Visitor *v) override {v->visit(this);}
+
+    ~SolveExpression() {}
 private:
     // there has to be some pointer to a table of identifiers
     std::string name_;
     solverMethod method_;
 
-    Expression *derivative_expression_;
+    ProcedureExpression* procedure_;
 };
 
 // a proceduce prototype
 class PrototypeExpression : public Expression {
 public:
-    PrototypeExpression(Location loc, std::string const& name, std::vector<Expression*> const& args)
-        : Expression(loc), name_(name), args_(args)
+    PrototypeExpression(
+            Location loc,
+            std::string const& name,
+            std::vector<Expression*> const& args)
+    : Expression(loc), name_(name), args_(args)
     {}
 
     std::string const& name() const {return name_;}
@@ -300,6 +311,8 @@ private:
     std::vector<Expression*> args_;
 };
 
+// marks a call site in the AST
+// is used to mark both function and procedure calls
 class CallExpression : public Expression {
 public:
     CallExpression(Location loc, std::string const& name, std::vector<Expression*>const &args)
@@ -350,6 +363,8 @@ public:
 
     void semantic(Scope::symbol_map &scp) override;
 
+    ProcedureExpression* is_procedure() override {return this;}
+
     std::string to_string() const override;
 
     void accept(Visitor *v) override {v->visit(this);}
@@ -381,6 +396,8 @@ public:
     std::string const& name() const {
         return name_;
     }
+
+    FunctionExpression* is_function() override {return this;}
 
     void semantic(Scope::symbol_map&) override;
 

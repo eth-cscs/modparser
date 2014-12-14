@@ -77,5 +77,4 @@ FUNCTION okcinf(Vm)  {
     LOCAL b
     a = 1.25*(10^8)*(cai)*(cai)
     okcinf = a/(a+b)
-    a = 4*b
 }
