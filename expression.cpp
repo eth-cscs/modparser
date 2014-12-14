@@ -30,6 +30,12 @@ void IdentifierExpression::semantic(Scope* scp) {
     symbol_ = s;
 }
 
+bool IdentifierExpression::is_lvalue() {
+    auto var = variable();
+    if(var) return var->is_writeable();
+    return false;
+}
+
 void LocalExpression::semantic(Scope* scp) {
     scope_ = scp;
 

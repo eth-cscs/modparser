@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,7 @@ public:
     virtual FunctionExpression*   is_function()       {return nullptr;}
     virtual ProcedureExpression*  is_procedure()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
+    virtual VariableExpression*   is_variable()       {return nullptr;}
     virtual NumberExpression*     is_number()         {return nullptr;}
     virtual BinaryExpression*     is_binary()         {return nullptr;}
     virtual UnaryExpression*      is_unary()          {return nullptr;}
@@ -73,6 +75,7 @@ protected:
 
     Location location_;
 
+    //std::shared_ptr<Scope> scope_;
     Scope* scope_=nullptr;
 };
 
@@ -98,6 +101,12 @@ public:
     void accept(Visitor *v) override {v->visit(this);}
 
     IdentifierExpression* is_identifier() override {return this;}
+
+    VariableExpression* variable() {
+        return symbol_.expression ? symbol_.expression->is_variable() : nullptr;
+    }
+
+    bool is_lvalue() override;
 
     ~IdentifierExpression() {}
 protected:
@@ -224,9 +233,10 @@ public:
     bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
     bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
 
-    ~VariableExpression() {}
-
     void accept(Visitor *v) override {v->visit(this);}
+    VariableExpression* is_variable() override {return this;}
+
+    ~VariableExpression() {}
 protected:
     // there has to be some pointer to a table of identifiers
     std::string name_;
