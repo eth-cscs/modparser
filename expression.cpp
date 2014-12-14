@@ -172,7 +172,7 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
     scope_->add_local_symbol(
-        name_, new LocalExpression((*body_.begin())->location(), name_) );
+        name_, new LocalExpression(body_.front()->location(), name_) );
 
     // perform semantic analysis for each expression in the body
     for(auto e : body_) {
@@ -181,13 +181,11 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
 
     // check that the last expression in the body was an assignment to
     // the return placeholder
-    // TODO: using casts every step of the way in here must be a sure sign of
-    //       code stink... I need help understanding these methods better.
     bool last_expr_is_assign = false;
-    if(body_.back()->is_assignment()) {
+    auto tail = body_.back()->is_assignment();
+    if(tail) {
         // we know that the tail is an assignemnt expression so reinterpret away
-        auto tail = reinterpret_cast<AssignmentExpression*>(body_.back());
-        auto lhs = dynamic_cast<IdentifierExpression*>(tail->lhs());
+        auto lhs = tail->lhs()->is_identifier();
         // use nullptr check followed by lazy name lookup
         if(lhs && lhs->name()==name_) {
             last_expr_is_assign = true;
@@ -195,7 +193,8 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     }
     if(!last_expr_is_assign) {
         warning_ = true;
-        warning_string_ = "the last expression in function '" + yellow(name_)
+        warning_string_ = "the last expression in function '"
+                        + yellow(name_)
                         + "' does not set the return value";
     }
 

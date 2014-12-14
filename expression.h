@@ -48,13 +48,15 @@ public:
     virtual void semantic(Scope::symbol_map&) {assert(false);};
 
     // easy lookup of properties
-    virtual bool is_function_call()  const {return false;}
-    virtual bool is_procedure_call() const {return false;}
-    virtual bool is_identifier()     const {return false;}
-    virtual bool is_number()         const {return false;}
-    virtual bool is_binary()         const {return false;}
-    virtual bool is_unary()          const {return false;}
-    virtual bool is_assignment()     const {return false;}
+    virtual CallExpression*       is_function_call()  {return nullptr;}
+    virtual CallExpression*       is_procedure_call() {return nullptr;}
+    virtual IdentifierExpression* is_identifier()     {return nullptr;}
+    virtual NumberExpression*     is_number()         {return nullptr;}
+    virtual BinaryExpression*     is_binary()         {return nullptr;}
+    virtual UnaryExpression*      is_unary()          {return nullptr;}
+    virtual AssignmentExpression* is_assignment()     {return nullptr;}
+
+    virtual bool is_lvalue() {return false;}
 
     // force all derived classes to implement visitor
     // this might be a bad idea
@@ -93,7 +95,7 @@ public:
 
     void accept(Visitor *v) override {v->visit(this);}
 
-    bool is_identifier() const override {return true;}
+    IdentifierExpression* is_identifier() override {return this;}
 
     ~IdentifierExpression() {}
 protected:
@@ -135,7 +137,7 @@ public:
     // do nothing for number semantic analysis
     void semantic(Scope* scp) override {};
 
-    bool is_number() const override {return true;}
+    NumberExpression* is_number() override {return this;}
 
     ~NumberExpression() {}
 
@@ -313,8 +315,12 @@ public:
 
     void accept(Visitor *v) override {v->visit(this);}
 
-    bool is_function_call()  const override {return symbol_.kind == k_function;}
-    bool is_procedure_call() const override {return symbol_.kind == k_procedure;}
+    CallExpression* is_function_call()  override {
+        return symbol_.kind == k_function ? this : nullptr;
+    }
+    CallExpression* is_procedure_call() override {
+        return symbol_.kind == k_procedure ? this : nullptr;
+    }
 private:
     Scope* scope_;
     Symbol symbol_;
@@ -409,7 +415,7 @@ public:
         return pprintf("(% %)", green(token_string(op_)), e_->to_string());
     }
 
-    bool is_unary() const override {return true;};
+    UnaryExpression* is_unary() override {return this;};
 
     Expression* expression() {return e_;}
     const Expression* expression() const {return e_;}
@@ -491,7 +497,7 @@ public:
     const Expression* lhs() const {return lhs_;}
     const Expression* rhs() const {return rhs_;}
 
-    bool is_binary() const override {return true;}
+    BinaryExpression* is_binary() override {return this;}
 
     void semantic(Scope* scp) override;
 
@@ -508,7 +514,7 @@ public:
         : BinaryExpression(loc, tok_eq, lhs, rhs)
     {}
 
-    bool is_assignment() const override {return true;}
+    AssignmentExpression* is_assignment() override {return this;}
 
     void semantic(Scope* scp) override;
 
