@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 
@@ -30,6 +31,10 @@ public:
     using symbol_map = std::unordered_map<std::string, Symbol>;
 
     Scope(symbol_map& s);
+    Scope() {std::cout << "and here..." << std::endl;};
+    ~Scope() {
+        std::cout << "Scope::desctructor" << std::endl;
+    };
     Symbol add_local_symbol(std::string const& name, Expression* e);
     Symbol find(std::string const& name) const;
     std::string to_string() const;

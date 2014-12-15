@@ -1,12 +1,12 @@
 #include "expression.h"
 
-void Expression::semantic(Scope*) {
+void Expression::semantic(std::shared_ptr<Scope>) {
     error_ = true;
     error_string_ =
         pprintf("semantic() has not been implemented for this expression");
 }
 
-void IdentifierExpression::semantic(Scope* scp) {
+void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
 
     Symbol s = scope_->find(name_);
@@ -36,7 +36,7 @@ bool IdentifierExpression::is_lvalue() {
     return false;
 }
 
-void LocalExpression::semantic(Scope* scp) {
+void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
 
     Symbol s = scope_->find(name_);
@@ -81,7 +81,7 @@ std::string CallExpression::to_string() const {
     return str;
 }
 
-void CallExpression::semantic(Scope* scp) {
+void CallExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
 
     // look up to see if symbol is defined
@@ -144,7 +144,9 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     assert(global_symbols.find(name_) != global_symbols.end());
 
     // create the scope for this procedure
+    std::cout << "creating procedure scope" << std::endl;
     scope_ = new Scope(global_symbols);
+    //scope_ = std::make_shared<Scope>(global_symbols);
 
     // add the argumemts to the list of local variables
     for(auto a : args_) {
@@ -166,7 +168,7 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     assert(global_symbols.find(name_) != global_symbols.end());
 
     // create the scope for this procedure
-    scope_ = new Scope(global_symbols);
+    scope_ = std::make_shared<Scope>(global_symbols);
 
     // add the argumemts to the list of local variables
     for(auto a : args_) {
@@ -210,7 +212,7 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     symbol_ = global_symbols.find(name_)->second;
 }
 
-void UnaryExpression::semantic(Scope* scp) {
+void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
     e_->semantic(scp);
 
     if(e_->is_procedure_call() || e_->is_procedure_call()) {
@@ -219,7 +221,7 @@ void UnaryExpression::semantic(Scope* scp) {
     }
 }
 
-void BinaryExpression::semantic(Scope* scp) {
+void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
@@ -229,7 +231,7 @@ void BinaryExpression::semantic(Scope* scp) {
     }
 }
 
-void AssignmentExpression::semantic(Scope* scp) {
+void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
@@ -244,7 +246,7 @@ void AssignmentExpression::semantic(Scope* scp) {
     }
 }
 
-void SolveExpression::semantic(Scope* scp) {
+void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
     auto e = scp->find(name_).expression;
     auto proc = e ? e->is_procedure() : nullptr;
 

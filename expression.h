@@ -37,7 +37,7 @@ public:
 
     Location const& location() const {return location_;};
 
-    Scope* scope() {return scope_;};
+    std::shared_ptr<Scope> scope() {return scope_;};
 
     bool has_error()   { return error_; }
     bool has_warning() { return warning_; }
@@ -45,7 +45,7 @@ public:
     std::string const& warning_message() const { return warning_string_; }
 
     // perform semantic analysis
-    virtual void semantic(Scope*);
+    virtual void semantic(std::shared_ptr<Scope>);
     virtual void semantic(Scope::symbol_map&) {assert(false);};
 
     // easy lookup of properties
@@ -75,8 +75,8 @@ protected:
 
     Location location_;
 
-    //std::shared_ptr<Scope> scope_;
-    Scope* scope_=nullptr;
+    std::shared_ptr<Scope> scope_;
+    //Scope* scope_=nullptr;
 };
 
 // an identifier
@@ -94,7 +94,7 @@ public:
         return yellow(pprintf("%", name_));
     }
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     Symbol symbol() { return symbol_; };
 
@@ -146,7 +146,7 @@ public:
     }
 
     // do nothing for number semantic analysis
-    void semantic(Scope* scp) override {};
+    void semantic(std::shared_ptr<Scope> scp) override {};
 
     NumberExpression* is_number() override {return this;}
 
@@ -168,7 +168,7 @@ public:
         return blue("local") + " " + yellow(name_);
     }
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     Symbol symbol() {return symbol_;}
 
@@ -281,7 +281,7 @@ public:
         procedure_ = e;
     }
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     void accept(Visitor *v) override {v->visit(this);}
 
@@ -332,7 +332,7 @@ public:
     std::vector<Expression*> const& args() { return args_; }
     std::string const& name() const { return name_; }
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     std::string to_string() const override;
 
@@ -345,7 +345,7 @@ public:
         return symbol_.kind == k_procedure ? this : nullptr;
     }
 private:
-    Scope* scope_;
+    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
@@ -380,7 +380,7 @@ public:
     void accept(Visitor *v) override {v->visit(this);}
 
 private:
-    Scope* scope_;
+    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
@@ -416,7 +416,7 @@ public:
     void accept(Visitor *v) override {v->visit(this);}
 
 private:
-    Scope* scope_;
+    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
@@ -447,7 +447,7 @@ public:
     Expression* expression() {return e_;}
     const Expression* expression() const {return e_;}
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     void accept(Visitor *v) override {std::cout << "here unary\n"; v->visit(this);}
 };
@@ -526,7 +526,7 @@ public:
 
     BinaryExpression* is_binary() override {return this;}
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     std::string to_string() const {
         return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
@@ -543,7 +543,7 @@ public:
 
     AssignmentExpression* is_assignment() override {return this;}
 
-    void semantic(Scope* scp) override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     void accept(Visitor *v) override {v->visit(this);}
 };
