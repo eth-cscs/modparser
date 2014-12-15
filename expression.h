@@ -101,9 +101,7 @@ public:
 
     IdentifierExpression* is_identifier() override {return this;}
 
-    VariableExpression* variable() {
-        return symbol_.expression ? symbol_.expression->is_variable() : nullptr;
-    }
+    VariableExpression* variable();
 
     bool is_lvalue() override;
 

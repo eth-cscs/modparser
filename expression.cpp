@@ -30,9 +30,18 @@ void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
     symbol_ = s;
 }
 
+VariableExpression* IdentifierExpression::variable() {
+    // can we just look at symbol_.kind and lookup based on that?
+    return symbol_.expression ? symbol_.expression->is_variable() : nullptr;
+}
+
 bool IdentifierExpression::is_lvalue() {
+    // check for global variable that is writeable
     auto var = variable();
     if(var) return var->is_writeable();
+
+    // else look for local symbol
+    if(symbol_.kind == k_local ) return true;
     return false;
 }
 
@@ -225,7 +234,7 @@ void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
 
     if(rhs_->is_procedure_call() || lhs_->is_procedure_call()) {
         error_ = true;
-        error_string_ = "a procedure call can't be part of an expression";
+        error_string_ = "procedure calls can't be made in an expression";
     }
 }
 
@@ -233,14 +242,13 @@ void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
-    if(lhs_->is_function_call()) {
+    if(!lhs_->is_lvalue()) {
         error_ = true;
-        error_string_ =
-            "the left hand side of an assignment can't be a function or procedure call";
+        error_string_ = "the left hand side of an assignment must be an lvalue";
     }
-    if(rhs_->is_procedure_call() || lhs_->is_procedure_call()) {
+    if(rhs_->is_procedure_call()) {
         error_ = true;
-        error_string_ = "a procedure call can't be part of an expression";
+        error_string_ = "procedure calls can't be made in an expression";
     }
 }
 
