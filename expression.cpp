@@ -144,9 +144,7 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     assert(global_symbols.find(name_) != global_symbols.end());
 
     // create the scope for this procedure
-    std::cout << "creating procedure scope" << std::endl;
-    scope_ = new Scope(global_symbols);
-    //scope_ = std::make_shared<Scope>(global_symbols);
+    scope_ = std::make_shared<Scope>(global_symbols);
 
     // add the argumemts to the list of local variables
     for(auto a : args_) {

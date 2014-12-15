@@ -76,7 +76,6 @@ protected:
     Location location_;
 
     std::shared_ptr<Scope> scope_;
-    //Scope* scope_=nullptr;
 };
 
 // an identifier
