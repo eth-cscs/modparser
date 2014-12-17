@@ -867,23 +867,10 @@ Expression* Parser::parse_procedure() {
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
-    get_token(); // consume left brace '{'
 
-    std::vector<Expression*> body;
-
-    while(1) {
-        if(token_.type == tok_rbrace)
-            break;
-
-        Expression *e = parse_statement();
-        if(e==nullptr) {
-            return nullptr;
-        }
-
-        body.push_back(e);
-    }
-
-    get_token(); // consume closing '}'
+    // parse the body of the function
+    Expression* body = parse_block(false);
+    if(body==nullptr) return nullptr;
 
     PrototypeExpression* proto = p->is_prototype();
     return new ProcedureExpression(
@@ -907,12 +894,12 @@ Expression* Parser::parse_function() {
     if(!expect(tok_lbrace)) return nullptr;
 
     // parse the body of the function
-    Expression* body = parse_block(true);
+    Expression* body = parse_block(false);
     if(body==nullptr) return nullptr;
 
     PrototypeExpression *proto = p->is_prototype();
     return new FunctionExpression(
-            proto->location(), proto->name(), proto->args(), body->is_block());
+            proto->location(), proto->name(), proto->args(), body);
 }
 
 // this is the first port of call when parsing a new line inside a verb block

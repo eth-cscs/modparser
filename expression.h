@@ -434,14 +434,17 @@ public:
     ProcedureExpression( Location loc,
                          std::string const& name,
                          std::vector<Expression*> const& args,
-                         std::vector<Expression*>const & body)
-        : Expression(loc), name_(name), args_(args), body_(body)
-    {}
+                         Expression* body)
+        : Expression(loc), name_(name), args_(args)
+    {
+        assert(body->is_block());
+        body_ = body->is_block();
+    }
 
     std::vector<Expression*>& args() {
         return args_;
     }
-    std::vector<Expression*>& body() {
+    BlockExpression* body() {
         return body_;
     }
     std::string const& name() const {
@@ -449,11 +452,8 @@ public:
     }
 
     void semantic(Scope::symbol_map &scp) override;
-
     ProcedureExpression* is_procedure() override {return this;}
-
     std::string to_string() const override;
-
     void accept(Visitor *v) override {v->visit(this);}
 
 private:
@@ -462,7 +462,7 @@ private:
 
     std::string name_;
     std::vector<Expression *> args_;
-    std::vector<Expression *> body_;
+    BlockExpression* body_;
 };
 
 class FunctionExpression : public Expression {
@@ -478,9 +478,12 @@ public:
     FunctionExpression( Location loc,
                          std::string const& name,
                          std::vector<Expression*> const& args,
-                         BlockExpression* body)
-        : Expression(loc), name_(name), args_(args), body_(body)
-    {}
+                         Expression* body)
+        : Expression(loc), name_(name), args_(args)
+    {
+        assert(body->is_block());
+        body_ = body->is_block();
+    }
 
     std::vector<Expression*>& args() {
         return args_;

@@ -130,8 +130,7 @@ std::string ProcedureExpression::to_string() const {
     for(auto arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+colorize("body", kBlue)+" :";
-    for(auto ex : body_)
-        str += "\n    " + ex->to_string();
+    str += body_->to_string();
 
     return str;
 }
@@ -142,7 +141,7 @@ std::string FunctionExpression::to_string() const {
     for(auto arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+colorize("body", kBlue)+" :";
-    str+=body_->to_string();
+    str += body_->to_string();
 
     return str;
 }
@@ -160,7 +159,7 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     }
 
     // perform semantic analysis for each expression in the body
-    for(auto e : body_) {
+    for(auto e : *body_) {
         e->semantic(scope_);
     }
 

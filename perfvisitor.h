@@ -35,20 +35,16 @@ public:
 
     // traverse the statements in a procedure
     void visit(ProcedureExpression *e) override {
-        /*
-        for(auto expression : e->body()) {
+        for(auto expression : *(e->body())) {
             expression->accept(this);
         }
-        */
     }
 
     // traverse the statements in a function
     void visit(FunctionExpression *e) override {
-        /*
         for(auto expression : *(e->body())) {
             expression->accept(this);
         }
-        */
     }
 
     ////////////////////////////////////////////////////
