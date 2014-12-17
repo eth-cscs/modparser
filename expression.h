@@ -56,6 +56,7 @@ public:
     virtual LocalExpression*      is_local_declaration() {return nullptr;}
     virtual FunctionExpression*   is_function()       {return nullptr;}
     virtual ProcedureExpression*  is_procedure()      {return nullptr;}
+    virtual PrototypeExpression*  is_prototype()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
     virtual VariableExpression*   is_variable()       {return nullptr;}
     virtual NumberExpression*     is_number()         {return nullptr;}
@@ -293,55 +294,6 @@ private:
     ProcedureExpression* procedure_;
 };
 
-
-////////////////////////////////////////////////////////////////////////////////
-// conditional block, i.e. if-else if-else blocks.
-//
-// we take a simple "flat" approach.
-// 
-// first, we start with an IfBlock which is a tuple of
-// a conditional expression and a set of expressions that comprise its body.
-// in the case of an else statement, we have a default _true_ statement,
-// other wise the conditional is a conditional binary expression
-//
-// the if expression is a list of the IfBlocks
-//
-// this approach has the benefit of being "flat" and easy to
-// the tricky part is inserting a _true_ placeholder for the trailing 'else {}'
-// block. NMODL requires a binary conditional expression. We could create an 
-// Expression type, e.g. TrueExpression, which we insert there, but that
-// complicates semantic testing later, i.e. if(is_conditional || is_true)
-////////////////////////////////////////////////////////////////////////////////
-/*
-virtual IfBlock*      is_if_block        {return nullptr;}
-virtual IfExpression* is_if_expression() {return nullptr;}
-
-class IfBlock : public Expression {
-public:
-    IfBlock* is_if_block override {
-        return this;
-    }
-    Expression* condition() {
-        return condition_;
-    }
-    std::vector<Expression*>& body() {
-        return body_;
-    }
-private:
-    Expression* condition_;
-    std::vector<Expression*> body_;
-};
-
-class IfExpression : public Expression {
-public:
-    IfExpression* is_if_expression() override {return this;}
-    blocks();
-private:
-    std::vector<IfExpression*> blocks_
-};
-*/
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // recursive if statement
 // requires a BlockExpression that is a simple wrapper around a std::vector
@@ -349,6 +301,10 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 class BlockExpression : public Expression {
+private:
+    std::vector<Expression*> body_;
+    bool is_nested_ = false;
+
 public:
     BlockExpression(
         Location loc,
@@ -367,12 +323,23 @@ public:
         return body_;
     }
 
+    // provide iterators for easy iteration over body
+    auto begin() -> decltype(body_.begin()) {
+        return body_.begin();
+    }
+    auto end() -> decltype(body_.end()) {
+        return body_.end();
+    }
+    auto back() -> decltype(body_.back()) {
+        return body_.back();
+    }
+    auto front() -> decltype(body_.front()) {
+        return body_.front();
+    }
+
     void accept(Visitor* v) override {v->visit(this);};
 
     std::string to_string() const override;
-private:
-    std::vector<Expression*> body_;
-    bool is_nested_ = false;
 };
 
 class IfExpression : public Expression {
@@ -417,6 +384,7 @@ public:
 
     std::vector<Expression*>&      args()       {return args_;}
     std::vector<Expression*>const& args() const {return args_;}
+    PrototypeExpression* is_prototype() override {return this;}
 
     std::string to_string() const override {
         return name_ + pprintf("(% args : %)", args_.size(), args_);
@@ -470,10 +438,10 @@ public:
         : Expression(loc), name_(name), args_(args), body_(body)
     {}
 
-    std::vector<Expression*> const& args() {
+    std::vector<Expression*>& args() {
         return args_;
     }
-    std::vector<Expression*> const& body() {
+    std::vector<Expression*>& body() {
         return body_;
     }
     std::string const& name() const {
@@ -498,18 +466,26 @@ private:
 };
 
 class FunctionExpression : public Expression {
+private:
+    std::shared_ptr<Scope> scope_;
+    Symbol symbol_;
+
+    std::string name_;
+    std::vector<Expression *> args_;
+    BlockExpression* body_;
+
 public:
     FunctionExpression( Location loc,
                          std::string const& name,
                          std::vector<Expression*> const& args,
-                         std::vector<Expression*>const & body)
+                         BlockExpression* body)
         : Expression(loc), name_(name), args_(args), body_(body)
     {}
 
-    std::vector<Expression*> const& args() {
+    std::vector<Expression*>& args() {
         return args_;
     }
-    std::vector<Expression*> const& body() {
+    BlockExpression* body() {
         return body_;
     }
     std::string const& name() const {
@@ -517,20 +493,9 @@ public:
     }
 
     FunctionExpression* is_function() override {return this;}
-
     void semantic(Scope::symbol_map&) override;
-
     std::string to_string() const override;
-
     void accept(Visitor *v) override {v->visit(this);}
-
-private:
-    std::shared_ptr<Scope> scope_;
-    Symbol symbol_;
-
-    std::string name_;
-    std::vector<Expression *> args_;
-    std::vector<Expression *> body_;
 };
 
 ////////////////////////////////////////////////////////////

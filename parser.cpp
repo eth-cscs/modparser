@@ -634,7 +634,7 @@ unit_error:
 // Takes an optional argument that allows the user to specify the
 // name of the prototype, which is used for prototypes where the name
 // is implcitly defined (e.g. INITIAL and BREAKPOINT blocks)
-PrototypeExpression* Parser::parse_prototype(std::string name=std::string()) {
+Expression* Parser::parse_prototype(std::string name=std::string()) {
     Token identifier = token_;
 
     if(name.size()) {
@@ -837,7 +837,7 @@ void Parser::add_variables_to_symbols() {
 /// can handle both PROCEDURE and INITIAL blocks
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
 Expression* Parser::parse_procedure() {
-    PrototypeExpression* proto = nullptr;
+    Expression* p = nullptr;
 
     switch( token_.type ) {
         case tok_derivative:
@@ -847,22 +847,23 @@ Expression* Parser::parse_procedure() {
             // check that a valid identifier name was specified by the user
             if( !expect( tok_identifier ) ) return nullptr;
 
-            proto = parse_prototype();
+            p = parse_prototype();
             break;
         case tok_initial:
-            proto = parse_prototype("initial");
+            p = parse_prototype("initial");
             break;
         case tok_breakpoint:
-            proto = parse_prototype("breakpoint");
+            p = parse_prototype("breakpoint");
             break;
         case tok_net_receive:
-            proto = parse_prototype("net_receive");
+            p = parse_prototype("net_receive");
             break;
         default:
             // it is a compiler error if trying to parse_procedure() without
             // having DERIVATIVE, PROCEDURE, INITIAL or BREAKPOINT keyword
             assert(false);
     }
+    if(p==nullptr) return nullptr;
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
@@ -884,6 +885,7 @@ Expression* Parser::parse_procedure() {
 
     get_token(); // consume closing '}'
 
+    PrototypeExpression* proto = p->is_prototype();
     return new ProcedureExpression(
                     proto->location(), proto->name(), proto->args(), body);
 }
@@ -898,31 +900,19 @@ Expression* Parser::parse_function() {
     if( !expect( tok_identifier ) ) return nullptr;
 
     // parse the prototype
-    PrototypeExpression *proto = parse_prototype();
-    if(proto==nullptr) return nullptr;
+    Expression *p = parse_prototype();
+    if(p==nullptr) return nullptr;
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
 
-    get_token();
-    std::vector<Expression*> body;
+    // parse the body of the function
+    Expression* body = parse_block(true);
+    if(body==nullptr) return nullptr;
 
-    while(1) {
-        if(token_.type == tok_rbrace)
-            break;
-
-        Expression *e = parse_statement();
-        if(e==nullptr) {
-            return nullptr;
-        }
-
-        body.push_back(e);
-    }
-
-    get_token(); // eat closing '}'
-
+    PrototypeExpression *proto = p->is_prototype();
     return new FunctionExpression(
-            proto->location(), proto->name(), proto->args(), body);
+            proto->location(), proto->name(), proto->args(), body->is_block());
 }
 
 // this is the first port of call when parsing a new line inside a verb block

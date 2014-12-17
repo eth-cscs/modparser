@@ -142,8 +142,7 @@ std::string FunctionExpression::to_string() const {
     for(auto arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+colorize("body", kBlue)+" :";
-    for(auto ex : body_)
-        str += "\n    " + ex->to_string();
+    str+=body_->to_string();
 
     return str;
 }
@@ -187,17 +186,17 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
     scope_->add_local_symbol(
-        name_, new LocalExpression(body_.front()->location(), name_) );
+        name_, new LocalExpression(body_->location(), name_) );
 
     // perform semantic analysis for each expression in the body
-    for(auto e : body_) {
+    for(auto e : *body_) {
         e->semantic(scope_);
     }
 
     // check that the last expression in the body was an assignment to
     // the return placeholder
     bool last_expr_is_assign = false;
-    auto tail = body_.back()->is_assignment();
+    auto tail = body_->back()->is_assignment();
     if(tail) {
         // we know that the tail is an assignemnt expression so reinterpret away
         auto lhs = tail->lhs()->is_identifier();

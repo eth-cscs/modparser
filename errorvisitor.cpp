@@ -24,7 +24,8 @@ void ErrorVisitor::visit(FunctionExpression *e) {
         expression->accept(this);
     }
 
-    for(auto expression : e->body()) {
+    //for(auto expression : e->body()->is_block()->body()) {
+    for(auto expression : *(e->body()->is_block())) {
         expression->accept(this);
     }
 }
