@@ -20,10 +20,16 @@ struct IonDep {
     std::vector<std::string> write; // name of channels parameters to read
 };
 
+enum moduleKind {
+    k_module_point,
+    k_module_density
+};
+
 // information stored in a NEURON {} block in mod file
 struct NeuronBlock {
     bool threadsafe = false;
-    std::string suffix;
+    std::string name;
+    moduleKind kind;
     std::vector<IonDep> ions;
     std::vector<std::string> ranges;
     std::vector<std::string> globals;
@@ -117,7 +123,8 @@ static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
 
 static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
     os << colorize("NeuronBlock",kBlue)     << std::endl;
-    os << "  name       : " << N.suffix  << std::endl;
+    os << "  kind       : " << N.kind  << std::endl;
+    os << "  name       : " << N.name  << std::endl;
     os << "  threadsafe : " << (N.threadsafe ? "yes" : "no") << std::endl;
     os << "  ranges     : " << N.ranges  << std::endl;
     os << "  globals    : " << N.globals << std::endl;

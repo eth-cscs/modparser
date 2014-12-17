@@ -93,8 +93,9 @@ bool Parser::parse() {
             case tok_assigned :
                 parse_assigned_block();
                 break;
-            // INITIAL, DERIVATIVE, PROCEDURE and BREAKPOINT blocks
+            // INITIAL, DERIVATIVE, PROCEDURE, NET_RECEIVE and BREAKPOINT blocks
             // are all lowered to ProcedureExpression
+            case tok_net_receive:
             case tok_breakpoint :
             case tok_initial    :
             case tok_derivative :
@@ -298,13 +299,15 @@ void Parser::parse_neuron_block() {
                 break;
 
             case tok_suffix :
+            case tok_point_process :
+                neuron_block.kind = token_.type==tok_suffix ? k_module_density : k_module_point;
                 get_token();
                 // assert that a valid name for the Neuron has been specified
                 if(token_.type != tok_identifier) {
                     error(pprintf("invalid name for SUFFIX, found '%'", token_.name));
                     return;
                 }
-                neuron_block.suffix = token_.name;
+                neuron_block.name = token_.name;
                 break;
 
             // this will be a comma-separated list of identifiers
@@ -650,14 +653,29 @@ PrototypeExpression* Parser::parse_prototype(std::string name=std::string()) {
         return new PrototypeExpression(identifier.location, identifier.name, {});
     }
 
-    std::vector<Token> arg_tokens = comma_separated_identifiers();
-    if(status()==ls_error) { // break away if there was an error
-        return nullptr;
-    }
+    get_token(); // consume '('
+    std::vector<Token> arg_tokens;
+    while(token_.type != tok_rparen) {
+        // check identifier
+        if(token_.type != tok_identifier) {
+            error("expected a valid identifier, found '" + yellow(token_.name) + "'");
+            return nullptr;
+        }
 
-    // advance to next token, because the list reader leaves token_
-    // pointing to the last entry in the list
-    get_token();
+        arg_tokens.push_back(token_);
+
+        get_token(); // consume the identifier
+
+        // look for a comma
+        if(!(token_.type == tok_comma || token_.type==tok_rparen)) {
+            error("expected a comma or closing parenthesis, found '" + yellow(token_.name) + "'");
+            return nullptr;
+        }
+
+        if(token_.type == tok_comma) {
+            get_token(); // consume ','
+        }
+    }
 
     if(token_.type != tok_rparen) {
         error("procedure argument list must have closing parenthesis ')'");
@@ -837,6 +855,9 @@ Expression* Parser::parse_procedure() {
         case tok_breakpoint:
             proto = parse_prototype("breakpoint");
             break;
+        case tok_net_receive:
+            proto = parse_prototype("net_receive");
+            break;
         default:
             // it is a compiler error if trying to parse_procedure() without
             // having DERIVATIVE, PROCEDURE, INITIAL or BREAKPOINT keyword
@@ -910,6 +931,9 @@ Expression* Parser::parse_function() {
 //      :: expression
 Expression *Parser::parse_high_level() {
     switch(token_.type) {
+        case tok_if :
+            return parse_if();
+            break;
         case tok_solve :
             return parse_solve();
         case tok_local :
@@ -973,7 +997,7 @@ Expression *Parser::parse_call() {
     }
     get_token(); // consume ')'
 
-    return new CallExpression(token_.location, idtoken.name, args);
+    return new CallExpression(idtoken.location, idtoken.name, args);
 }
 
 // parse a full line expression, i.e. one of
@@ -1100,6 +1124,12 @@ Expression* Parser::binary_expression( Location loc,
             return new DivBinaryExpression(loc, lhs, rhs);
         case tok_pow    :
             return new PowBinaryExpression(loc, lhs, rhs);
+        case tok_lt     :
+        case tok_lte    :
+        case tok_gt     :
+        case tok_gte    :
+        case tok_EQ     :
+            return new ConditionalExpression(loc, op, lhs, rhs);
         default         :
             error(  yellow(token_string(op))
                   + " is not a valid binary operator");
@@ -1310,5 +1340,81 @@ solve_statment_error:
            "  SOLVE x METHOD cnexp\n"
            "where 'x' is the name of a DERIVATIVE block", loc);
     return nullptr;
+}
+
+Expression *Parser::parse_if() {
+    assert(token_.type==tok_if);
+
+    Token if_token = token_;
+    get_token(); // consume 'if'
+
+    if(!expect(tok_lparen)) return nullptr;
+
+    // parse the conditional
+    Expression* cond = parse_parenthesis_expression();
+    if(cond==nullptr) return nullptr;
+
+    // parse the block of the true branch
+    Expression* true_branch = parse_block(false);
+    if(true_branch==nullptr) return nullptr;
+
+    // parse the false branch if there is an else
+    Expression* false_branch = nullptr;
+    if(token_.type == tok_else) {
+        get_token(); // consume else
+
+        // handle 'else if {}' case recursively
+        if(token_.type == tok_if) {
+            false_branch = parse_if();
+        }
+        // we have a closing 'else {}'
+        else if(token_.type == tok_lbrace) {
+            false_branch = parse_block(false);
+        }
+        else {
+            error("expect either '"+yellow("if")+"' or '"+yellow("{")+" after else");
+            return nullptr;
+        }
+    }
+
+    return new IfExpression(if_token.location, cond, true_branch, false_branch);
+}
+
+// takes a flag indicating whether the block is at procedure/function body,
+// or lower. Can be used to check for illegal statements inside a nested block,
+// e.g. LOCAL declarations.
+Expression *Parser::parse_block(bool is_nested) {
+    // blocks have to be enclosed in curly braces {}
+    assert(token_.type==tok_lbrace);
+
+    get_token(); // consume '{'
+
+    // save the location of the first statement as the starting point for the block
+    Location block_location = token_.location;
+
+    std::vector<Expression*> body;
+    while(token_.type != tok_rbrace) {
+        Expression *e = parse_high_level();
+        if(e==nullptr) return nullptr;
+
+        if(is_nested) {
+            if(e->is_local_declaration()) {
+                error("LOCAL variable declarations are not allowed inside a nested scope");
+                return nullptr;
+            }
+        }
+
+        body.push_back(e);
+    }
+
+    if(token_.type != tok_rbrace) {
+        error("could not find closing '" + yellow("}")
+              + "' for else statement that started at "
+              + ::to_string(block_location));
+        return nullptr;
+    }
+    get_token(); // consume closing '{'
+
+    return new BlockExpression(block_location, body, is_nested);
 }
 

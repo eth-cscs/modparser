@@ -23,6 +23,8 @@ public:
     Expression* parse_unaryop();
     Expression* parse_local();
     Expression* parse_solve();
+    Expression* parse_block(bool);
+    Expression* parse_if();
 
     Expression* parse_procedure();
     Expression* parse_function();

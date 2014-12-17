@@ -17,6 +17,15 @@ enum TOK {
     /////////////////////////////
     // = + - * / ^
     tok_eq, tok_plus, tok_minus, tok_times, tok_divide, tok_pow,
+    // comparison
+    tok_not,    // !
+    tok_lt,     // <
+    tok_lte,    // <=
+    tok_gt,     // >
+    tok_gte,    // >=
+    tok_EQ,     // ==
+    tok_ne,     // !=
+
     // , '
     tok_comma, tok_prime,
 
@@ -39,6 +48,7 @@ enum TOK {
     tok_neuron, tok_units, tok_parameter,
     tok_assigned, tok_state, tok_breakpoint,
     tok_derivative, tok_procedure, tok_initial, tok_function,
+    tok_net_receive,
 
     // keywoards inside blocks
     tok_unitsoff, tok_unitson,
@@ -47,6 +57,7 @@ enum TOK {
     tok_range, tok_local,
     tok_solve, tok_method,
     tok_threadsafe, tok_global,
+    tok_point_process,
 
     // unary operators
     tok_exp, tok_sin, tok_cos, tok_log,

@@ -214,6 +214,30 @@ TEST(Lexer, symbols) {
     EXPECT_EQ(t11.type, tok_eof);
 }
 
+TEST(Lexer, comparison_operators) {
+    char string[] = "< <= > >= == != !";
+    PRINT_LEX_STRING
+    Lexer lexer(string, string+sizeof(string));
+
+    auto t1 = lexer.parse();
+    EXPECT_EQ(t1.type, tok_lt);
+    auto t2 = lexer.parse();
+    EXPECT_EQ(t2.type, tok_lte);
+    auto t3 = lexer.parse();
+    EXPECT_EQ(t3.type, tok_gt);
+    auto t4 = lexer.parse();
+    EXPECT_EQ(t4.type, tok_gte);
+    auto t5 = lexer.parse();
+    EXPECT_EQ(t5.type, tok_EQ);
+    auto t6 = lexer.parse();
+    EXPECT_EQ(t6.type, tok_ne);
+    auto t7 = lexer.parse();
+    EXPECT_EQ(t7.type, tok_not);
+
+    auto t8 = lexer.parse();
+    EXPECT_EQ(t8.type, tok_eof);
+}
+
 // test braces
 TEST(Lexer, braces) {
     char string[] = "foo}";
@@ -288,26 +312,6 @@ TEST(Lexer, numbers) {
     EXPECT_EQ(t8.type, tok_eof);
 }
 
-// test errors
-TEST(Lexer, errors) {
-    char string[] = "foo 1a";
-    PRINT_LEX_STRING
-    Lexer lexer(string, string+sizeof(string));
-
-    // first read a valid token 'foo'
-    auto t1 = lexer.parse();
-    EXPECT_EQ(t1.type, tok_identifier);
-    EXPECT_EQ(lexer.status(), ls_happy);
-
-    // try to scan '1a' which is invalid and check that an error is generated
-    auto t2 = lexer.parse();
-    EXPECT_EQ(t2.type, tok_reserved); // tok_reserved is a placeholder that indicates an error
-    EXPECT_EQ(lexer.status(), ls_error);
-
-    // assert that the correct error message was generated
-    //EXPECT_EQ(lexer.error_message(), "found unexpected character 'a' when reading a number '1a'");
-}
-
 /**************************************************************
  * visitors
  **************************************************************/
@@ -369,7 +373,7 @@ TEST(FlopVisitor, basic) {
     }
 }
 
-TEST(FlopVisitor, compund) {
+TEST(FlopVisitor, compound) {
     {
     FlopVisitor *visitor = new FlopVisitor();
     Expression *e = parse_expression_helper("x+y*z/a-b");
@@ -568,6 +572,84 @@ TEST(Parser, parse_solve) {
     }
 }
 
+TEST(Parser, parse_if) {
+    {
+        char expression[] =
+        "   if(a<b) {      \n"
+        "       a = 2+b    \n"
+        "       b = 4^b    \n"
+        "   }              \n";
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_if();
+        EXPECT_NE(e, nullptr);
+        if(e) {
+            auto ife = e->is_if();
+            EXPECT_NE(e->is_if(), nullptr);
+            if(ife) {
+                EXPECT_NE(ife->condition()->is_binary(), nullptr);
+                EXPECT_NE(ife->true_branch()->is_block(), nullptr);
+                EXPECT_EQ(ife->false_branch(), nullptr);
+            }
+            //std::cout << e->to_string() << std::endl;
+        }
+        else {
+            std::cout << p.error_message() << std::endl;
+        }
+    }
+    {
+        char expression[] =
+        "   if(a<b) {      \n"
+        "       a = 2+b    \n"
+        "   } else {       \n"
+        "       a = 2+b    \n"
+        "   }                ";
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_if();
+        EXPECT_NE(e, nullptr);
+        if(e) {
+            auto ife = e->is_if();
+            EXPECT_NE(ife, nullptr);
+            if(ife) {
+                EXPECT_NE(ife->condition()->is_binary(), nullptr);
+                EXPECT_NE(ife->true_branch()->is_block(), nullptr);
+                EXPECT_NE(ife->false_branch(), nullptr);
+            }
+            //std::cout << std::endl << e->to_string() << std::endl;
+        }
+        else {
+            std::cout << p.error_message() << std::endl;
+        }
+    }
+    {
+        char expression[] =
+        "   if(a<b) {      \n"
+        "       a = 2+b    \n"
+        "   } else if(b>a){\n"
+        "       a = 2+b    \n"
+        "   }              ";
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_if();
+        EXPECT_NE(e, nullptr);
+        if(e) {
+            auto ife = e->is_if();
+            EXPECT_NE(ife, nullptr);
+            if(ife) {
+                EXPECT_NE(ife->condition()->is_binary(), nullptr);
+                EXPECT_NE(ife->true_branch()->is_block(), nullptr);
+                EXPECT_NE(ife->false_branch(), nullptr);
+                EXPECT_NE(ife->false_branch()->is_if(), nullptr);
+                EXPECT_EQ(ife->false_branch()->is_if()->false_branch(), nullptr);
+            }
+            //std::cout << std::endl << e->to_string() << std::endl;
+        }
+        else {
+            std::cout << p.error_message() << std::endl;
+        }
+    }
+}
 
 TEST(Parser, parse_local) {
     std::vector<const char*> good_expressions =
@@ -585,6 +667,7 @@ TEST(Parser, parse_local) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
+        EXPECT_NE(e->is_local_declaration(), nullptr);
         EXPECT_EQ(p.status(), ls_happy);
 
         // always print the compiler errors, because they are unexpected
@@ -712,6 +795,8 @@ TEST(Parser, parse_line_expression) {
 "x=(y + 2 * z ^ 3)  ",
 "foo(x+3, y, bar(21.4))",
 "y=exp(x+3) + log(exp(x/y))",
+"a=x^y^z",
+"a=x/y/z"
     };
 
     for(auto const& expression : good_expressions) {

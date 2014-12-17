@@ -11,7 +11,7 @@ void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
 
     Symbol s = scope_->find(name_);
 
-    if(s.expression==0) {
+    if(s.expression==nullptr) {
         error_ = true;
         error_string_ =
             pprintf("the variable '%' is undefined",
@@ -54,7 +54,7 @@ void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
     // Note that we allow for local variables with the same name as
     // class scope variables (globals), in which case the local variable
     // name will be used for lookup
-    if(s.expression==0 || (s.expression && s.kind==k_variable)) {
+    if(s.expression==nullptr || (s.expression && s.kind==k_variable)) {
         symbol_ = scope_->add_local_symbol(name_, this);
     }
     else {
@@ -222,7 +222,7 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
 void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
     e_->semantic(scp);
 
-    if(e_->is_procedure_call() || e_->is_procedure_call()) {
+    if(e_->is_procedure_call()) {
         error_ = true;
         error_string_ = "a procedure call can't be part of an expression";
     }
@@ -268,5 +268,22 @@ void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
         error_string_ = "'" + yellow(name_)
             + "' is not a valid procedure name for computing the derivatives in a SOLVE statement";
     }
+}
+
+std::string BlockExpression::to_string() const {
+    std::string str = blue("block") + " :";
+    for(auto ex : body_) {
+       str += "\n   " + ex->to_string();
+    }
+    return str;
+}
+
+std::string IfExpression::to_string() const {
+    std::string s = blue("if") + " :";
+    s += "\n  " + white("condition") + "    : " + condition_->to_string();
+    s += "\n  " + white("true branch") + "  :\n" + true_branch_->to_string();
+    s += "\n  " + white("false branch") + " :";
+    s += (false_branch_ ? "\n" + false_branch_->to_string() : "");
+    return s;
 }
 

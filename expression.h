@@ -51,6 +51,9 @@ public:
     // easy lookup of properties
     virtual CallExpression*       is_function_call()  {return nullptr;}
     virtual CallExpression*       is_procedure_call() {return nullptr;}
+    virtual BlockExpression*      is_block()          {return nullptr;}
+    virtual IfExpression*         is_if()             {return nullptr;}
+    virtual LocalExpression*      is_local_declaration() {return nullptr;}
     virtual FunctionExpression*   is_function()       {return nullptr;}
     virtual ProcedureExpression*  is_procedure()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
@@ -59,6 +62,7 @@ public:
     virtual BinaryExpression*     is_binary()         {return nullptr;}
     virtual UnaryExpression*      is_unary()          {return nullptr;}
     virtual AssignmentExpression* is_assignment()     {return nullptr;}
+    virtual ConditionalExpression* is_conditional()   {return nullptr;}
 
     virtual bool is_lvalue() {return false;}
 
@@ -165,12 +169,10 @@ public:
         return blue("local") + " " + yellow(name_);
     }
 
+    LocalExpression* is_local_declaration() override {return this;}
     void semantic(std::shared_ptr<Scope> scp) override;
-
     Symbol symbol() {return symbol_;}
-
     ~LocalExpression() {}
-
     void accept(Visitor *v) override {v->visit(this);}
 private:
     Symbol symbol_;
@@ -289,6 +291,116 @@ private:
     solverMethod method_;
 
     ProcedureExpression* procedure_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// conditional block, i.e. if-else if-else blocks.
+//
+// we take a simple "flat" approach.
+// 
+// first, we start with an IfBlock which is a tuple of
+// a conditional expression and a set of expressions that comprise its body.
+// in the case of an else statement, we have a default _true_ statement,
+// other wise the conditional is a conditional binary expression
+//
+// the if expression is a list of the IfBlocks
+//
+// this approach has the benefit of being "flat" and easy to
+// the tricky part is inserting a _true_ placeholder for the trailing 'else {}'
+// block. NMODL requires a binary conditional expression. We could create an 
+// Expression type, e.g. TrueExpression, which we insert there, but that
+// complicates semantic testing later, i.e. if(is_conditional || is_true)
+////////////////////////////////////////////////////////////////////////////////
+/*
+virtual IfBlock*      is_if_block        {return nullptr;}
+virtual IfExpression* is_if_expression() {return nullptr;}
+
+class IfBlock : public Expression {
+public:
+    IfBlock* is_if_block override {
+        return this;
+    }
+    Expression* condition() {
+        return condition_;
+    }
+    std::vector<Expression*>& body() {
+        return body_;
+    }
+private:
+    Expression* condition_;
+    std::vector<Expression*> body_;
+};
+
+class IfExpression : public Expression {
+public:
+    IfExpression* is_if_expression() override {return this;}
+    blocks();
+private:
+    std::vector<IfExpression*> blocks_
+};
+*/
+
+
+////////////////////////////////////////////////////////////////////////////////
+// recursive if statement
+// requires a BlockExpression that is a simple wrapper around a std::vector
+// of Expressions surrounded by {}
+////////////////////////////////////////////////////////////////////////////////
+
+class BlockExpression : public Expression {
+public:
+    BlockExpression(
+        Location loc,
+        std::vector<Expression*> body,
+        bool is_nested)
+    : Expression(loc),
+      body_(body),
+      is_nested_(is_nested)
+    {}
+
+    BlockExpression* is_block() override {
+        return this;
+    }
+
+    std::vector<Expression*>& body() {
+        return body_;
+    }
+
+    void accept(Visitor* v) override {v->visit(this);};
+
+    std::string to_string() const override;
+private:
+    std::vector<Expression*> body_;
+    bool is_nested_ = false;
+};
+
+class IfExpression : public Expression {
+public:
+    IfExpression(Location loc, Expression* con, Expression* tb, Expression* fb)
+    : Expression(loc), condition_(con), true_branch_(tb), false_branch_(fb)
+    {}
+
+    IfExpression* is_if() override {
+        return this;
+    }
+    Expression* condition() {
+        return condition_;
+    }
+    Expression* true_branch() {
+        return true_branch_;
+    }
+    Expression* false_branch() {
+        return false_branch_;
+    }
+
+    std::string to_string() const override;
+
+    void accept(Visitor* v) override {v->visit(this);}
+private:
+    Expression *condition_;
+    Expression *true_branch_;
+    Expression *false_branch_;
 };
 
 // a proceduce prototype
@@ -446,7 +558,7 @@ public:
 
     void semantic(std::shared_ptr<Scope> scp) override;
 
-    void accept(Visitor *v) override {std::cout << "here unary\n"; v->visit(this);}
+    void accept(Visitor *v) override {v->visit(this);}
 };
 
 /// negation unary expression, i.e. -x
@@ -586,6 +698,17 @@ public:
     PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
         : BinaryExpression(loc, tok_pow, lhs, rhs)
     {}
+
+    void accept(Visitor *v) override {v->visit(this);}
+};
+
+class ConditionalExpression : public BinaryExpression {
+public:
+    ConditionalExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
+        : BinaryExpression(loc, op, lhs, rhs)
+    {}
+
+    ConditionalExpression* is_conditional() override {return this;}
 
     void accept(Visitor *v) override {v->visit(this);}
 };

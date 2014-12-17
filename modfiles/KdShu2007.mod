@@ -28,7 +28,12 @@ UNITS {
     (um) = (micron)
 }
 
+: we can 
 ASSIGNED {
+    : would an approach for these be to make the user supply a function that describes how to
+    : compute these as a function of actual mathematical state (m, h, v, celsius, area)
+    : note that it would be good to differentiate between "global state" that varies constantly like
+    : v, and that which "may but almost certainly won't" like celcius
     ik      (mA/cm2)
     minf    mtau (ms)
     hinf    htau (ms)
@@ -40,6 +45,11 @@ STATE {
 
 BREAKPOINT {
     SOLVE states METHOD cnexp
+    : the solve expression above is required
+    : to ensure that values required to compute current contribution ik
+    : below, i.e these are (m, h)
+    : the states SOLVE is to ensure that m, h are currect at model time t
+
     ik = gkbar * m*h*(v-ek)
 }
 
@@ -53,6 +63,8 @@ DERIVATIVE states {
     trates(v)
     m' = (minf-m)/mtau
     h' = (hinf-h)/htau
+
+    :~ mc <-> m (alpha_m(v), beta_m(v))
 }
 
 PROCEDURE trates(v) {

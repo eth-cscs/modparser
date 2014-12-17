@@ -7,6 +7,8 @@
 // forward declarations
 class Expression;
 class IdentifierExpression;
+class BlockExpression;
+class IfExpression;
 class VariableExpression;
 class NumberExpression;
 class LocalExpression;
@@ -27,6 +29,7 @@ class SubBinaryExpression;
 class MulBinaryExpression;
 class DivBinaryExpression;
 class PowBinaryExpression;
+class ConditionalExpression;
 
 /// visitor base class
 /// The visitors for all AST nodes throw an assertion
@@ -48,6 +51,8 @@ public:
     virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
     virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
     virtual void visit(FunctionExpression *e)   { visit((Expression*) e);       }
+    virtual void visit(BlockExpression *e)      { visit((Expression*) e);       }
+    virtual void visit(IfExpression *e)         { visit((Expression*) e);       }
 
     virtual void visit(UnaryExpression *e)      { assert(false);                }
     virtual void visit(NegUnaryExpression *e)   { visit((UnaryExpression*) e);  }

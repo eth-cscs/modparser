@@ -10,7 +10,7 @@ class Expression;
 enum symbolKind {
     k_function,     ///< function call
     k_procedure,    ///< procedure call
-    k_variable,     ///< variable at class scope
+    k_variable,     ///< variable at module scope
     k_local,        ///< variable at local scope
     k_no_symbol,    ///< no symbol kind (placeholder)
 };

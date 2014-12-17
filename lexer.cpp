@@ -127,10 +127,28 @@ Token Lexer::parse() {
                 t.type = tok_rbrace;
                 t.name += character();
                 return t;
-            case '=':
-                t.type = tok_eq;
+            case '=': {
                 t.name += character();
+                if(*current_=='=') {
+                    t.name += character();
+                    t.type=tok_EQ;
+                }
+                else {
+                    t.type = tok_eq;
+                }
                 return t;
+            }
+            case '!': {
+                t.name += character();
+                if(*current_=='=') {
+                    t.name += character();
+                    t.type=tok_ne;
+                }
+                else {
+                    t.type = tok_not;
+                }
+                return t;
+            }
             case '+':
                 t.type = tok_plus;
                 t.name += character();
@@ -151,6 +169,29 @@ Token Lexer::parse() {
                 t.type = tok_pow;
                 t.name += character();
                 return t;
+            // comparison binary operators
+            case '<': {
+                t.name += character();
+                if(*current_=='=') {
+                    t.name += character();
+                    t.type = tok_lte;
+                }
+                else {
+                    t.type = tok_lt;
+                }
+                return t;
+            }
+            case '>': {
+                t.name += character();
+                if(*current_=='=') {
+                    t.name += character();
+                    t.type = tok_gte;
+                }
+                else {
+                    t.type = tok_gt;
+                }
+                return t;
+            }
             case '\'':
                 t.type = tok_prime;
                 t.name += character();
@@ -201,27 +242,7 @@ std::string Lexer::number() {
     current_++;
     while(1) {
         c = *current_;
-        // finish if EOF or white space
-        if(is_eof(c) || is_whitespace(c)) {
-            break;
-        }
-        if(c=='\n' || c=='\r') {
-            break;
-        }
-
-        // TODO :   these checks should be moved out of the number/identifier scanners
-        //          simply return when a character that is not [0-9.] is not found
-        //          and let the parser handle whatever follows the number/identifier
-
-        // a number can be followed by mathematical operator
-        else if(is_operator(c)) {
-            break;
-        }
-        // a number can be followed by closed parenthesis, comma, comment, or closed brace }
-        else if(c==')' || c==',' || c==':' || c=='}') {
-            break;
-        }
-        else if(is_numeric(c)) {
+        if(is_numeric(c)) {
             str += c;
             current_++;
         }
@@ -230,12 +251,7 @@ std::string Lexer::number() {
             str += c;
             current_++;
         }
-        // found an unexpected value
-        // e.g. the following [a-zA-Z]
         else {
-            str += c;
-            error_string_ = pprintf("found unexpected character '%' when reading a number '%'", c, colorize(str, kYellow));
-            status_ = ls_error;
             break;
         }
     }
@@ -267,39 +283,12 @@ std::string Lexer::identifier() {
     current_++;
     while(1) {
         c = *current_;
-        // finish if EOF or white space
-        if(is_eof(c) || is_whitespace(c)) {
-            break;
-        }
-        if(c=='\n' || c=='\r') {
-            break;
-        }
-        // an identifyer can be followed by mathematical operator
-        else if(is_operator(c)) {
-            break;
-        }
-        // an identifier can be followed by open or closed parenthesis
-        else if(c=='(' || c ==')') {
-            break;
-        }
-        // an identifier can be followed by open or closed brace
-        else if(c=='{' || c =='}') {
-            break;
-        }
-        // an identifier can be followed by a comma or a comment or assignment
-        else if(c==',' || c==':'  || c=='=') {
-            break;
-        }
-        else if(is_alphanumeric(c) || c=='_') {
+
+        if(is_alphanumeric(c) || c=='_') {
             name += c;
             current_++;
         }
-        // found an unexpected value
-        // e.g. the following [a-zA-Z]
         else {
-            name += c;
-            error_string_ = pprintf("found unexpected character '%' when reading an identifier '%'", c, name);
-            status_ = ls_error;
             break;
         }
     }
@@ -329,6 +318,7 @@ static Keyword keywords[] = {
     {"PROCEDURE",   tok_procedure},
     {"FUNCTION",    tok_function},
     {"INITIAL",     tok_initial},
+    {"NET_RECEIVE", tok_net_receive},
     {"UNITSOFF",    tok_unitsoff},
     {"UNITSON",     tok_unitson},
     {"SUFFIX",      tok_suffix},
@@ -341,6 +331,7 @@ static Keyword keywords[] = {
     {"SOLVE",       tok_solve},
     {"THREADSAFE",  tok_threadsafe},
     {"GLOBAL",      tok_global},
+    {"POINT_PROCESS", tok_point_process},
     {"METHOD",      tok_method},
     {"if",          tok_if},
     {"else",        tok_else},
@@ -376,6 +367,12 @@ static TokenString token_strings[] = {
     {"*",           tok_times},
     {"/",           tok_divide},
     {"^",           tok_pow},
+    {"<",           tok_lt},
+    {"<=",          tok_lte},
+    {">",           tok_gt},
+    {">=",          tok_gte},
+    {"==",          tok_EQ},
+    {"!=",          tok_ne},
     {",",           tok_comma},
     {"'",           tok_prime},
     {"{",           tok_lbrace},
@@ -395,6 +392,7 @@ static TokenString token_strings[] = {
     {"PROCEDURE",   tok_procedure},
     {"FUNCTION",    tok_function},
     {"INITIAL",     tok_initial},
+    {"NET_RECEIVE", tok_net_receive},
     {"UNITSOFF",    tok_unitsoff},
     {"UNITSON",     tok_unitson},
     {"SUFFIX",      tok_suffix},
@@ -407,6 +405,7 @@ static TokenString token_strings[] = {
     {"SOLVE",       tok_solve},
     {"THREADSAFE",  tok_threadsafe},
     {"GLOBAL",      tok_global},
+    {"POINT_PROCESS", tok_point_process},
     {"METHOD",      tok_method},
     {"if",          tok_if},
     {"else",        tok_else},
@@ -445,7 +444,14 @@ void Lexer::binop_prec_init() {
     if(binop_prec_.size()>0)
         return;
 
+    // I have taken the operator precedence from C++
     binop_prec_[tok_eq]     = 2;
+    binop_prec_[tok_EQ]     = 4;
+    binop_prec_[tok_ne]     = 4;
+    binop_prec_[tok_lt]     = 5;
+    binop_prec_[tok_lte]    = 5;
+    binop_prec_[tok_gt]     = 5;
+    binop_prec_[tok_gte]    = 5;
     binop_prec_[tok_plus]   = 10;
     binop_prec_[tok_minus]  = 10;
     binop_prec_[tok_times]  = 20;
