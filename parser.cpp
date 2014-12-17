@@ -874,7 +874,7 @@ Expression* Parser::parse_procedure() {
         if(token_.type == tok_rbrace)
             break;
 
-        Expression *e = parse_high_level();
+        Expression *e = parse_statement();
         if(e==nullptr) {
             return nullptr;
         }
@@ -911,7 +911,7 @@ Expression* Parser::parse_function() {
         if(token_.type == tok_rbrace)
             break;
 
-        Expression *e = parse_high_level();
+        Expression *e = parse_statement();
         if(e==nullptr) {
             return nullptr;
         }
@@ -929,7 +929,7 @@ Expression* Parser::parse_function() {
 // it tests to see whether the expression is:
 //      :: LOCAL identifier
 //      :: expression
-Expression *Parser::parse_high_level() {
+Expression *Parser::parse_statement() {
     switch(token_.type) {
         case tok_if :
             return parse_if();
@@ -1394,7 +1394,7 @@ Expression *Parser::parse_block(bool is_nested) {
 
     std::vector<Expression*> body;
     while(token_.type != tok_rbrace) {
-        Expression *e = parse_high_level();
+        Expression *e = parse_statement();
         if(e==nullptr) return nullptr;
 
         if(is_nested) {
