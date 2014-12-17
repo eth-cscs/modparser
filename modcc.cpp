@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 
 #include "lexer.h"
@@ -45,13 +46,26 @@ int main(int argc, char **argv) {
         std::cout << var.second.expression->to_string() << std::endl;
     }
     #endif
+    #define WITH_PROFILING
     #ifdef WITH_PROFILING
-    for(int i=0; i<10; ++i) {
-        Parser p(m);
-        if(p.status() != ls_happy) {
-            std::cout << "error: unable to parse file" << std::endl;
-            return 1;
+    {
+        const int N = 1000;
+        using clock = std::chrono::high_resolution_clock;
+        using duration = std::chrono::duration<double>;
+
+        auto start = clock::now();
+        for(int i=0; i<N; ++i) {
+            Parser p(m);
+            if(p.status() != ls_happy) {
+                std::cout << "error: unable to parse file" << std::endl;
+                return 1;
+            }
         }
+        auto last = clock::now();
+        auto time_span = duration(last - start);
+
+        std::cout << "compilation takes an average of " << time_span.count()/N*1000. << " ms";
+        std::cout << std::endl;
     }
     #endif
 
