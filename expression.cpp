@@ -3,15 +3,15 @@
 std::string to_string(procedureKind k) {
     switch(k) {
         case k_proc             :
-            return "procedure";
+            return "PROCEDURE";
         case k_proc_initial     :
-            return "initial";
+            return "INITIAL";
         case k_proc_net_receive :
-            return "net_receive";
+            return "net_receiVE";
         case k_proc_breakpoint  :
-            return "breakpoint";
+            return "BREAKPOINT";
         case k_proc_derivative  :
-            return "derivative";
+            return "DERIVATIVE";
     }
 }
 
@@ -209,6 +209,12 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
         a->semantic(scope_);
     }
 
+    // this loop could be used to then check the types of statements in the body
+    for(auto e : *body_) {
+        if(e->is_initial_block())
+            error("INITIAL block not allowed inside "+::to_string(kind_)+" definition");
+    }
+
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
 
@@ -242,16 +248,22 @@ void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
     scope_ = std::make_shared<Scope>(global_symbols);
 
     // add the argumemts to the list of local variables
+    // TODO : this does not appear to be working
     for(auto a : args_) {
         a->semantic(scope_);
     }
 
     // perform semantic analysis for each expression in the body
-    std::cout << red("sema for NetReceiveExpression") << std::endl;
     body_->semantic(scope_);
-    //for(auto e : *body_) {
-    //    e->semantic(scope_);
-    //}
+    // this loop could be used to then check the types of statements in the body
+    for(auto e : *body_) {
+        if(e->is_initial_block()) {
+            if(initial_block_) {
+                error("only one INITIAL block is permitted per NET_RECEIVE block");
+            }
+            initial_block_ = e->is_initial_block();
+        }
+    }
 
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
@@ -295,9 +307,9 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    //for(auto e : *body_) {
-    //    e->semantic(scope_);
-    //}
+    for(auto e : *body_) {
+        if(e->is_initial_block()) error("INITIAL block not allowed inside FUNCTION definition");
+    }
 
     // check that the last expression in the body was an assignment to
     // the return placeholder

@@ -50,6 +50,10 @@ public:
 
     std::shared_ptr<Scope> scope() {return scope_;};
 
+    void error(std::string const& str) {
+        error_        = true;
+        error_string_ = str;
+    }
     bool has_error()   { return error_; }
     bool has_warning() { return warning_; }
     std::string const& error_message()   const { return error_string_;   }
