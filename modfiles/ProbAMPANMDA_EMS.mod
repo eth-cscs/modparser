@@ -144,36 +144,36 @@ NET_RECEIVE (weight,weight_AMPA, weight_NMDA, Psurv, tsyn){
     if (Fac > 0) {
         u = u*exp(-(t - tsyn_fac)/Fac)
     }
-    :else {
+    else {
         u = Use
-    :}
-    :if(Fac > 0){
+    }
+    if(Fac > 0){
         u = u + Use*(1-u)
-    :}
+    }
 
     tsyn_fac = t
-    :if (Rstate == 0) {
+    if (Rstate == 0) {
         Psurv = exp(-(t-tsyn)/Dep)
         result = urand()
-        :if (result>Psurv) {
+        if (result>Psurv) {
             Rstate = 1
-        :}
-        :else {
+        }
+        else {
             tsyn = t
-        :}
-    :}
+        }
+    }
 
-    :if (Rstate == 1) {
+    if (Rstate == 1) {
         result = urand()
-        :if (result<u) {
+        if (result<u) {
             tsyn = t
             Rstate = 0
             A_AMPA = A_AMPA + weight_AMPA*factor_AMPA
             B_AMPA = B_AMPA + weight_AMPA*factor_AMPA
             A_NMDA = A_NMDA + weight_NMDA*factor_NMDA
             B_NMDA = B_NMDA + weight_NMDA*factor_NMDA
-        :}
-    :}
+        }
+    }
 }
 
 : hoc calls this (it isn't called anywhere else in the mod file)
