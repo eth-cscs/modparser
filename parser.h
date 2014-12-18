@@ -24,6 +24,7 @@ public:
     Expression* parse_local();
     Expression* parse_solve();
     Expression* parse_block(bool);
+    Expression* parse_initial();
     Expression* parse_if();
 
     Expression* parse_procedure();

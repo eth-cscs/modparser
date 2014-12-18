@@ -133,9 +133,9 @@ NET_RECEIVE (weight,weight_AMPA, weight_NMDA, Psurv, tsyn){
 
     : todo
     : called at t==0
-    :INITIAL{
-    :    tsyn=t
-    :}
+    INITIAL{
+        tsyn=t
+    }
     if (Fac > 0) {
         u = u*exp(-(t - tsyn_fac)/Fac)
     }

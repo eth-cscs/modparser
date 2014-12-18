@@ -855,24 +855,31 @@ void Parser::add_variables_to_symbols() {
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
 Expression* Parser::parse_procedure() {
     Expression* p = nullptr;
+    procedureKind kind = k_proc;
 
     switch( token_.type ) {
         case tok_derivative:
-        case tok_procedure:
+            kind = k_proc_derivative;
             get_token(); // consume keyword token
-
-            // check that a valid identifier name was specified by the user
             if( !expect( tok_identifier ) ) return nullptr;
-
+            p = parse_prototype();
+            break;
+        case tok_procedure:
+            kind = k_proc;
+            get_token(); // consume keyword token
+            if( !expect( tok_identifier ) ) return nullptr;
             p = parse_prototype();
             break;
         case tok_initial:
+            kind = k_proc_initial;
             p = parse_prototype("initial");
             break;
         case tok_breakpoint:
+            kind = k_proc_breakpoint;
             p = parse_prototype("breakpoint");
             break;
         case tok_net_receive:
+            kind = k_proc_net_receive;
             p = parse_prototype("net_receive");
             break;
         default:
@@ -890,8 +897,14 @@ Expression* Parser::parse_procedure() {
     if(body==nullptr) return nullptr;
 
     PrototypeExpression* proto = p->is_prototype();
-    return new ProcedureExpression(
+    if(kind != k_proc_net_receive) {
+        return new ProcedureExpression(
+                    proto->location(), proto->name(), proto->args(), body, kind);
+    }
+    else {
+        return new NetReceiveExpression(
                     proto->location(), proto->name(), proto->args(), body);
+    }
 }
 
 Expression* Parser::parse_function() {
@@ -934,6 +947,9 @@ Expression *Parser::parse_statement() {
             return parse_local();
         case tok_identifier :
             return parse_line_expression();
+        case tok_initial :
+            // only used for INITIAL block in NET_RECEIVE
+            return parse_initial();
         default:
             error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.name));
             return nullptr;
@@ -1412,8 +1428,45 @@ Expression *Parser::parse_block(bool is_nested) {
               + ::to_string(block_location));
         return nullptr;
     }
-    get_token(); // consume closing '{'
+    get_token(); // consume closing '}'
 
     return new BlockExpression(block_location, body, is_nested);
+}
+
+Expression *Parser::parse_initial() {
+    // has to start with INITIAL: error in compiler implementaion otherwise
+    assert(token_.type==tok_initial);
+
+    // save the location of the first statement as the starting point for the block
+    Location block_location = token_.location;
+
+    get_token(); // consume 'INITIAL'
+
+    if(!expect(tok_lbrace)) return nullptr;
+    get_token(); // consume '{'
+
+    std::vector<Expression*> body;
+    while(token_.type != tok_rbrace) {
+        Expression *e = parse_statement();
+        if(e==nullptr) return nullptr;
+
+        // disallow variable declarations in an INITIAL block
+        if(e->is_local_declaration()) {
+            error("LOCAL variable declarations are not allowed inside a nested scope");
+            return nullptr;
+        }
+
+        body.push_back(e);
+    }
+
+    if(token_.type != tok_rbrace) {
+        error("could not find closing '" + yellow("}")
+              + "' for else statement that started at "
+              + ::to_string(block_location));
+        return nullptr;
+    }
+    get_token(); // consume closing '}'
+
+    return new InitialBlock(block_location, body);
 }
 

@@ -8,6 +8,7 @@
 class Expression;
 class IdentifierExpression;
 class BlockExpression;
+class InitialBlock;
 class IfExpression;
 class VariableExpression;
 class NumberExpression;
@@ -15,6 +16,7 @@ class LocalExpression;
 class PrototypeExpression;
 class CallExpression;
 class ProcedureExpression;
+class NetReceiveExpression;
 class FunctionExpression;
 class UnaryExpression;
 class NegUnaryExpression;
@@ -49,10 +51,14 @@ public:
     virtual void visit(PrototypeExpression *e)  { visit((Expression*) e);       }
     virtual void visit(CallExpression *e)       { visit((Expression*) e);       }
     virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
-    virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
     virtual void visit(FunctionExpression *e)   { visit((Expression*) e);       }
-    virtual void visit(BlockExpression *e)      { visit((Expression*) e);       }
     virtual void visit(IfExpression *e)         { visit((Expression*) e);       }
+
+    virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
+    virtual void visit(NetReceiveExpression *e) { visit((ProcedureExpression*) e); }
+
+    virtual void visit(BlockExpression *e)      { visit((Expression*) e);       }
+    virtual void visit(InitialBlock *e)         { visit((BlockExpression*) e);  }
 
     virtual void visit(UnaryExpression *e)      { assert(false);                }
     virtual void visit(NegUnaryExpression *e)   { visit((UnaryExpression*) e);  }

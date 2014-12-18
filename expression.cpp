@@ -1,10 +1,33 @@
 #include "expression.h"
 
+std::string to_string(procedureKind k) {
+    switch(k) {
+        case k_proc             :
+            return "procedure";
+        case k_proc_initial     :
+            return "initial";
+        case k_proc_net_receive :
+            return "net_receive";
+        case k_proc_breakpoint  :
+            return "breakpoint";
+        case k_proc_derivative  :
+            return "derivative";
+    }
+}
+
+/*******************************************************************************
+  Expression
+*******************************************************************************/
+
 void Expression::semantic(std::shared_ptr<Scope>) {
     error_ = true;
     error_string_ =
         pprintf("semantic() has not been implemented for this expression");
 }
+
+/*******************************************************************************
+  IdentifierExpression
+*******************************************************************************/
 
 void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
@@ -44,6 +67,10 @@ bool IdentifierExpression::is_lvalue() {
     if(symbol_.kind == k_local ) return true;
     return false;
 }
+
+/*******************************************************************************
+  LocalExpression
+*******************************************************************************/
 
 std::string LocalExpression::to_string() const {
     std::string str = blue("local");
@@ -87,6 +114,10 @@ void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
+/*******************************************************************************
+  VariableExpression
+*******************************************************************************/
+
 std::string VariableExpression::to_string() const {
     char name[17];
     snprintf(name, 17, "%-10s", name_.c_str());
@@ -102,6 +133,10 @@ std::string VariableExpression::to_string() const {
           + colorize("state", is_state() ? kGreen : kRed) + ")";
     return s;
 }
+
+/*******************************************************************************
+  CallExpression
+*******************************************************************************/
 
 std::string CallExpression::to_string() const {
     std::string str = colorize("call", kBlue) + " " + colorize(name_, kYellow) + " (";
@@ -146,20 +181,14 @@ void CallExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
+/*******************************************************************************
+  ProcedureExpression
+*******************************************************************************/
+
 std::string ProcedureExpression::to_string() const {
     std::string str = colorize("procedure", kBlue) + " " + colorize(name_, kYellow) + "\n";
-    str += colorize("  args",kBlue) + " : ";
-    for(auto arg : args_)
-        str += arg->to_string() + " ";
-    str += "\n  "+colorize("body", kBlue)+" :";
-    str += body_->to_string();
-
-    return str;
-}
-
-std::string FunctionExpression::to_string() const {
-    std::string str = colorize("function", kBlue) + " " + colorize(name_, kYellow) + "\n";
-    str += colorize("  args",kBlue) + " : ";
+    str += colorize("  special",kBlue) + " : " + ::to_string(kind_) + "\n";
+    str += colorize("  args",kBlue) + "    : ";
     for(auto arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+colorize("body", kBlue)+" :";
@@ -181,13 +210,67 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     }
 
     // perform semantic analysis for each expression in the body
-    for(auto e : *body_) {
-        e->semantic(scope_);
-    }
+    body_->semantic(scope_);
 
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
     symbol_ = global_symbols.find(name_)->second;
+}
+
+/*******************************************************************************
+  InitialBlock
+*******************************************************************************/
+
+std::string InitialBlock::to_string() const {
+    std::string str = green("[[initial");
+    for(auto ex : body_) {
+       str += "\n   " + ex->to_string();
+    }
+    str += green("\n]]");
+    return str;
+}
+
+/*******************************************************************************
+  NetReceiveExpression
+*******************************************************************************/
+
+void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
+    // assert that the symbol is already visible in the global_symbols
+    assert(global_symbols.find(name_) != global_symbols.end());
+
+    // create the scope for this procedure
+    scope_ = std::make_shared<Scope>(global_symbols);
+
+    // add the argumemts to the list of local variables
+    for(auto a : args_) {
+        a->semantic(scope_);
+    }
+
+    // perform semantic analysis for each expression in the body
+    std::cout << red("sema for NetReceiveExpression") << std::endl;
+    body_->semantic(scope_);
+    //for(auto e : *body_) {
+    //    e->semantic(scope_);
+    //}
+
+    // the symbol for this expression is itself
+    // this could lead to nasty self-referencing loops
+    symbol_ = global_symbols.find(name_)->second;
+}
+
+/*******************************************************************************
+  FunctionExpression
+*******************************************************************************/
+
+std::string FunctionExpression::to_string() const {
+    std::string str = colorize("function", kBlue) + " " + colorize(name_, kYellow) + "\n";
+    str += colorize("  args",kBlue) + " : ";
+    for(auto arg : args_)
+        str += arg->to_string() + " ";
+    str += "\n  "+colorize("body", kBlue)+" :";
+    str += body_->to_string();
+
+    return str;
 }
 
 void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
@@ -210,9 +293,11 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     scope_->add_local_symbol(name_, return_var);
 
     // perform semantic analysis for each expression in the body
-    for(auto e : *body_) {
-        e->semantic(scope_);
-    }
+    body_->semantic(scope_);
+    // this loop could be used to then check the types of statements in the body
+    //for(auto e : *body_) {
+    //    e->semantic(scope_);
+    //}
 
     // check that the last expression in the body was an assignment to
     // the return placeholder
@@ -233,12 +318,14 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
                         + "' does not set the return value";
     }
 
-
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
     symbol_ = global_symbols.find(name_)->second;
 }
 
+/*******************************************************************************
+  UnaryExpression
+*******************************************************************************/
 void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
     e_->semantic(scp);
 
@@ -248,6 +335,9 @@ void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
+/*******************************************************************************
+  BinaryExpression
+*******************************************************************************/
 void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
@@ -257,6 +347,10 @@ void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
         error_string_ = "procedure calls can't be made in an expression";
     }
 }
+
+/*******************************************************************************
+  AssignmentExpression
+*******************************************************************************/
 
 void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
     lhs_->semantic(scp);
@@ -271,6 +365,10 @@ void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
         error_string_ = "procedure calls can't be made in an expression";
     }
 }
+
+/*******************************************************************************
+  SolveExpression
+*******************************************************************************/
 
 void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
     auto e = scp->find(name_).expression;
@@ -290,13 +388,29 @@ void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
+/*******************************************************************************
+  BlockExpression
+*******************************************************************************/
+
 std::string BlockExpression::to_string() const {
-    std::string str = blue("block") + " :";
+    std::string str = green("[[");
     for(auto ex : body_) {
        str += "\n   " + ex->to_string();
     }
+    str += green("\n]]");
     return str;
 }
+
+void BlockExpression::semantic(std::shared_ptr<Scope> scp) {
+    scope_ = scp;
+    for(auto e : body_) {
+        e->semantic(scope_);
+    }
+}
+
+/*******************************************************************************
+  IfExpression
+*******************************************************************************/
 
 std::string IfExpression::to_string() const {
     std::string s = blue("if") + " :";
@@ -305,5 +419,19 @@ std::string IfExpression::to_string() const {
     s += "\n  " + white("false branch") + " :";
     s += (false_branch_ ? "\n" + false_branch_->to_string() : "");
     return s;
+}
+
+void IfExpression::semantic(std::shared_ptr<Scope> scp) {
+    auto cond = condition_->is_conditional();
+    if(!cond) {
+        error_ = true;
+        error_string_ = "not a valid conditional expression";
+    }
+
+    true_branch_->semantic(scp);
+
+    if(false_branch_) {
+        false_branch_->semantic(scp);
+    }
 }
 

@@ -11,6 +11,17 @@
 #include "scope.h"
 #include "visitor.h"
 
+/// specifies special properties of a ProcedureExpression
+enum procedureKind {
+    k_proc,             // PROCEDURE
+    k_proc_initial,     // INITIAL
+    k_proc_net_receive, // NET_RECEIVE
+    k_proc_breakpoint,  // BREAKPOINT
+    k_proc_derivative   // DERIVATIVE
+};
+
+std::string to_string(procedureKind k);
+
 /// methods for time stepping state
 enum solverMethod {
     k_cnexp // the only method we have at the moment
@@ -56,6 +67,7 @@ public:
     virtual LocalExpression*      is_local_declaration() {return nullptr;}
     virtual FunctionExpression*   is_function()       {return nullptr;}
     virtual ProcedureExpression*  is_procedure()      {return nullptr;}
+    virtual NetReceiveExpression* is_net_receive()    {return nullptr;}
     virtual PrototypeExpression*  is_prototype()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
     virtual VariableExpression*   is_variable()       {return nullptr;}
@@ -64,6 +76,7 @@ public:
     virtual UnaryExpression*      is_unary()          {return nullptr;}
     virtual AssignmentExpression* is_assignment()     {return nullptr;}
     virtual ConditionalExpression* is_conditional()   {return nullptr;}
+    virtual InitialBlock*         is_initial_block()  {return nullptr;}
 
     virtual bool is_lvalue() {return false;}
 
@@ -307,7 +320,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 class BlockExpression : public Expression {
-private:
+protected:
     std::vector<Expression*> body_;
     bool is_nested_ = false;
 
@@ -343,6 +356,7 @@ public:
         return body_.front();
     }
 
+    void semantic(std::shared_ptr<Scope> scp) override;
     void accept(Visitor* v) override {v->visit(this);};
 
     std::string to_string() const override;
@@ -368,6 +382,7 @@ public:
     }
 
     std::string to_string() const override;
+    void semantic(std::shared_ptr<Scope> scp) override;
 
     void accept(Visitor* v) override {v->visit(this);}
 private:
@@ -440,8 +455,9 @@ public:
     ProcedureExpression( Location loc,
                          std::string const& name,
                          std::vector<Expression*> const& args,
-                         Expression* body)
-        : Expression(loc), name_(name), args_(args)
+                         Expression* body,
+                         procedureKind k=k_proc)
+        : Expression(loc), name_(name), args_(args), kind_(k)
     {
         assert(body->is_block());
         body_ = body->is_block();
@@ -462,13 +478,59 @@ public:
     std::string to_string() const override;
     void accept(Visitor *v) override {v->visit(this);}
 
-private:
+    /// can be used to determine whether the procedure has been lowered
+    /// from a special block, e.g. BREAKPOINT, INITIAL, NET_RECEIVE, etc
+    procedureKind kind() const {return kind_;}
+    //void kind(procedureKind k) {kind_=k;}
+
+protected:
     std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
     std::vector<Expression *> args_;
     BlockExpression* body_;
+    procedureKind kind_ = k_proc;
+};
+
+/// stores the INITIAL block in a NET_RECEIVE block, if there is one
+/// should not be used anywhere but NET_RECEIVE
+class InitialBlock : public BlockExpression {
+public:
+    InitialBlock(
+        Location loc,
+        std::vector<Expression*> body)
+    : BlockExpression(loc, body, true)
+    {}
+
+    std::string to_string() const;
+    // currently we use the semantic for a BlockExpression
+    // this could be overriden to check for statements
+    // specific to initialization of a net_receive block
+    //void semantic() override;
+
+    InitialBlock* is_initial_block() override {return this;}
+};
+
+/// handle NetReceiveExpressions as a special case of ProcedureExpression
+class NetReceiveExpression : public ProcedureExpression {
+public:
+    NetReceiveExpression( Location loc,
+                          std::string const& name,
+                          std::vector<Expression*> const& args,
+                          Expression* body)
+        : ProcedureExpression(loc, name, args_, body, k_proc_net_receive)
+    {}
+
+    void semantic(Scope::symbol_map &scp) override;
+    NetReceiveExpression* is_net_receive() override {return this;}
+    /// hard code the kind
+    procedureKind kind() {return k_proc_net_receive;}
+
+    void accept(Visitor *v) override {v->visit(this);}
+    InitialBlock* initial_block() {return initial_block_;}
+protected:
+    InitialBlock*  initial_block_=nullptr;
 };
 
 class FunctionExpression : public Expression {
