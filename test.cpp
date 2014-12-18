@@ -652,49 +652,83 @@ TEST(Parser, parse_if) {
 }
 
 TEST(Parser, parse_local) {
-    std::vector<const char*> good_expressions =
+    ////////////////////// test for valid expressions //////////////////////
     {
-"LOCAL xyz\n",
-"LOCAL xyz : comment\n"
-    };
-
-    for(auto const& expression : good_expressions) {
+        char expression[] = "LOCAL xyz";
         auto m = make_module(expression);
         Parser p(m, false);
         Expression *e = p.parse_local();
 
-#ifdef VERBOSE_TEST
+        #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-#endif
+        #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_NE(e->is_local_declaration(), nullptr);
-        EXPECT_EQ(p.status(), ls_happy);
+        if(e) {
+            EXPECT_NE(e->is_local_declaration(), nullptr);
+            EXPECT_EQ(p.status(), ls_happy);
+        }
 
         // always print the compiler errors, because they are unexpected
         if(p.status()==ls_error)
             std::cout << colorize("error", kRed) << p.error_message() << std::endl;
     }
 
-    std::vector<const char*> bad_expressions =
     {
-"LOCAL 2",
-"LOCAL x = 3",
-"LOCAL x - 3",
-    };
-
-    for(auto const& expression : bad_expressions) {
+        char expression[] = "LOCAL x, y, z";
         auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_local();
+
+        #ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        #endif
+        EXPECT_NE(e, nullptr);
+        if(e) {
+            EXPECT_NE(e->is_local_declaration(), nullptr);
+            EXPECT_EQ(p.status(), ls_happy);
+            auto vars = e->is_local_declaration()->variables();
+            EXPECT_EQ(vars.size(), 3);
+            EXPECT_NE(vars.find("x"), vars.end());
+            EXPECT_NE(vars.find("y"), vars.end());
+            EXPECT_NE(vars.find("z"), vars.end());
+        }
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==ls_error)
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+    }
+
+    ////////////////////// test for invalid expressions //////////////////////
+    {
+        char bad_expression[] = "LOCAL 2";
+        auto m = make_module(bad_expression);
         Parser p(m, false);
         Expression *e = p.parse_local();
 
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), ls_error);
 
-#ifdef VERBOSE_TEST
+        #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
         if(p.status()==ls_error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
-#endif
+        #endif
+    }
+
+    {
+        char bad_expression[] = "LOCAL x, ";
+        auto m = make_module(bad_expression);
+        Parser p(m, false);
+        Expression *e = p.parse_local();
+
+        EXPECT_EQ(e, nullptr);
+        EXPECT_EQ(p.status(), ls_error);
+
+        #ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==ls_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+        #endif
     }
 }
 

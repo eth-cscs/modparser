@@ -162,23 +162,29 @@ private:
 // declaration of a LOCAL variable
 class LocalExpression : public Expression {
 public:
-    LocalExpression(Location loc, std::string const& name)
-        : Expression(loc), name_(name)
+    LocalExpression(Location loc)
+        : Expression(loc)
     {}
-
-    std::string to_string() const override {
-        return blue("local") + " " + yellow(name_);
+    LocalExpression(Location loc, std::string const& name)
+        : Expression(loc)
+    {
+        Token tok(tok_identifier, name, loc);
+        add_variable(tok);
     }
 
+    std::string to_string() const override;
+
+    bool add_variable(Token name);
     LocalExpression* is_local_declaration() override {return this;}
     void semantic(std::shared_ptr<Scope> scp) override;
-    Symbol symbol() {return symbol_;}
+    std::vector<Symbol>& symbols() {return symbols_;}
+    std::map<std::string, Token>& variables() {return vars_;}
     ~LocalExpression() {}
     void accept(Visitor *v) override {v->visit(this);}
 private:
-    Symbol symbol_;
+    std::vector<Symbol> symbols_;
     // there has to be some pointer to a table of identifiers
-    std::string name_;
+    std::map<std::string, Token> vars_;
 };
 
 // variable definition

@@ -36,16 +36,16 @@ int main(int argc, char **argv) {
     // semantic analysis
     std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
     p.semantic();
-    if(p.status() == ls_error) return 1;
 
     #ifdef VERBOSE
-    std::string twiz = green("=") + yellow("=") + red("=");
-    twiz += twiz;
-    std::cout << twiz + " symbols " + twiz << std::endl;
+    std::cout << "====== symbols ======" << std::endl;
     for(auto const &var : p.symbols()) {
         std::cout << var.second.expression->to_string() << std::endl;
     }
     #endif
+
+    if(p.status() == ls_error) return 1;
+
     #define WITH_PROFILING
     #ifdef WITH_PROFILING
     {

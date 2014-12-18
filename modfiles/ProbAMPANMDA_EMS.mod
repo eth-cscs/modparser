@@ -5,8 +5,8 @@ NEURON {
     RANGE Use, u, Dep, Fac, u0, mg, Rstate, tsyn_fac, u
     RANGE i, i_AMPA, i_NMDA, g_AMPA, g_NMDA, g, e, NMDA_ratio
     RANGE A_AMPA_step, B_AMPA_step, A_NMDA_step, B_NMDA_step
-    :NONSPECIFIC_CURRENT i
-    :BBCOREPOINTER rng
+    :NONSPECIFIC_CURRENT i  : how to handle this?
+    :BBCOREPOINTER rng      : this will be removed when we add proper support for rand
     RANGE synapseID, verboseLevel
 }
 
@@ -27,10 +27,6 @@ PARAMETER {
     verboseLevel = 0
     NMDA_ratio = 0.71 (1) : The ratio of NMDA to AMPA
 }
-
-:VERBATIM
-:#include "nrnran123.h"
-:ENDVERBATIM
 
 ASSIGNED {
     v (mV)
@@ -61,10 +57,9 @@ STATE {
 
 INITIAL{
     : todo: add parsing of multiple locals on the same line
-    :LOCAL tp_AMPA, tp_NMDA
-    LOCAL tp_AMPA
-    LOCAL tp_NMDA
+    LOCAL tp_AMPA, tp_NMDA
 
+    : replace this with something like init_rand() ?
 :    VERBATIM
 :      if (_p_rng)
 :      {
@@ -91,10 +86,10 @@ INITIAL{
     factor_NMDA = -exp(-tp_NMDA/tau_r_NMDA)+exp(-tp_NMDA/tau_d_NMDA)
     factor_NMDA = 1/factor_NMDA
 
-    A_AMPA_step = exp(dt*(( - 1.0 ) / tau_r_AMPA))
-    B_AMPA_step = exp(dt*(( - 1.0 ) / tau_d_AMPA))
-    A_NMDA_step = exp(dt*(( - 1.0 ) / tau_r_NMDA))
-    B_NMDA_step = exp(dt*(( - 1.0 ) / tau_d_NMDA))
+    A_AMPA_step = exp(-dt/tau_r_AMPA)
+    B_AMPA_step = exp(-dt/tau_d_AMPA)
+    A_NMDA_step = exp(-dt/tau_r_NMDA)
+    B_NMDA_step = exp(-dt/tau_d_NMDA)
 }
 
 BREAKPOINT {

@@ -45,24 +45,45 @@ bool IdentifierExpression::is_lvalue() {
     return false;
 }
 
+std::string LocalExpression::to_string() const {
+    std::string str = blue("local");
+    for(auto v : vars_) {
+        str += " " + yellow(v.first);
+    }
+    return str;
+}
+
+bool LocalExpression::add_variable(Token tok) {
+    if(vars_.find(tok.name)!=vars_.end()) {
+        error_ = true;
+        error_string_ = "the variable '" + yellow(tok.name) + "' is defined more than once";
+        return false;
+    }
+
+    vars_[tok.name] = tok;
+    return true;
+}
+
 void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
 
-    Symbol s = scope_->find(name_);
+    // loop over the variables declared in this LOCAL statement
+    for(auto &v : vars_) {
+        auto &name = v.first;
+        Symbol s = scope_->find(name);
 
-    // First check that the variable is undefined
-    // Note that we allow for local variables with the same name as
-    // class scope variables (globals), in which case the local variable
-    // name will be used for lookup
-    if(s.expression==nullptr || (s.expression && s.kind==k_variable)) {
-        symbol_ = scope_->add_local_symbol(name_, this);
-    }
-    else {
-        error_ = true;
-        error_string_ =
-            pprintf("the symbol '%' is already defined",
-                    colorize(name_, kYellow));
-        return;
+        // First check that the variable is undefined
+        // Note that we allow for local variables with the same name as
+        // class scope variables (globals), in which case the local variable
+        // name will be used for lookup
+        if(s.expression==nullptr || (s.expression && s.kind==k_variable)) {
+            symbols_.push_back( scope_->add_local_symbol(name, this) );
+        }
+        else {
+            error_ = true;
+            error_string_ =
+                pprintf("the symbol '%' is already defined", yellow(name));
+        }
     }
 }
 
@@ -74,7 +95,8 @@ std::string VariableExpression::to_string() const {
           + colorize("write", is_writeable() ? kGreen : kRed) + ", "
           + colorize("read", is_readable() ? kGreen : kRed)   + ", "
           + (is_range() ? "range" : "scalar")                 + ", "
-          + "ion" + colorize(::to_string(ion_channel()), ion_channel()==k_ion_none ? kRed : kGreen)+ ", "
+          + "ion" + colorize(::to_string(ion_channel()),
+                             (ion_channel()==k_ion_none) ? kRed : kGreen) + ", "
           + "vis "  + ::to_string(visibility()) + ", "
           + "link " + ::to_string(linkage())    + ", "
           + colorize("state", is_state() ? kGreen : kRed) + ")";
@@ -184,8 +206,8 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     // which acts as a placeholder for the return value
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
-    scope_->add_local_symbol(
-        name_, new LocalExpression(body_->location(), name_) );
+    auto return_var = new LocalExpression(body_->location(), name_);
+    scope_->add_local_symbol(name_, return_var);
 
     // perform semantic analysis for each expression in the body
     for(auto e : *body_) {

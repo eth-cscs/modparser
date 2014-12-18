@@ -106,11 +106,24 @@ struct Token {
     }
     // the name string contains the text of the token
     // the string is context sensitive:
+    // name should really have been called 'spelling'
     //   type = tok_number     : name = "3.1415"  (e.g.)
     //   type = tok_plus       : name = "+"       (always)
     //   type = tok_if         : name = "if"      (always)
     //   type = tok_identifier : name = "foo_bar" (e.g.)
     std::string name;
+
+    Token(TOK tok, std::string const& nam, Location loc=Location(0,0))
+    :   name(nam),
+        type(tok),
+        location(loc)
+    {}
+
+    Token()
+    :   name(""),
+        type(tok_reserved),
+        location(Location())
+    {};
 };
 
 bool is_keyword(Token const& t);
@@ -189,3 +202,4 @@ protected:
 };
 
 extern std::string token_string(TOK token);
+

@@ -261,6 +261,7 @@ std::vector<Token> Parser::comma_separated_identifiers() {
             break;
         }
     }
+    get_token(); // prime the first token after the list
 
     return tokens;
 }
@@ -281,33 +282,38 @@ void Parser::parse_neuron_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("NEURON block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("NEURON block must start with a curly brace {, found '%'",
+                      token_.name));
         return;
     }
 
     // initialize neuron block
     neuron_block.threadsafe = false;
 
-    // there are no use cases for curly brace in a NEURON block, so we don't have to count them
-    // we have to get the next token before entering the loop to handle the case of
-    // an empty block {}
+    // there are no use cases for curly brace in a NEURON block, so we don't
+    // have to count them we have to get the next token before entering the loop
+    // to handle the case of an empty block {}
     get_token();
     while(token_.type!=tok_rbrace) {
         switch(token_.type) {
             case tok_threadsafe :
                 neuron_block.threadsafe = true;
+                get_token(); // consume THREADSAFE
                 break;
 
             case tok_suffix :
             case tok_point_process :
-                neuron_block.kind = token_.type==tok_suffix ? k_module_density : k_module_point;
-                get_token();
+                neuron_block.kind = (token_.type==tok_suffix) ? k_module_density
+                                                              : k_module_point;
+                get_token(); // consume SUFFIX / POINT_PROCESS
                 // assert that a valid name for the Neuron has been specified
                 if(token_.type != tok_identifier) {
                     error(pprintf("invalid name for SUFFIX, found '%'", token_.name));
                     return;
                 }
                 neuron_block.name = token_.name;
+
+                get_token(); // consume the name
                 break;
 
             // this will be a comma-separated list of identifiers
@@ -345,21 +351,26 @@ void Parser::parse_neuron_block() {
                 {
                     IonDep ion;
                     // we have to parse the name of the ion first
-                    // we assume that the user has asked for a valid ion channel name.
+                    // we assume that the user has asked for a valid ion channel
                     get_token();
                     if(token_.type != tok_identifier) {
-                        // todo: extended to test for valid ion names (k, Ca, ... others)
-                        error(pprintf("invalid name for an ion chanel '%'", token_.name));
+                        // TODO: extended to test for valid ion names (k, Ca, ... others)
+                        error(pprintf("invalid name for an ion chanel '%'",
+                                      token_.name));
                         return;
                     }
                     ion.name = token_.name;
+                    get_token(); // consume the ion name
 
-                    // this loop ensures that we don't gobble any tokens past the end of the USEION clause
-                    while(peek().type == tok_read || peek().type == tok_write) {
-                        get_token(); // consume the READ or WRITE
-                        auto& target = (token_.type == tok_read) ? ion.read : ion.write;
-                        std::vector<Token> identifiers = comma_separated_identifiers();
-                        if(status_==ls_error) { // bail if there was an error reading the list
+                    // this loop ensures that we don't gobble any tokens past
+                    // the end of the USEION clause
+                    while(token_.type == tok_read || token_.type == tok_write) {
+                        auto& target = (token_.type == tok_read) ? ion.read
+                                                                 : ion.write;
+                        std::vector<Token> identifiers
+                            = comma_separated_identifiers();
+                        // bail if there was an error reading the list
+                        if(status_==ls_error) {
                             return;
                         }
                         for(auto const &id : identifiers) {
@@ -373,10 +384,10 @@ void Parser::parse_neuron_block() {
 
             // the parser encountered an invalid symbol
             default :
-                error(pprintf("there was an invalid symbol '%' in NEURON block", token_.name));
+                error(pprintf("there was an invalid symbol '%' in NEURON block",
+                              token_.name));
                 return;
         }
-        get_token();
     }
 
     // copy neuron block into module
@@ -650,7 +661,9 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     // check for an argument list enclosed in parenthesis (...)
     // return a prototype with an empty argument list if not found
     if( token_.type != tok_lparen ) {
-        return new PrototypeExpression(identifier.location, identifier.name, {});
+        return new PrototypeExpression( identifier.location,
+                                        identifier.name,
+                                        {});
     }
 
     get_token(); // consume '('
@@ -658,7 +671,8 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     while(token_.type != tok_rparen) {
         // check identifier
         if(token_.type != tok_identifier) {
-            error("expected a valid identifier, found '" + yellow(token_.name) + "'");
+            error(  "expected a valid identifier, found '"
+                  + yellow(token_.name) + "'");
             return nullptr;
         }
 
@@ -668,7 +682,8 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
 
         // look for a comma
         if(!(token_.type == tok_comma || token_.type==tok_rparen)) {
-            error("expected a comma or closing parenthesis, found '" + yellow(token_.name) + "'");
+            error(  "expected a comma or closing parenthesis, found '"
+                  + yellow(token_.name) + "'");
             return nullptr;
         }
 
@@ -689,7 +704,9 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
         arg_expressions.push_back(new LocalExpression(t.location, t.name));
     }
 
-    return new PrototypeExpression(identifier.location, identifier.name, arg_expressions);
+    return new PrototypeExpression( identifier.location,
+                                    identifier.name,
+                                    arg_expressions);
 }
 
 void Parser::parse_title() {
@@ -1256,24 +1273,29 @@ Expression *Parser::parse_local() {
 
     get_token(); // consume LOCAL
 
-    if(token_.type != tok_identifier) {
-        error(pprintf("'%' is not a valid name for a local variable",
-                    yellow(token_.name)));
-        return nullptr;
-    }
+    // create local expression stub
+    Expression *e = new LocalExpression(loc);
+    if(e==nullptr) return nullptr;
 
-    Expression *e = new LocalExpression(loc, token_.name);
-    get_token(); // consume identifier
+    // add symbols
+    while(1) {
+        if(!expect(tok_identifier)) return nullptr;
 
-    // check that the rest of the line was empty
-    // this is to stop people doing things like 'LOCAL x = 3'
-    if(line == location_.line) {
-        if(token_.type != tok_eof) {
-            error(pprintf( "invalid token '%' after LOCAL declaration",
-                           yellow(token_.name)), loc);
+        // try adding variable name to list
+        if(!e->is_local_declaration()->add_variable(token_)) {
+            error(e->error_message());
             return nullptr;
         }
+        get_token(); // consume identifier
+
+        // look for comma that indicates continuation of the variable list
+        if(token_.type == tok_comma) {
+            get_token();
+        } else {
+            break;
+        }
     }
+
     return e;
 }
 
