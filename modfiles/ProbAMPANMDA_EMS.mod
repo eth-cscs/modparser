@@ -5,6 +5,7 @@ NEURON {
     RANGE Use, u, Dep, Fac, u0, mg, Rstate, tsyn_fac, u
     RANGE i, i_AMPA, i_NMDA, g_AMPA, g_NMDA, g, e, NMDA_ratio
     RANGE A_AMPA_step, B_AMPA_step, A_NMDA_step, B_NMDA_step
+    RANGE mggate
     :NONSPECIFIC_CURRENT i  : how to handle this?
     :BBCOREPOINTER rng      : this will be removed when we add proper support for rand
     RANGE synapseID, verboseLevel
@@ -20,7 +21,7 @@ PARAMETER {
     Fac = 10   (ms)  :  relaxation time constant from facilitation
     e = 0     (mV)  : AMPA and NMDA reversal potential
     mg = 1   (mM)  : initial concentration of mg2+
-    mggate
+    :mggate     : remove to fix bug
     gmax = .001 (uS) : weight conversion factor (from nS to uS)
     u0 = 0 :initial value of u, which is the running value of release probability
     synapseID = 0
@@ -29,6 +30,7 @@ PARAMETER {
 }
 
 ASSIGNED {
+    mggate
     v (mV)
     i (nA)
     i_AMPA (nA)

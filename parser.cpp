@@ -851,13 +851,16 @@ void Parser::add_variables_to_symbols() {
     }
     // then GLOBAL variables channels
     for(auto const& var : module_.neuron_block().globals) {
-        auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
+        //auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
+        auto id = symbols_[var].expression->is_variable();
+        assert(id); // this shouldn't happen, ever
         id->visibility(k_global_visibility);
     }
 
     // then RANGE variables
     for(auto const& var : module_.neuron_block().ranges) {
-        auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
+        auto id = symbols_[var].expression->is_variable();
+        assert(id); // this shouldn't happen, ever
         id->range(k_range);
     }
 }

@@ -6,7 +6,7 @@
 #include "parser.h"
 #include "util.h"
 
-//#define VERBOSE
+#define VERBOSE
 
 int main(int argc, char **argv) {
     if(argc < 2) {
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     #define WITH_PROFILING
     #ifdef WITH_PROFILING
     {
-        const int N = 1000;
+        const int N = 10;
         using clock = std::chrono::high_resolution_clock;
         using duration = std::chrono::duration<double>;
 
