@@ -9,7 +9,36 @@
 #include "identifier.h"
 #include "lexer.h"
 #include "scope.h"
-#include "visitor.h"
+
+class Visitor;
+
+class Expression;
+class IdentifierExpression;
+class BlockExpression;
+class InitialBlock;
+class IfExpression;
+class VariableExpression;
+class NumberExpression;
+class LocalExpression;
+class PrototypeExpression;
+class CallExpression;
+class ProcedureExpression;
+class NetReceiveExpression;
+class FunctionExpression;
+class UnaryExpression;
+class NegUnaryExpression;
+class ExpUnaryExpression;
+class LogUnaryExpression;
+class CosUnaryExpression;
+class SinUnaryExpression;
+class BinaryExpression;
+class AssignmentExpression;
+class AddBinaryExpression;
+class SubBinaryExpression;
+class MulBinaryExpression;
+class DivBinaryExpression;
+class PowBinaryExpression;
+class ConditionalExpression;
 
 /// specifies special properties of a ProcedureExpression
 enum procedureKind {
@@ -119,7 +148,7 @@ public:
 
     Symbol symbol() { return symbol_; };
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 
     IdentifierExpression* is_identifier() override {return this;}
 
@@ -148,7 +177,7 @@ public:
 
     ~DerivativeExpression() {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 // a number
@@ -156,6 +185,10 @@ class NumberExpression : public Expression {
 public:
     NumberExpression(Location loc, std::string const& value)
         : Expression(loc), value_(std::stod(value))
+    {}
+
+    NumberExpression(Location loc, long double value)
+        : Expression(loc), value_(value)
     {}
 
     double value() const {return value_;};
@@ -171,7 +204,7 @@ public:
 
     ~NumberExpression() {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 private:
     double value_;
 };
@@ -197,7 +230,7 @@ public:
     std::vector<Symbol>& symbols() {return symbols_;}
     std::map<std::string, Token>& variables() {return vars_;}
     ~LocalExpression() {}
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 private:
     std::vector<Symbol> symbols_;
     // there has to be some pointer to a table of identifiers
@@ -256,7 +289,7 @@ public:
     bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
     bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
     VariableExpression* is_variable() override {return this;}
 
     ~VariableExpression() {}
@@ -306,7 +339,7 @@ public:
 
     void semantic(std::shared_ptr<Scope> scp) override;
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 
     ~SolveExpression() {}
 private:
@@ -361,7 +394,7 @@ public:
     }
 
     void semantic(std::shared_ptr<Scope> scp) override;
-    void accept(Visitor* v) override {v->visit(this);};
+    void accept(Visitor* v) override;
 
     std::string to_string() const override;
 };
@@ -388,7 +421,7 @@ public:
     std::string to_string() const override;
     void semantic(std::shared_ptr<Scope> scp) override;
 
-    void accept(Visitor* v) override {v->visit(this);}
+    void accept(Visitor* v) override;
 private:
     Expression *condition_;
     Expression *true_branch_;
@@ -417,7 +450,7 @@ public:
 
     ~PrototypeExpression() {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 private:
     std::string name_;
     std::vector<Expression*> args_;
@@ -438,7 +471,7 @@ public:
 
     std::string to_string() const override;
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 
     CallExpression* is_function_call()  override {
         return symbol_.kind == k_function ? this : nullptr;
@@ -480,7 +513,7 @@ public:
     void semantic(Scope::symbol_map &scp) override;
     ProcedureExpression* is_procedure() override {return this;}
     std::string to_string() const override;
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 
     /// can be used to determine whether the procedure has been lowered
     /// from a special block, e.g. BREAKPOINT, INITIAL, NET_RECEIVE, etc
@@ -512,6 +545,7 @@ public:
     // specific to initialization of a net_receive block
     //void semantic() override;
 
+    void accept(Visitor *v) override;
     InitialBlock* is_initial_block() override {return this;}
 };
 
@@ -530,7 +564,7 @@ public:
     /// hard code the kind
     procedureKind kind() {return k_proc_net_receive;}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
     InitialBlock* initial_block() {return initial_block_;}
 protected:
     InitialBlock*  initial_block_=nullptr;
@@ -569,7 +603,7 @@ public:
     FunctionExpression* is_function() override {return this;}
     void semantic(Scope::symbol_map&) override;
     std::string to_string() const override;
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 ////////////////////////////////////////////////////////////
@@ -579,25 +613,24 @@ public:
 /// Unary expression
 class UnaryExpression : public Expression {
 protected:
-    Expression *e_;
+    Expression *expression_;
     TOK op_;
 public:
     UnaryExpression(Location loc, TOK op, Expression* e)
-        : Expression(loc), op_(op), e_(e)
+        : Expression(loc), op_(op), expression_(e)
     {}
 
     std::string to_string() const {
-        return pprintf("(% %)", green(token_string(op_)), e_->to_string());
+        return pprintf("(% %)", green(token_string(op_)), expression_->to_string());
     }
 
+    TOK op() const {return op_;}
     UnaryExpression* is_unary() override {return this;};
-
-    Expression* expression() {return e_;}
-    const Expression* expression() const {return e_;}
-
+    Expression* expression() {return expression_;}
+    const Expression* expression() const {return expression_;}
     void semantic(std::shared_ptr<Scope> scp) override;
-
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
+    void replace_expression(Expression*);
 };
 
 /// negation unary expression, i.e. -x
@@ -607,7 +640,7 @@ public:
         : UnaryExpression(loc, tok_minus, e)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 /// exponential unary expression, i.e. e^x or exp(x)
@@ -617,7 +650,7 @@ public:
         : UnaryExpression(loc, tok_exp, e)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 // logarithm unary expression, i.e. log_10(x)
@@ -627,7 +660,7 @@ public:
         : UnaryExpression(loc, tok_log, e)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 // cosine unary expression, i.e. cos(x)
@@ -637,7 +670,7 @@ public:
         : UnaryExpression(loc, tok_cos, e)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 // sin unary expression, i.e. sin(x)
@@ -647,7 +680,7 @@ public:
         : UnaryExpression(loc, tok_sin, e)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 ////////////////////////////////////////////////////////////
@@ -667,20 +700,21 @@ public:
         : Expression(loc), op_(op), lhs_(lhs), rhs_(rhs)
     {}
 
+    TOK op() const {return op_;}
     Expression* lhs() {return lhs_;}
     Expression* rhs() {return rhs_;}
     const Expression* lhs() const {return lhs_;}
     const Expression* rhs() const {return rhs_;}
-
     BinaryExpression* is_binary() override {return this;}
-
     void semantic(std::shared_ptr<Scope> scp) override;
+    void replace_rhs(Expression* other);
+    void replace_lhs(Expression* other);
 
     std::string to_string() const {
         return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
     }
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class AssignmentExpression : public BinaryExpression {
@@ -693,7 +727,7 @@ public:
 
     void semantic(std::shared_ptr<Scope> scp) override;
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class AddBinaryExpression : public BinaryExpression {
@@ -702,7 +736,7 @@ public:
         : BinaryExpression(loc, tok_plus, lhs, rhs)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class SubBinaryExpression : public BinaryExpression {
@@ -711,7 +745,7 @@ public:
         : BinaryExpression(loc, tok_minus, lhs, rhs)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class MulBinaryExpression : public BinaryExpression {
@@ -720,7 +754,7 @@ public:
         : BinaryExpression(loc, tok_times, lhs, rhs)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class DivBinaryExpression : public BinaryExpression {
@@ -729,7 +763,7 @@ public:
         : BinaryExpression(loc, tok_divide, lhs, rhs)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class PowBinaryExpression : public BinaryExpression {
@@ -738,7 +772,7 @@ public:
         : BinaryExpression(loc, tok_pow, lhs, rhs)
     {}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 
 class ConditionalExpression : public BinaryExpression {
@@ -749,6 +783,6 @@ public:
 
     ConditionalExpression* is_conditional() override {return this;}
 
-    void accept(Visitor *v) override {v->visit(this);}
+    void accept(Visitor *v) override;
 };
 

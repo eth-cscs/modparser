@@ -339,12 +339,16 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
   UnaryExpression
 *******************************************************************************/
 void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
-    e_->semantic(scp);
+    expression_->semantic(scp);
 
-    if(e_->is_procedure_call()) {
+    if(expression_->is_procedure_call()) {
         error_ = true;
         error_string_ = "a procedure call can't be part of an expression";
     }
+}
+
+void UnaryExpression::replace_expression(Expression* other) {
+    expression_ = other;
 }
 
 /*******************************************************************************
@@ -358,6 +362,14 @@ void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
         error_ = true;
         error_string_ = "procedure calls can't be made in an expression";
     }
+}
+
+void BinaryExpression::replace_lhs(Expression* other) {
+    lhs_ = other;
+}
+
+void BinaryExpression::replace_rhs(Expression* other) {
+    rhs_ = other;
 }
 
 /*******************************************************************************
@@ -422,11 +434,6 @@ void BlockExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
     for(auto e : body_) {
         e->semantic(scope_);
-        /*
-        if(e->is_binary() && e->has_error()) {
-            std::cout << cyan("ERROR ") << e->to_string() << std::endl;
-        }
-        */
     }
 }
 
@@ -444,6 +451,8 @@ std::string IfExpression::to_string() const {
 }
 
 void IfExpression::semantic(std::shared_ptr<Scope> scp) {
+    condition_->semantic(scp);
+
     auto cond = condition_->is_conditional();
     if(!cond) {
         error_ = true;
@@ -455,5 +464,97 @@ void IfExpression::semantic(std::shared_ptr<Scope> scp) {
     if(false_branch_) {
         false_branch_->semantic(scp);
     }
+}
+
+#include "visitor.h"
+/*
+   Visitor hooks
+*/
+void Expression::accept(Visitor *v) {
+    v->visit(this);
+}
+void IdentifierExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void BlockExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void InitialBlock::accept(Visitor *v) {
+    v->visit(this);
+}
+void IfExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void SolveExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void DerivativeExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void VariableExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void NumberExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void LocalExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void PrototypeExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void CallExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void ProcedureExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void NetReceiveExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void FunctionExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void UnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void NegUnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void ExpUnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void LogUnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void CosUnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void SinUnaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void BinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void AssignmentExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void AddBinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void SubBinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void MulBinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void DivBinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void PowBinaryExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void ConditionalExpression::accept(Visitor *v) {
+    v->visit(this);
 }
 

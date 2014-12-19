@@ -5,6 +5,7 @@
 #include "util.h"
 #include "errorvisitor.h"
 #include "perfvisitor.h"
+#include "constantfolder.h"
 
 // specialize on const char* for lazy evaluation of compile time strings
 bool Parser::expect(TOK tok, const char* str) {

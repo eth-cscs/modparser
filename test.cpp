@@ -3,6 +3,7 @@
  **************************************************************/
 #include "gtest.h"
 
+#include "constantfolder.h"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
@@ -904,6 +905,46 @@ TEST(Parser, parse_line_expression) {
         if(p.status()==ls_error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
 #endif
+    }
+}
+
+TEST(Optimizer, constant_folding) {
+    ConstantFolderVisitor* v = new ConstantFolderVisitor();
+    {
+        char str[] = "x = 2*3";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << "-------------------" << std::endl;
+    } {
+        char str[] = "x = 1 + 2 + 3";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << "-------------------" << std::endl;
+    } {
+        char str[] = "x = exp(2)";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << "-------------------" << std::endl;
+    } {
+        char str[] = "x= 2*2 + 3";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << "-------------------" << std::endl;
+    } {
+        char str[] = "x= 3 + 2*2";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << "-------------------" << std::endl;
     }
 }
 

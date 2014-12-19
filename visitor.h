@@ -1,37 +1,9 @@
 #pragma once
 
-#include "cassert"
+#include <cassert>
 
+#include "expression.h"
 #include "util.h"
-
-// forward declarations
-class Expression;
-class IdentifierExpression;
-class BlockExpression;
-class InitialBlock;
-class IfExpression;
-class VariableExpression;
-class NumberExpression;
-class LocalExpression;
-class PrototypeExpression;
-class CallExpression;
-class ProcedureExpression;
-class NetReceiveExpression;
-class FunctionExpression;
-class UnaryExpression;
-class NegUnaryExpression;
-class ExpUnaryExpression;
-class LogUnaryExpression;
-class CosUnaryExpression;
-class SinUnaryExpression;
-class BinaryExpression;
-class AssignmentExpression;
-class AddBinaryExpression;
-class SubBinaryExpression;
-class MulBinaryExpression;
-class DivBinaryExpression;
-class PowBinaryExpression;
-class ConditionalExpression;
 
 /// visitor base class
 /// The visitors for all AST nodes throw an assertion
@@ -53,6 +25,8 @@ public:
     virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
     virtual void visit(FunctionExpression *e)   { visit((Expression*) e);       }
     virtual void visit(IfExpression *e)         { visit((Expression*) e);       }
+    virtual void visit(SolveExpression *e)      { visit((Expression*) e);       }
+    virtual void visit(DerivativeExpression *e) { visit((Expression*) e);       }
 
     virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
     virtual void visit(NetReceiveExpression *e) { visit((ProcedureExpression*) e); }
@@ -74,19 +48,5 @@ public:
     virtual void visit(MulBinaryExpression *e)  { visit((BinaryExpression*) e); }
     virtual void visit(DivBinaryExpression *e)  { visit((BinaryExpression*) e); }
     virtual void visit(PowBinaryExpression *e)  { visit((BinaryExpression*) e); }
-};
-
-/// A visitor with boolean state that can be used to terminate traversal
-class StoppableVisitor : public Visitor {
-public:
-    StoppableVisitor() : stop_(false) {}
-    bool stop() const {
-        return stop_;
-    }
-    void set_stop(bool s) {
-        stop_=s;
-    }
-private:
-    bool stop_;
 };
 
