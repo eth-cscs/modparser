@@ -7,7 +7,7 @@ std::string to_string(procedureKind k) {
         case k_proc_initial     :
             return "INITIAL";
         case k_proc_net_receive :
-            return "net_receiVE";
+            return "NET_RECEIVE";
         case k_proc_breakpoint  :
             return "BREAKPOINT";
         case k_proc_derivative  :

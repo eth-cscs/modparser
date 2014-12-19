@@ -485,7 +485,6 @@ public:
     /// can be used to determine whether the procedure has been lowered
     /// from a special block, e.g. BREAKPOINT, INITIAL, NET_RECEIVE, etc
     procedureKind kind() const {return kind_;}
-    //void kind(procedureKind k) {kind_=k;}
 
 protected:
     std::shared_ptr<Scope> scope_;
@@ -523,7 +522,7 @@ public:
                           std::string const& name,
                           std::vector<Expression*> const& args,
                           Expression* body)
-        : ProcedureExpression(loc, name, args_, body, k_proc_net_receive)
+        : ProcedureExpression(loc, name, args, body, k_proc_net_receive)
     {}
 
     void semantic(Scope::symbol_map &scp) override;

@@ -475,6 +475,14 @@ TOK Lexer::get_identifier_type(std::string const& identifier) {
 }
 
 //*********************
+// Location
+//*********************
+
+std::ostream& operator<< (std::ostream& os, Location const& L) {
+    return os << "(line " << L.line << ",col " << L.column << ")";
+}
+
+//*********************
 // Token
 //*********************
 
@@ -483,5 +491,9 @@ bool is_keyword(Token const& t) {
         if(t.type == k->type)
             return true;
     return false;
+}
+
+std::ostream& operator<< (std::ostream& os, Token const& t) {
+    return os << "<<" << token_string(t.type) << ", " << t.name << ", " << t.location << ">>";
 }
 

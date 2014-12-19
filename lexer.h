@@ -90,10 +90,6 @@ struct Location {
     {}
 };
 
-static std::ostream& operator<< (std::ostream& os, Location const& L) {
-    return os << "(line " << L.line << ",col " << L.column << ")";
-}
-
 // what is in a token?
 //  TOK indicating type of token
 //  information about its location
@@ -126,7 +122,9 @@ struct Token {
     {};
 };
 
+std::ostream& operator<< (std::ostream& os, Token const& t);
 bool is_keyword(Token const& t);
+std::ostream& operator<< (std::ostream& os, Location const& L);
 
 
 // class that implements the lexer

@@ -100,10 +100,6 @@ struct AssignedBlock {
 ////////////////////////////////////////////////
 // helpers for pretty printing block information
 ////////////////////////////////////////////////
-static std::ostream& operator<< (std::ostream& os, Token const& t) {
-    return os << t.name;
-}
-
 static std::ostream& operator<< (std::ostream& os, Id const& V) {
     if(V.units.size())
         os << "(" << V.token << "," << V.value << "," << V.units << ")";

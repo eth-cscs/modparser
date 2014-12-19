@@ -908,7 +908,7 @@ Expression* Parser::parse_procedure() {
     Expression* body = parse_block(false);
     if(body==nullptr) return nullptr;
 
-    PrototypeExpression* proto = p->is_prototype();
+    auto proto = p->is_prototype();
     if(kind != k_proc_net_receive) {
         return new ProcedureExpression(
                     proto->location(), proto->name(), proto->args(), body, kind);

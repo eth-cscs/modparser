@@ -519,6 +519,36 @@ TEST(Parser, procedure) {
     }
 }
 
+TEST(Parser, net_receive) {
+    char str[] =
+    "NET_RECEIVE (x, y) {   \n"
+    "  LOCAL a              \n"
+    "  a = 3                \n"
+    "  x = a+3              \n"
+    "  y = x+a              \n"
+    "}";
+    std::vector<char> input(str, str+strlen(str));
+    Module m(input);
+    Parser p(m, false);
+    Expression *e = p.parse_procedure();
+    #ifdef VERBOSE_TEST
+    if(e) std::cout << e->to_string() << std::endl;
+    #endif
+
+    EXPECT_NE(e, nullptr);
+    EXPECT_EQ(p.status(), ls_happy);
+
+    auto nr = e->is_net_receive();
+    EXPECT_NE(nr, nullptr);
+    if(nr) {
+        EXPECT_EQ(nr->args().size(), 2);
+    }
+    if(p.status()==ls_error) {
+        std::cout << str << std::endl;
+        std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+    }
+}
+
 TEST(Parser, function) {
     std::vector< const char*> calls =
 {
