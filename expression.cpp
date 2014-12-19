@@ -369,8 +369,13 @@ void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
     rhs_->semantic(scp);
 
     if(!lhs_->is_lvalue()) {
-        error_ = true;
-        error_string_ = "the left hand side of an assignment must be an lvalue";
+        // only flag an lvalue error if there was no error in the lhs expression
+        // this ensures that we don't print redundant error messages when trying
+        // to write to an undeclared variable
+        if(!lhs_->has_error()) {
+            error_ = true;
+            error_string_ = "the left hand side of an assignment must be an lvalue";
+        }
     }
     if(rhs_->is_procedure_call()) {
         error_ = true;
@@ -417,6 +422,11 @@ void BlockExpression::semantic(std::shared_ptr<Scope> scp) {
     scope_ = scp;
     for(auto e : body_) {
         e->semantic(scope_);
+        /*
+        if(e->is_binary() && e->has_error()) {
+            std::cout << cyan("ERROR ") << e->to_string() << std::endl;
+        }
+        */
     }
 }
 

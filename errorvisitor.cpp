@@ -1,5 +1,9 @@
 #include "errorvisitor.h"
 
+/*
+ * we use a post order walk to print the erros in an expression after those
+ * in all of its children
+ */
 
 void ErrorVisitor::visit(Expression *e) {
     print_error(e);
@@ -7,46 +11,68 @@ void ErrorVisitor::visit(Expression *e) {
 
 // traverse the statements in a procedure
 void ErrorVisitor::visit(ProcedureExpression *e) {
-    print_error(e);
     for(auto expression : e->args()) {
         expression->accept(this);
     }
 
-    for(auto expression : *(e->body()->is_block())) {
-        expression->accept(this);
-    }
+    e->body()->accept(this);
+    print_error(e);
 }
 
 // traverse the statements in a function
 void ErrorVisitor::visit(FunctionExpression *e) {
-    print_error(e);
     for(auto expression : e->args()) {
         expression->accept(this);
     }
 
-    for(auto expression : *(e->body()->is_block())) {
+    e->body()->accept(this);
+    print_error(e);
+}
+
+// an if statement
+void ErrorVisitor::visit(IfExpression *e) {
+    e->true_branch()->accept(this);
+    if(e->false_branch()) {
+        e->false_branch()->accept(this);
+    }
+
+    print_error(e);
+}
+
+void ErrorVisitor::visit(BlockExpression* e) {
+    for(auto expression : e->body()) {
         expression->accept(this);
     }
+
+    print_error(e);
+}
+
+void ErrorVisitor::visit(InitialBlock* e) {
+    for(auto expression : e->body()) {
+        expression->accept(this);
+    }
+
+    print_error(e);
 }
 
 // unary expresssion
 void ErrorVisitor::visit(UnaryExpression *e) {
-    print_error(e);
     e->expression()->accept(this);
+    print_error(e);
 }
 
 // binary expresssion
 void ErrorVisitor::visit(BinaryExpression *e) {
-    print_error(e);
     e->lhs()->accept(this);
     e->rhs()->accept(this);
+    print_error(e);
 }
 
 // binary expresssion
 void ErrorVisitor::visit(CallExpression *e) {
-    print_error(e);
     for(auto expression: e->args()) {
         expression->accept(this);
     }
+    print_error(e);
 }
 

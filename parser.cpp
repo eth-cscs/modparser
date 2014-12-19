@@ -732,6 +732,18 @@ void Parser::parse_title() {
 
 /// populate the symbol table with class scope variables
 void Parser::add_variables_to_symbols() {
+    // add reserved symbols (not v, because for some reason it has to be added by the user)
+    auto t = new VariableExpression(Location(), "t");
+    t->state(false);            t->linkage(k_local_link);
+    t->ion_channel(k_ion_none); t->range(k_scalar);
+    t->access(k_read);          t->visibility(k_global_visibility);
+    symbols_["t"]    = Symbol(k_variable, t);
+    auto dt = new VariableExpression(Location(), "dt");
+    dt->state(false);            dt->linkage(k_local_link);
+    dt->ion_channel(k_ion_none); dt->range(k_scalar);
+    dt->access(k_read);          dt->visibility(k_global_visibility);
+    symbols_["dt"]    = Symbol(k_variable, dt);
+
     // add state variables
     for(auto const &var : module_.state_block()) {
         // TODO : using an empty Location because the source location is not
