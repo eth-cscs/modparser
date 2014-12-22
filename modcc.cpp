@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
     if(p.status() == ls_error) return 1;
 
-    #define WITH_PROFILING
+    //#define WITH_PROFILING
     #ifdef WITH_PROFILING
     {
         const int N = 10;

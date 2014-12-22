@@ -712,11 +712,7 @@ public:
     void semantic(std::shared_ptr<Scope> scp) override;
     void replace_rhs(Expression* other);
     void replace_lhs(Expression* other);
-
-    std::string to_string() const {
-        return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
-    }
-
+    std::string to_string() const;
     void accept(Visitor *v) override;
 };
 
