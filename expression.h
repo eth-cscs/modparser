@@ -464,8 +464,11 @@ public:
         : Expression(loc), name_(name), args_(args)
     {}
 
-    std::vector<Expression*> const& args() { return args_; }
+    std::vector<Expression*> const& args() const { return args_; }
     std::string const& name() const { return name_; }
+
+    std::vector<Expression*>& args() { return args_; }
+    std::string& name() { return name_; }
 
     void semantic(std::shared_ptr<Scope> scp) override;
 

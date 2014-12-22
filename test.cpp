@@ -915,36 +915,73 @@ TEST(Optimizer, constant_folding) {
         Expression* e = parse_line_expression_helper(str);
         std::cout << e->to_string() << std::endl;
         e->accept(v);
+        EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 6);
         std::cout << e->to_string() << std::endl;
-        std::cout << "-------------------" << std::endl;
-    } {
+        std::cout << std::endl;
+    }
+    {
         char str[] = "x = 1 + 2 + 3";
         Expression* e = parse_line_expression_helper(str);
         std::cout << e->to_string() << std::endl;
         e->accept(v);
+        EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 6);
         std::cout << e->to_string() << std::endl;
-        std::cout << "-------------------" << std::endl;
-    } {
+        std::cout << std::endl;
+    }
+    {
         char str[] = "x = exp(2)";
         Expression* e = parse_line_expression_helper(str);
         std::cout << e->to_string() << std::endl;
         e->accept(v);
+        EXPECT_EQ(std::fabs(e->is_assignment()->rhs()->is_number()->value()-std::exp(2.0))<1e-16, true);
         std::cout << e->to_string() << std::endl;
-        std::cout << "-------------------" << std::endl;
-    } {
+        std::cout << std::endl;
+    }
+    {
         char str[] = "x= 2*2 + 3";
         Expression* e = parse_line_expression_helper(str);
         std::cout << e->to_string() << std::endl;
         e->accept(v);
+        EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 7);
         std::cout << e->to_string() << std::endl;
-        std::cout << "-------------------" << std::endl;
-    } {
+        std::cout << std::endl;
+    }
+    {
         char str[] = "x= 3 + 2*2";
         Expression* e = parse_line_expression_helper(str);
         std::cout << e->to_string() << std::endl;
         e->accept(v);
+        EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 7);
         std::cout << e->to_string() << std::endl;
-        std::cout << "-------------------" << std::endl;
+        std::cout << std::endl;
+    }
+    {
+        // this doesn't work: the (y+2) expression is not a constant, so folding stops.
+        // we need to fold the 2+3, which isn't possible with a simple walk.
+        // one approach would be try sorting communtative operations so that numbers
+        // are adjacent to one another in the tree
+        char str[] = "x= y + 2 + 3";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << std::endl;
+    }
+    {
+        char str[] = "x= 2 + 3 + y";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << std::endl;
+    }
+    {
+        char str[] = "foo(2+3, log(32), 2*3 + x)";
+        Expression* e = parse_line_expression_helper(str);
+        std::cout << e->to_string() << std::endl;
+        e->accept(v);
+        std::cout << e->to_string() << std::endl;
+        std::cout << std::endl;
     }
 }
 

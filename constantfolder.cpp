@@ -6,9 +6,11 @@
 /*
    perform a walk of the AST
    - pre-order : mark node as not a number
-   - in-order  : try to reduce each child node to a constant NumberExpression
+   - in-order  : convert all children that marked themselves as numbers into NumberExpressions
    - post-order: mark the current node as a constant if all of its children
                  were converted to NumberExpressions
+
+   all calculations and intermediate results use 80 bit floating point precision (long double)
 */
 
 // default is to do nothing and return
@@ -18,15 +20,13 @@ void ConstantFolderVisitor::visit(Expression *e) {
 
 // number expresssion
 void ConstantFolderVisitor::visit(NumberExpression *e) {
-    std::cout << "  visiting number " << e->to_string() << std::endl;
     // set constant number and return
     is_number = true;
     value = e->value();
 }
 
-// unary expresssion
+/// unary expresssion
 void ConstantFolderVisitor::visit(UnaryExpression *e) {
-    std::cout << "unary " << e->to_string() << std::endl;
     is_number = false;
     e->expression()->accept(this);
     if(is_number) {
@@ -74,7 +74,9 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
         lhs_is_number = true;
         // replace lhs with a number node, if it is not already one
         if(!e->lhs()->is_number()) {
+            //std::cout << "lhs : " << e->lhs()->to_string() << " -> ";
             e->replace_lhs( new NumberExpression(e->location(), value) );
+            //std::cout << e->lhs()->to_string() << std::endl;
         }
     }
 
@@ -84,14 +86,15 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
     if(is_number) {
         // replace rhs with a number node, if it is not already one
         if(!e->rhs()->is_number()) {
+            //std::cout << "rhs : " << e->rhs()->to_string() << " -> ";
             e->replace_rhs( new NumberExpression(e->location(), value) );
+            //std::cout << e->rhs()->to_string() << std::endl;
         }
     }
 
     // check to see if both lhs and rhs are numbers
     // mark this node as a number if so
     if(is_number && lhs_is_number) {
-        is_number = true;
         // be careful to get the order of operation right for
         // non-computative operators
         switch(e->op()) {
@@ -129,12 +132,20 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
                 assert(false);
         }
     }
+
+    is_number = is_number && lhs_is_number;
 }
 
 void ConstantFolderVisitor::visit(CallExpression *e) {
     is_number = false;
-    for(auto &a : e->args()) {
+    for(auto& a : e->args()) {
         a->accept(this);
+        if(is_number) {
+            // replace rhs with a number node, if it is not already one
+            if(!a->is_number()) {
+                a = new NumberExpression(a->location(), value);
+            }
+        }
     }
 }
 
