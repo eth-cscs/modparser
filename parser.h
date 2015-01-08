@@ -8,7 +8,6 @@ class Parser : public Lexer {
 public:
     explicit Parser(Module& m, bool advance=true);
     bool parse();
-    bool semantic();
 
     Expression* parse_prototype(std::string);
     Expression* parse_statement();
@@ -34,34 +33,8 @@ public:
         return error_string_;
     }
 
-    std::vector<Expression*>&
-    procedures() { return procedures_; }
-
-    std::vector<Expression*>const&
-    procedures() const { return procedures_; }
-
-    std::vector<Expression*>&
-    functions() { return functions_; }
-
-    std::vector<Expression*>const&
-    functions() const { return functions_; }
-
-    std::unordered_map<std::string, Symbol>&
-    symbols() { return symbols_; }
-
-    std::unordered_map<std::string, Symbol>const&
-    symbols() const { return symbols_; }
-
 private:
     Module &module_;
-
-    std::vector<Token> comma_separated_identifiers();
-    std::vector<Token> unit_description();
-    std::vector<Expression *> procedures_;
-    std::vector<Expression *> functions_;
-
-    // hash table for lookup of variable and call names
-    std::unordered_map<std::string, Symbol> symbols_;
 
     // helpers for generating unary and binary AST nodes according to
     // a token type passed by the user
@@ -77,6 +50,9 @@ private:
     void parse_parameter_block();
     void parse_assigned_block();
     void parse_title();
+
+    std::vector<Token> comma_separated_identifiers();
+    std::vector<Token> unit_description();
 
     /// build the identifier list
     void add_variables_to_symbols();

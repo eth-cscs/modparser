@@ -73,8 +73,8 @@ enum TOK {
 
 // status of the lexer
 enum LStat {
-    ls_error,  // lexer has encounterd a problem
-    ls_happy   // lexer is in a good place
+    k_compiler_error,  // lexer has encounterd a problem
+    k_compiler_happy   // lexer is in a good place
 };
 
 struct Location {
@@ -193,7 +193,7 @@ protected:
     const char *line_;        // pointer to start of current line
     Location location_;  // current location (line,column) in buffer
 
-    LStat status_ = ls_happy;
+    LStat status_ = k_compiler_happy;
     std::string error_string_;
 
     Token token_;

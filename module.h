@@ -41,10 +41,40 @@ public :
     void parameter_block (ParameterBlock  const &p) {parameter_block_  = p;}
     void assigned_block (AssignedBlock  const &a) {assigned_block_  = a;}
 
+    // access to the AST
+    std::vector<Expression*>&      procedures();
+    std::vector<Expression*>const& procedures() const;
+
+    std::vector<Expression*>&      functions();
+    std::vector<Expression*>const& functions() const;
+
+    std::unordered_map<std::string, Symbol>&      symbols();
+    std::unordered_map<std::string, Symbol>const& symbols() const;
+
+    // error handling
+    void error(std::string const& msg, Location loc);
+    LStat status() const {
+        return status_;
+    }
+
+    // perform semantic analysis
+    void add_variables_to_symbols();
+    bool semantic();
 private :
     std::string title_;
     std::string fname_;
     std::vector<char> buffer_; // character buffer loaded from file
+
+    // error handling
+    std::string error_string_;
+    LStat status_;
+
+    // AST storage
+    std::vector<Expression *> procedures_;
+    std::vector<Expression *> functions_;
+
+    // hash table for lookup of variable and call names
+    std::unordered_map<std::string, Symbol> symbols_;
 
     // blocks
     NeuronBlock neuron_block_;

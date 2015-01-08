@@ -70,7 +70,7 @@ Token Lexer::parse() {
                 current_++;
                 if(*current_ != '\n') {
                     error_string_ = pprintf("bad line ending: \\n must follow \\r");
-                    status_ = ls_error;
+                    status_ = k_compiler_error;
                     t.type = tok_reserved;
                     return t;
                 }
@@ -94,7 +94,7 @@ Token Lexer::parse() {
                 t.name = number();
 
                 // test for error when reading number
-                t.type = (status_==ls_error) ? tok_reserved : tok_number;
+                t.type = (status_==k_compiler_error) ? tok_reserved : tok_number;
                 return t;
 
             // identifier or keyword
@@ -109,7 +109,7 @@ Token Lexer::parse() {
             case '_':
                 // get std::string of the identifier
                 t.name = identifier();
-                t.type = (status_==ls_error) ? tok_reserved : get_identifier_type(t.name);
+                t.type = (status_==k_compiler_error) ? tok_reserved : get_identifier_type(t.name);
                 return t;
             case '(':
                 t.type = tok_lparen;
@@ -202,7 +202,7 @@ Token Lexer::parse() {
                 return t;
             default:
                 error_string_ = pprintf("found unexpected character '%' when trying to find next token", *current_);
-                status_ = ls_error;
+                status_ = k_compiler_error;
                 t.name += character();
                 t.type = tok_reserved;
                 return t;
@@ -260,7 +260,7 @@ std::string Lexer::number() {
     // i.e. disallow values like 2.2324.323
     if(num_point>1) {
         error_string_ = pprintf("too many .'s when reading the number '%'", colorize(str, kYellow));
-        status_ = ls_error;
+        status_ = k_compiler_error;
     }
 
     return str;
