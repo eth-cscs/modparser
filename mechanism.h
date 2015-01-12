@@ -17,12 +17,20 @@
 
 class Mechansim {
 public:
-    //std::string const& name();
+    Mechanism(std::string const& name)
+    :   name_(name)
+    {}
 
     virtual void current() = 0;
     virtual void state()   = 0;
     virtual void jacobi()  = 0;
+    virtual void init()  = 0;
 
-private:
-    //std::string name_;
+    std::string const& name() {
+        return name_;
+    }
+
+protected:
+    std::string name_;
 };
+

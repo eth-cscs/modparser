@@ -56,7 +56,7 @@ for i = 1:nodecount
 end
 ```
 
-For this to be performed efficiently, the xxx, `g`, has to be computed and stored when calculating the current in `nrn_rhs()`. The function `setup_tree_matrix()` first updates the current in `nrn_rhs()`, which is where `g` is calcuted (`g` is the derivative of current w.r.t voltage, i.e. `di/dv`... I must be missing something because this quantity doesn't make much sense to me, but it is what it is).
+For this to be performed efficiently, the capacitance, `g`, has to be computed and stored when calculating the current in `nrn_rhs()`. The function `setup_tree_matrix()` first updates the current in `nrn_rhs()`, which is where `g` is calcuted (the capacitance `g` is the derivative of current w.r.t voltage, i.e. `di/dv`).
 ```
 function setup_tree_matrix ( cell_group )
   nrn_rhs ( cell_group )
@@ -139,7 +139,7 @@ The update statements for the state variables, e.g.
 ```
 integrate the state variable by a step of dt. The generated code is quite complicated, given that all of the ODEs that I can find in the CoreNeuron NMODL files are simple linear ODEs of this form.
 
-The compiler could extract the SOLVE statement from the AST for the BREAKPOINT, removing it in the process. Then the
+The compiler could extract the SOLVE statement from the AST for the BREAKPOINT, removing it in the process. Then the BREAPKPOINT block could be treanslated directly into `nrn_current()`.
 
 #### Oportunities for optimization:
 1. The trates() function stores all of the parameters, i.e. `hinf`, `htau` into arrays in global memory (because they are declared as RANGE variables). However, these values are only used to update the state variable, and there is no reason why they should be stored. A better approach would be to store them as stack variables, and provide a mechanism for the user to compute them on the fly if they are required for analysis/visualization.
