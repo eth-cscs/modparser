@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
     #ifdef VERBOSE
     std::cout << "====== symbols ======" << std::endl;
-    for(auto const &var : p.symbols()) {
+    for(auto const &var : m.symbols()) {
         std::cout << var.second.expression->to_string() << std::endl;
     }
     #endif
