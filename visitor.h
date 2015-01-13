@@ -48,5 +48,7 @@ public:
     virtual void visit(MulBinaryExpression *e)  { visit((BinaryExpression*) e); }
     virtual void visit(DivBinaryExpression *e)  { visit((BinaryExpression*) e); }
     virtual void visit(PowBinaryExpression *e)  { visit((BinaryExpression*) e); }
+
+    virtual ~Visitor() {};
 };
 

@@ -13,6 +13,11 @@
 #include "util.h"
 
 //#define VERBOSE_TEST
+#ifdef VERBOSE_TEST
+#define VERBOSE_PRINT(x) std::cout << (x) << std::endl;
+#else
+#define VERBOSE_PRINT(x)
+#endif
 
 // helper for making a module
 Module make_module(const char* str) {
@@ -283,23 +288,23 @@ TEST(Lexer, numbers) {
 
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_number);
-    EXPECT_EQ(t1.value(), 1.0);
+    EXPECT_EQ(std::stod(t1.name), 1.0);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_number);
-    EXPECT_EQ(t2.value(), 0.3);
+    EXPECT_EQ(std::stod(t2.name), 0.3);
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_number);
-    EXPECT_EQ(t3.value(), 23.0);
+    EXPECT_EQ(std::stod(t3.name), 23.0);
 
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_number);
-    EXPECT_EQ(t4.value(), 87.99);
+    EXPECT_EQ(std::stod(t4.name), 87.99);
 
     auto t5 = lexer.parse();
     EXPECT_EQ(t5.type, tok_number);
-    EXPECT_EQ(t5.value(), 12.0);
+    EXPECT_EQ(std::stod(t5.name), 12.0);
 
     // the lexer does not decide where the - sign goes
     // the parser uses additional contextual information to
@@ -309,7 +314,7 @@ TEST(Lexer, numbers) {
 
     auto t7 = lexer.parse();
     EXPECT_EQ(t7.type, tok_number);
-    EXPECT_EQ(t7.value(), 3.0);
+    EXPECT_EQ(std::stod(t7.name), 3.0);
 
     auto t8 = lexer.parse();
     EXPECT_EQ(t8.type, tok_eof);
@@ -744,7 +749,7 @@ TEST(Parser, parse_local) {
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
         if(p.status()==k_compiler_error)
-            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+            std::cout << "in " << cyan(bad_expression) << "\t" << p.error_message() << std::endl;
         #endif
     }
 
@@ -760,7 +765,7 @@ TEST(Parser, parse_local) {
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
         if(p.status()==k_compiler_error)
-            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+            std::cout << "in " << cyan(bad_expression) << "\t" << p.error_message() << std::endl;
         #endif
     }
 }
@@ -915,47 +920,47 @@ TEST(Optimizer, constant_folding) {
     {
         char str[] = "x = 2*3";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
         EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 6);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         char str[] = "x = 1 + 2 + 3";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
         EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 6);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         char str[] = "x = exp(2)";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
         EXPECT_EQ(std::fabs(e->is_assignment()->rhs()->is_number()->value()-std::exp(2.0))<1e-16, true);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         char str[] = "x= 2*2 + 3";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
         EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 7);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         char str[] = "x= 3 + 2*2";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
         EXPECT_EQ(e->is_assignment()->rhs()->is_number()->value(), 7);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         // this doesn't work: the (y+2) expression is not a constant, so folding stops.
@@ -964,26 +969,26 @@ TEST(Optimizer, constant_folding) {
         // are adjacent to one another in the tree
         char str[] = "x= y + 2 + 3";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT( "" )
     }
     {
         char str[] = "x= 2 + 3 + y";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT("");
     }
     {
         char str[] = "foo(2+3, log(32), 2*3 + x)";
         Expression* e = parse_line_expression_helper(str);
-        std::cout << e->to_string() << std::endl;
+        VERBOSE_PRINT( e->to_string() )
         e->accept(v);
-        std::cout << e->to_string() << std::endl;
-        std::cout << std::endl;
+        VERBOSE_PRINT( e->to_string() )
+        VERBOSE_PRINT("");
     }
 }
 

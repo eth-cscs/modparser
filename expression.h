@@ -66,7 +66,7 @@ static std::string to_string(solverMethod m) {
 class Expression {
 public:
     explicit Expression(Location location)
-        : location_(location)
+    :   location_(location)
     {}
 
     virtual ~Expression() {};
@@ -133,7 +133,7 @@ protected:
 class IdentifierExpression : public Expression {
 public:
     IdentifierExpression(Location loc, std::string const& name)
-        : Expression(loc), name_(name)
+    :   Expression(loc), name_(name)
     {}
 
     std::string const& name() const {
@@ -168,7 +168,7 @@ protected:
 class DerivativeExpression : public IdentifierExpression {
 public:
     DerivativeExpression(Location loc, std::string const& name)
-        : IdentifierExpression(loc, name)
+    :   IdentifierExpression(loc, name)
     {}
 
     std::string to_string() const override {
@@ -213,10 +213,10 @@ private:
 class LocalExpression : public Expression {
 public:
     LocalExpression(Location loc)
-        : Expression(loc)
+    :   Expression(loc)
     {}
     LocalExpression(Location loc, std::string const& name)
-        : Expression(loc)
+    :   Expression(loc)
     {
         Token tok(tok_identifier, name, loc);
         add_variable(tok);
@@ -241,7 +241,7 @@ private:
 class VariableExpression : public Expression {
 public:
     VariableExpression(Location loc, std::string const& name)
-        : Expression(loc), name_(name)
+    :   Expression(loc), name_(name)
     {}
 
     std::string const& name() const {
@@ -313,7 +313,7 @@ public:
             Location loc,
             std::string const& name,
             solverMethod method)
-    : Expression(loc), name_(name), method_(method), procedure_(nullptr)
+    :   Expression(loc), name_(name), method_(method), procedure_(nullptr)
     {}
 
     std::string to_string() const override {
@@ -366,9 +366,9 @@ public:
         Location loc,
         std::vector<Expression*> body,
         bool is_nested)
-    : Expression(loc),
-      body_(body),
-      is_nested_(is_nested)
+    :   Expression(loc),
+        body_(body),
+        is_nested_(is_nested)
     {}
 
     BlockExpression* is_block() override {
@@ -402,7 +402,7 @@ public:
 class IfExpression : public Expression {
 public:
     IfExpression(Location loc, Expression* con, Expression* tb, Expression* fb)
-    : Expression(loc), condition_(con), true_branch_(tb), false_branch_(fb)
+    :   Expression(loc), condition_(con), true_branch_(tb), false_branch_(fb)
     {}
 
     IfExpression* is_if() override {
@@ -435,7 +435,7 @@ public:
             Location loc,
             std::string const& name,
             std::vector<Expression*> const& args)
-    : Expression(loc), name_(name), args_(args)
+    :   Expression(loc), name_(name), args_(args)
     {}
 
     std::string const& name() const {return name_;}
@@ -461,7 +461,7 @@ private:
 class CallExpression : public Expression {
 public:
     CallExpression(Location loc, std::string const& name, std::vector<Expression*>const &args)
-        : Expression(loc), name_(name), args_(args)
+    :   Expression(loc), name_(name), args_(args)
     {}
 
     std::vector<Expression*> const& args() const { return args_; }
@@ -497,7 +497,7 @@ public:
                          std::vector<Expression*> const& args,
                          Expression* body,
                          procedureKind k=k_proc)
-        : Expression(loc), name_(name), args_(args), kind_(k)
+    :   Expression(loc), name_(name), args_(args), kind_(k)
     {
         assert(body->is_block());
         body_ = body->is_block();
@@ -539,7 +539,7 @@ public:
     InitialBlock(
         Location loc,
         std::vector<Expression*> body)
-    : BlockExpression(loc, body, true)
+    :   BlockExpression(loc, body, true)
     {}
 
     std::string to_string() const;
@@ -559,7 +559,7 @@ public:
                           std::string const& name,
                           std::vector<Expression*> const& args,
                           Expression* body)
-        : ProcedureExpression(loc, name, args, body, k_proc_net_receive)
+    :   ProcedureExpression(loc, name, args, body, k_proc_net_receive)
     {}
 
     void semantic(Scope::symbol_map &scp) override;
@@ -587,7 +587,9 @@ public:
                          std::string const& name,
                          std::vector<Expression*> const& args,
                          Expression* body)
-        : Expression(loc), name_(name), args_(args)
+    :   Expression(loc),
+        name_(name),
+        args_(args)
     {
         assert(body->is_block());
         body_ = body->is_block();
@@ -620,7 +622,9 @@ protected:
     TOK op_;
 public:
     UnaryExpression(Location loc, TOK op, Expression* e)
-        : Expression(loc), op_(op), expression_(e)
+    :   Expression(loc),
+        expression_(e),
+        op_(op)
     {}
 
     std::string to_string() const {
@@ -640,7 +644,7 @@ public:
 class NegUnaryExpression : public UnaryExpression {
 public:
     NegUnaryExpression(Location loc, Expression* e)
-        : UnaryExpression(loc, tok_minus, e)
+    :   UnaryExpression(loc, tok_minus, e)
     {}
 
     void accept(Visitor *v) override;
@@ -650,7 +654,7 @@ public:
 class ExpUnaryExpression : public UnaryExpression {
 public:
     ExpUnaryExpression(Location loc, Expression* e)
-        : UnaryExpression(loc, tok_exp, e)
+    :   UnaryExpression(loc, tok_exp, e)
     {}
 
     void accept(Visitor *v) override;
@@ -660,7 +664,7 @@ public:
 class LogUnaryExpression : public UnaryExpression {
 public:
     LogUnaryExpression(Location loc, Expression* e)
-        : UnaryExpression(loc, tok_log, e)
+    :   UnaryExpression(loc, tok_log, e)
     {}
 
     void accept(Visitor *v) override;
@@ -670,7 +674,7 @@ public:
 class CosUnaryExpression : public UnaryExpression {
 public:
     CosUnaryExpression(Location loc, Expression* e)
-        : UnaryExpression(loc, tok_cos, e)
+    :   UnaryExpression(loc, tok_cos, e)
     {}
 
     void accept(Visitor *v) override;
@@ -680,7 +684,7 @@ public:
 class SinUnaryExpression : public UnaryExpression {
 public:
     SinUnaryExpression(Location loc, Expression* e)
-        : UnaryExpression(loc, tok_sin, e)
+    :   UnaryExpression(loc, tok_sin, e)
     {}
 
     void accept(Visitor *v) override;
@@ -700,7 +704,10 @@ protected:
     TOK op_;
 public:
     BinaryExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
-        : Expression(loc), op_(op), lhs_(lhs), rhs_(rhs)
+    :   Expression(loc),
+        lhs_(lhs),
+        rhs_(rhs),
+        op_(op)
     {}
 
     TOK op() const {return op_;}
@@ -719,7 +726,7 @@ public:
 class AssignmentExpression : public BinaryExpression {
 public:
     AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_eq, lhs, rhs)
+    :   BinaryExpression(loc, tok_eq, lhs, rhs)
     {}
 
     AssignmentExpression* is_assignment() override {return this;}
@@ -732,7 +739,7 @@ public:
 class AddBinaryExpression : public BinaryExpression {
 public:
     AddBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_plus, lhs, rhs)
+    :   BinaryExpression(loc, tok_plus, lhs, rhs)
     {}
 
     void accept(Visitor *v) override;
@@ -741,7 +748,7 @@ public:
 class SubBinaryExpression : public BinaryExpression {
 public:
     SubBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_minus, lhs, rhs)
+    :   BinaryExpression(loc, tok_minus, lhs, rhs)
     {}
 
     void accept(Visitor *v) override;
@@ -750,7 +757,7 @@ public:
 class MulBinaryExpression : public BinaryExpression {
 public:
     MulBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_times, lhs, rhs)
+    :   BinaryExpression(loc, tok_times, lhs, rhs)
     {}
 
     void accept(Visitor *v) override;
@@ -759,7 +766,7 @@ public:
 class DivBinaryExpression : public BinaryExpression {
 public:
     DivBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_divide, lhs, rhs)
+    :   BinaryExpression(loc, tok_divide, lhs, rhs)
     {}
 
     void accept(Visitor *v) override;
@@ -768,7 +775,7 @@ public:
 class PowBinaryExpression : public BinaryExpression {
 public:
     PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, tok_pow, lhs, rhs)
+    :   BinaryExpression(loc, tok_pow, lhs, rhs)
     {}
 
     void accept(Visitor *v) override;
@@ -777,7 +784,7 @@ public:
 class ConditionalExpression : public BinaryExpression {
 public:
     ConditionalExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
-        : BinaryExpression(loc, op, lhs, rhs)
+    :   BinaryExpression(loc, op, lhs, rhs)
     {}
 
     ConditionalExpression* is_conditional() override {return this;}

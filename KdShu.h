@@ -1,16 +1,24 @@
 #pragma once
 
 #include "mechanism.h"
+#include "matrix.h"
 
 class Mechanism_KdShu : public Mechanism {
 public :
-    Mechanism_KdShu( IndexVector const& node_indices
+    using value_type  = double;
+    using size_type   = int;
+    using vector_type = memory::HostVector<value_type>;
+    using view_type   = memory::HostView<value_type>;
+    using index_type  = memory::HostVector<size_type>;
+
+    Mechanism_KdShu( index_type const& node_indices,
                      Matrix &matrix)
-    : matrix_(matrix),
-      node_indices_(node_indices)
+    :   Mechanism("KdShu2007"),
+        matrix_(matrix),
+        node_indices_(node_indices)
     {
     }
-
+/*
     ////////////////////
     // helpers
     // could these, and the corresponding data be put in the base class?
@@ -25,10 +33,10 @@ public :
     Matrix & matrix() {
         return matrix_;
     }
-    IndexVector const& node_indices() const {
+    index_type const& node_indices() const {
         return node_indices_;
     }
-    IndexVector & node_indices() {
+    index_type & node_indices() {
         return node_indices_;
     }
 
@@ -78,16 +86,17 @@ private :
     //  - index data
     //      - nodeindices
     // the data fields
-    DataVector  data_;
-    DataRef     v_;
-    DataRef     g_;
-    DataRef     i_;
-    DataRef     m_;
-    DataRef     h_;
+    vector_type data_;
+    view_type   v_;
+    view_type   g_;
+    view_type   i_;
+    view_type   m_;
+    view_type   h_;
+*/
 
     // a reference to the matrix system for that this mechanism contributes to
     Matrix     &matrix_;
 
     // a reference to the node indices that this mechanism is present at
-    IndexVector const& node_indices_;
+    index_type const& node_indices_;
 };

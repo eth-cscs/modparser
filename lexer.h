@@ -94,12 +94,6 @@ struct Location {
 //  TOK indicating type of token
 //  information about its location
 struct Token {
-    Location location;
-    TOK type;
-
-    double value() {
-        return std::stod(name);
-    }
     // the name string contains the text of the token
     // the string is context sensitive:
     // name should really have been called 'spelling'
@@ -108,6 +102,8 @@ struct Token {
     //   type = tok_if         : name = "if"      (always)
     //   type = tok_identifier : name = "foo_bar" (e.g.)
     std::string name;
+    TOK type;
+    Location location;
 
     Token(TOK tok, std::string const& nam, Location loc=Location(0,0))
     :   name(nam),
@@ -135,8 +131,8 @@ public:
     :   begin_(begin),
         end_(end),
         current_(begin),
-        location_(),
-        line_(begin)
+        line_(begin),
+        location_()
     {
         assert(begin_<=end_);
         keywords_init();
