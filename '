@@ -68,9 +68,7 @@ TEST(Matrix, solve) {
         ASSERT_NEAR(val, 1, 1e-15);
 }
 
-/*
 TEST(Mechanism, simple) {
     Mechanism_KdShu();
 }
-*/
 
