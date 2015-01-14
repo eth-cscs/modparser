@@ -1,3 +1,6 @@
+#include <cassert>
+#include <cstring>
+
 #include "expression.h"
 
 std::string to_string(procedureKind k) {
@@ -65,6 +68,7 @@ bool IdentifierExpression::is_lvalue() {
 
     // else look for local symbol
     if(symbol_.kind == k_local ) return true;
+
     return false;
 }
 
