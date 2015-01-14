@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lib/vector/include/Vector.h"
+
 /*
     Abstract base class for all mechanisms
 
@@ -15,8 +17,13 @@
           specific quantity for visualization?
 */
 
-class Mechansim {
+class Mechanism {
 public:
+    // typedefs for storage
+    using value_type = double;
+    using vector_type = memory::HostVector<value_type>;
+    using view_type   = memory::HostView<value_type>;
+
     Mechanism(std::string const& name)
     :   name_(name)
     {}
@@ -24,7 +31,7 @@ public:
     virtual void current() = 0;
     virtual void state()   = 0;
     virtual void jacobi()  = 0;
-    virtual void init()  = 0;
+    virtual void init()    = 0;
 
     std::string const& name() {
         return name_;

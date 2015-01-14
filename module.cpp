@@ -15,7 +15,7 @@ Module::Module(std::string const& fname)
     }
 
     // determine size of file
-    size_t size = fid.tellg();
+    std::size_t size = fid.tellg();
     fid.seekg(0, std::ios::beg);
 
     // allocate space for storage and read

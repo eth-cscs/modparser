@@ -38,3 +38,5 @@ Makefile
 *.swn
 *.swo
 
+# youcompleteme pyc
+.ycm*.pyc

@@ -178,7 +178,7 @@ Which neatly separates the two tasks, making a simple one-to-one mapping between
 In addition to the externally exported symbols (`nrn_*`), there are user-defined FUNCTION and PROCEDUREs. These are translated directly from the description in the NMODL file.
 
 ### Purity please
-It would be great to put some restrictions on functions, like for example forcing them to be pure. Then encouraging users to specify intermediate values as pure functions, instead of range variables, to reduce memory footprint, and provide a mechanism for users to compute these values on the fly.
+It would be a good idea to place some restrictions on functions, or giving users the ability to annotate functions with properties, that make it easier to optimize the generated code. For example using pure functions. If users are encouraged to specify intermediate values as pure functions, instead of range variables, memory footprint will be reduced, and a mechanism can be provided for users to compute these values on the fly.
 
 By _pure_, I mean insisting that functions can't have side-effects (they can't rely on or alter global state). This is a familiar concept from functional programming, constexpr functions in C++11, or elemental functions in Fortran. These conditions can be relaxed a bit, to _pure is as pure does_, as in the D programming language and C++14. This allows a pure function to have mutable local state, and use immutable global state.
 

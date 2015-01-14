@@ -58,8 +58,8 @@ void Parser::error(std::string msg, Location loc) {
 }
 
 Parser::Parser(Module& m, bool advance)
-:   module_(m),
-    Lexer(m.buffer())
+:   Lexer(m.buffer()),
+    module_(m)
 {
     // prime the first token
     get_token();
@@ -1082,7 +1082,6 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
 Expression *Parser::parse_local() {
     assert(token_.type==tok_local);
     Location loc = location_;
-    int line = location_.line;
 
     get_token(); // consume LOCAL
 

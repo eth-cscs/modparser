@@ -21,7 +21,8 @@ public:
     void visit(InitialBlock *e)         override;
     void visit(IfExpression *e)         override;
 
-    int num_errors() {return num_errors_;};
+    int num_errors()   {return num_errors_;}
+    int num_warnings() {return num_warnings_;}
 private:
     template <typename ExpressionType>
     void print_error(ExpressionType *e) {
@@ -29,7 +30,6 @@ private:
             auto header = red("error: ")
                         + white(pprintf("% % ", module_name_, e->location()));
             std::cout << header << "\n  "
-            //std::cout << header << "\t"
                       << e->error_message()
                       << std::endl;
             num_errors_++;
@@ -40,11 +40,12 @@ private:
             std::cout << header << "\n  "
                       << e->warning_message()
                       << std::endl;
-            num_errors_++;
+            num_warnings_++;
         }
     }
 
     std::string module_name_;
     int num_errors_ = 0;
+    int num_warnings_ = 0;
 };
 
