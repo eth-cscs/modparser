@@ -299,9 +299,28 @@ void Parser::parse_neuron_block() {
                 }
                 break;
 
+            case tok_nonspecific_current :
+                // Assume that there is one non-specific current per mechanism.
+                // It would be easy to extend this to multiple currents,
+                // however there are no mechanisms in the CoreNeuron repository
+                // that do this, so err on the side of caution.
+                {
+                    get_token(); // consume NONSPECIFIC_CURRENT
+
+                    // get the name of the current
+                    auto id = parse_identifier();
+
+                    if(status_==k_compiler_error) {
+                        return;
+                    }
+
+                    neuron_block.nonspecific_current = id->is_identifier();
+                }
+                break;
+
             // the parser encountered an invalid symbol
             default :
-                error(pprintf("there was an invalid symbol '%' in NEURON block",
+                error(pprintf("there was an invalid statement '%' in NEURON block",
                               token_.name));
                 return;
         }

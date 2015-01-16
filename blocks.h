@@ -25,7 +25,7 @@ enum moduleKind {
     k_module_density
 };
 
-// information stored in a NEURON {} block in mod file
+// information stored in a NEURON {} block in mod file.
 struct NeuronBlock {
     bool threadsafe = false;
     std::string name;
@@ -33,6 +33,10 @@ struct NeuronBlock {
     std::vector<IonDep> ions;
     std::vector<std::string> ranges;
     std::vector<std::string> globals;
+    IdentifierExpression* nonspecific_current = nullptr;
+    bool has_nonspecific_current() const {
+        return nonspecific_current != nullptr;
+    }
 };
 
 // information stored in a NEURON {} block in mod file

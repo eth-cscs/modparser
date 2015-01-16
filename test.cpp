@@ -6,6 +6,7 @@
 #include "gtest.h"
 
 #include "constantfolder.h"
+#include "expressionclassifier.h"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
@@ -462,6 +463,152 @@ TEST(FlopVisitor, function) {
     EXPECT_EQ(visitor->flops.div, 5);
     EXPECT_EQ(visitor->flops.exp, 2);
     EXPECT_EQ(visitor->flops.pow, 1);
+    }
+}
+
+TEST(ClassificationVisitor, linear) {
+    std::vector<const char*> expressions =
+    {
+"x+3",
+"-x",
+"x+x+x+x",
+"2*x     ",
+"y*x     ",
+"x + y   ",
+"y + x   ",
+"y + z*x ",
+"2*(x + y)",
+"x/y",
+"(y - x)/z"
+    };
+
+    // create a scope that contains the symbols used in the tests
+    auto x = new IdentifierExpression(Location(), "x");
+    auto y = new IdentifierExpression(Location(), "y");
+    auto z = new IdentifierExpression(Location(), "z");
+    Scope::symbol_map globals = {
+        {"x", {k_variable, x}},
+        {"y", {k_variable, y}},
+        {"z", {k_variable, z}}
+    };
+    auto scope = std::make_shared<Scope>(globals);
+
+    for(auto const& expression : expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+
+        // sanity check the compiler
+        EXPECT_NE(e, nullptr);
+        EXPECT_NE(p.status(), k_compiler_error);
+
+        if( e==nullptr ) continue;
+
+        e->semantic(scope);
+        auto v = new ExpressionClassifierVisitor({k_variable, x});
+        e->accept(v);
+        EXPECT_EQ(v->classify(), k_expression_lin);
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==k_compiler_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
+    }
+}
+
+TEST(ClassificationVisitor, constant) {
+    std::vector<const char*> expressions =
+    {
+"y+3",
+"-y",
+"exp(y+z)",
+"1",
+"y^z",
+    };
+
+    // create a scope that contains the symbols used in the tests
+    auto x = new IdentifierExpression(Location(), "x");
+    auto y = new IdentifierExpression(Location(), "y");
+    auto z = new IdentifierExpression(Location(), "z");
+    Scope::symbol_map globals = {
+        {"x", {k_variable, x}},
+        {"y", {k_variable, y}},
+        {"z", {k_variable, z}}
+    };
+    auto scope = std::make_shared<Scope>(globals);
+
+    for(auto const& expression : expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+
+        // sanity check the compiler
+        EXPECT_NE(e, nullptr);
+        EXPECT_NE(p.status(), k_compiler_error);
+
+        if( e==nullptr ) continue;
+
+        e->semantic(scope);
+        auto v = new ExpressionClassifierVisitor({k_variable, x});
+        e->accept(v);
+        EXPECT_EQ(v->classify(), k_expression_const);
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==k_compiler_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
+    }
+}
+
+TEST(ClassificationVisitor, nonlinear) {
+    std::vector<const char*> expressions =
+    {
+"x*x",
+"y/x",
+"x*(y + z*(x/y))",
+"exp(x)",
+"exp(x+y)",
+"exp(z*(x+y))",
+"log(x)",
+"cos(x)",
+"sin(x)",
+    };
+
+    // create a scope that contains the symbols used in the tests
+    auto x = new IdentifierExpression(Location(), "x");
+    auto y = new IdentifierExpression(Location(), "y");
+    auto z = new IdentifierExpression(Location(), "z");
+    Scope::symbol_map globals = {
+        {"x", {k_variable, x}},
+        {"y", {k_variable, y}},
+        {"z", {k_variable, z}}
+    };
+    auto scope = std::make_shared<Scope>(globals);
+
+    auto v = new ExpressionClassifierVisitor({k_variable, x});
+    for(auto const& expression : expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_expression();
+
+        // sanity check the compiler
+        EXPECT_NE(e, nullptr);
+        EXPECT_NE(p.status(), k_compiler_error);
+
+        if( e==nullptr ) continue;
+
+        e->semantic(scope);
+        v->reset();
+        e->accept(v);
+        EXPECT_EQ(v->classify(), k_expression_nonlin);
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+        if(p.status()==k_compiler_error)
+            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+#endif
     }
 }
 

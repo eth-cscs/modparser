@@ -25,6 +25,10 @@ struct Symbol {
     std::string to_string() const;
 };
 
+static bool operator == (const Symbol& lhs, const Symbol& rhs) {
+    return (lhs.kind == rhs.kind) && (lhs.expression == rhs.expression);
+}
+
 class Scope {
 public:
     using symbol_map = std::unordered_map<std::string, Symbol>;

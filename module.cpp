@@ -242,6 +242,23 @@ void Module::add_variables_to_symbols() {
     // the variables in symbols_
     ////////////////////////////////////////////////////
     // first the ION channels
+    // check for nonspecific current
+    if( neuron_block().has_nonspecific_current() ) {
+        auto e = neuron_block().nonspecific_current;
+        auto id = dynamic_cast<VariableExpression*>(symbols_[e->name()].expression);
+        if(id==nullptr) {
+            error( pprintf(
+                    "nonspecific current % must be declared as "
+                    " declared as PARAMETER or ASSIGNED",
+                     yellow(e->name())
+                    ),
+                    e->location()); // location of definition
+        }
+        std::cout << green("symbol definition found an expression ") << e->name() << std::endl;
+        id->access(k_readwrite);
+        id->visibility(k_global_visibility);
+        id->ion_channel(k_ion_nonspecific);
+    }
     for(auto const& ion : neuron_block().ions) {
         // assume that the ion channel variable has already been declared
         // we check for this, and throw an error if not

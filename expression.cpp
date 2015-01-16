@@ -236,7 +236,7 @@ std::string InitialBlock::to_string() const {
     for(auto ex : body_) {
        str += "\n   " + ex->to_string();
     }
-    str += green("\n]]");
+    str += green("\n  ]]");
     return str;
 }
 
@@ -435,7 +435,7 @@ std::string BlockExpression::to_string() const {
     for(auto ex : body_) {
        str += "\n   " + ex->to_string();
     }
-    str += green("\n]]");
+    str += green("\n  ]]");
     return str;
 }
 
