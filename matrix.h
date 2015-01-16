@@ -43,10 +43,8 @@ public:
         // that the start of each vector is properly alligned in data[].
 
         auto const alignment = 64; // alignment in bytes (TODO: get this info from allocator)
-        static_assert((alignment%sizeof(value_type))==0, "alignment won't padd");
-        auto padding = (n*sizeof(value_type))%alignment;
-        padding = (alignment - padding)%alignment; // padding in bytes
-        auto n_alloc = n + padding/sizeof(value_type);
+        auto padding = memory::impl::get_padding<value_type>(alignment, n);
+        auto n_alloc = n + padding;
         auto total_size = 4 * n_alloc;
 
         data_= vector_type(total_size);       // allocate total storage
@@ -93,6 +91,7 @@ public:
     // mutiply by a vector
     vector_type gemv(view_type x) {
         auto n = size();
+        auto const& p = parent_indices_;
         #ifndef NDEBUG
         assert(n == x.size());
         #endif
@@ -101,19 +100,15 @@ public:
         if(size()==0) {
             return y;
         }
+        y[0] = d_[0] * x[0];
         if(size()==1) {
-            y[0] = d_[0] * x[0];
             return y;
         }
 
-        //a_[0] = 0;
-        //b_[n-1] = 0;
-
-        y[0] = d_[0]*x[0] + b_[0]*x[1];
-        for(int i=1; i<n-1; ++i) {
-            y[i] = a_[i]*x[i-1] + d_[i]*x[i] + b_[i]*x[i+1];
+        for(int i=1; i<n; ++i) {
+            y[i] = a_[i]*x[p[i]] + d_[i]*x[i];  // y_i  = a_i*x_k + d_i*x_i
+            y[p[i]] += b_[i]*x[i];              // y_k += b_i*x_i
         }
-        y[n-1] = a_[n-1]*x[n-2] + d_[n-1]*x[n-1];
 
         return y;
     }

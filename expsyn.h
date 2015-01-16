@@ -6,7 +6,7 @@
 /// Type that encapsulates runtime information about kdShu mechanism.
 /// Used because this information can't be embedded directly in MechanismKdShu,
 /// because non-aggregate classes can't have constexpr members
-struct InfoKdShu {
+struct InfoExpsyn {
     // dimensions of mechanism
     static constexpr int num_fields = 9;
     static constexpr int num_state  = 2; // number of state variables
@@ -26,10 +26,10 @@ struct InfoKdShu {
     double q10    = 2.3;
 };
 
-class Mechanism_KdShu : public Mechanism {
+class Mechanism_Expsyn : public Mechanism {
 public :
-    using info = InfoKdShu;
-    InfoKdShu information;
+    using info = InfoExpsyn;
+    InfoExpsyn information;
 
     using value_type  = double;
     using size_type   = int;
@@ -37,9 +37,9 @@ public :
     using view_type   = memory::HostView<value_type>;
     using index_type  = memory::HostVector<size_type>;
 
-    Mechanism_KdShu( index_type const& node_indices,
+    Mechanism_Expsyn( index_type const& node_indices,
                      Matrix &matrix)
-    :   Mechanism("KdShu2007"),
+    :   Mechanism("expsyn"),
         matrix_(matrix),
         node_indices_(node_indices)
     {
@@ -56,13 +56,7 @@ public :
         v = data_(0*n_alloc, 0*n_alloc + n);
         g = data_(1*n_alloc, 1*n_alloc + n);
         i = data_(2*n_alloc, 2*n_alloc + n);
-        m = data_(3*n_alloc, 3*n_alloc + n);
-        h = data_(4*n_alloc, 4*n_alloc + n);
         rhs_contribution = data_(5*n_alloc, 5*n_alloc + n);
-
-        ik  = data_(6*n_alloc, 6*n_alloc + n);
-        gkbar = data_(7*n_alloc, 7*n_alloc + n);
-        ek = data_(8*n_alloc, 8*n_alloc + n);
 
         // initialize initial values for parameters from PARAMETER block
         // these were declared as both RANGE + PARAMETER
@@ -219,4 +213,5 @@ private :
     // a reference to the node indices that this mechanism is present at
     index_type const& node_indices_;
 };
+
 

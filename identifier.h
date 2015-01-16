@@ -32,6 +32,7 @@ enum linkageKind {
 /// ion channel that the variable belongs to
 enum ionKind {
     k_ion_none,     ///< not an ion variable
+    k_ion_nonspecific,  ///< nonspecific current
     k_ion_Ca,       ///< calcium ion
     k_ion_Na,       ///< sodium ion
     k_ion_K         ///< potassium ion
@@ -48,6 +49,7 @@ static std::string to_string(ionKind i) {
         case k_ion_Ca   : return std::string("calcium");
         case k_ion_Na   : return std::string("sodium");
         case k_ion_K    : return std::string("potassium");
+        case k_ion_nonspecific : return std::string("nonspecific");
     }
     return std::string("<error : undefined ionKind>");
 }

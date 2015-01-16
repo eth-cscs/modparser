@@ -40,6 +40,11 @@ class DivBinaryExpression;
 class PowBinaryExpression;
 class ConditionalExpression;
 
+
+// helper functions for generating unary and binary expressions
+Expression* unary_expression(Location, TOK, Expression*);
+Expression* binary_expression(Location, TOK, Expression*, Expression*);
+
 /// specifies special properties of a ProcedureExpression
 enum procedureKind {
     k_proc,             // PROCEDURE

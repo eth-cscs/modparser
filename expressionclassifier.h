@@ -39,6 +39,10 @@ public:
         return k_expression_nonlin;
     }
 
+    Expression *linear_coefficient() {
+        return coefficient;
+    }
+
 private:
 
 

@@ -36,6 +36,10 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     //std::cout << "+++ symbol : " << e->to_string();
     if(symbol == e->symbol()) {
         found_symbol = true;
+        coefficient = new NumberExpression(Location(), "1");
+    }
+    else {
+        coefficient = e;
     }
     //std::cout << (found_symbol ? " FOUND" : " CONST") << std::endl;
 }
@@ -47,6 +51,8 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
         switch(e->op()) {
             // plus or minus don't change linearity
             case tok_minus :
+                coefficient = unary_expression(Location(), e->op(), coefficient);
+                return;
             case tok_plus :
                 return;
             // one of these applied to the symbol certainly isn't linear
@@ -74,13 +80,16 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     bool rhs_contains_symbol = false;
     bool lhs_is_linear = true;
     bool rhs_is_linear = true;
+    Expression *lhs_coefficient;
+    Expression *rhs_coefficient;
 
     //std::cout << "+++ binary : " << e->to_string() << std::endl;
     // check the lhs
     reset();
     e->lhs()->accept(this);
     lhs_contains_symbol = found_symbol;
-    lhs_is_linear = is_linear;
+    lhs_is_linear       = is_linear;
+    lhs_coefficient     = coefficient;
     //std::cout << " LHS " << (found_symbol ? " FOUND" : " CONST") << (is_linear ? " LINEAR\n" : "NONLINEAR\n");
     if(!is_linear) return; // early return if nonlinear
 
@@ -88,7 +97,8 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     reset();
     e->rhs()->accept(this);
     rhs_contains_symbol = found_symbol;
-    rhs_is_linear = is_linear;
+    rhs_is_linear       = is_linear;
+    rhs_coefficient     = coefficient;
     //std::cout << " RHS " << (found_symbol ? " FOUND" : " CONST") << (is_linear ? " LINEAR\n" : "NONLINEAR\n");
     if(!is_linear) return; // early return if nonlinear
 
@@ -107,6 +117,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                 // addition and subtraction are valid
                 case tok_plus :
                 case tok_minus :
+                    coefficient = binary_expression(Location(), e->op(), lhs_coefficient, rhs_coefficient);
                     return;
                 // multiplying two expressions that depend on symbol is nonlinear
                 case tok_times :
@@ -137,6 +148,11 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         //      division    | rhs
         else if(rhs_contains_symbol) {
             switch(e->op()) {
+                case tok_plus :
+                    return;
+                case tok_minus :
+                    coefficient = unary_expression(Location(), e->op(), coefficient);
+                    return;
                 case tok_pow    :
                 case tok_divide :
                 case tok_lt     :
@@ -152,6 +168,17 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         }
         else if(lhs_contains_symbol) {
             switch(e->op()) {
+                case tok_plus  :
+                    return;
+                case tok_minus :
+                    coefficient = unary_expression(Location(), tok_minus, coefficient);
+                    return;
+                case tok_divide:
+                    coefficient = binary_expression( Location(),
+                                                     tok_divide,
+                                                     new NumberExpression(Location(), "1"),
+                                                     coefficient);
+                    return;
                 case tok_pow    :
                 case tok_lt     :
                 case tok_lte    :

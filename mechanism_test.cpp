@@ -7,11 +7,17 @@
 #include "mechanism.h"
 #include "KdShu.h"
 
+#define VERBOSE_TEST
+
 template<typename T>
-void printvec(T const& v) {
+void printvec(T const& v, std::string name="") {
+    #ifdef VERBOSE_TEST
+    if(name.size()>0)
+        std::cout << yellow(name + " : ");
     for(auto val: v)
         std::cout << val << " ";
     std::cout << std::endl;
+    #endif
 }
 
 TEST(Matrix, init) {
@@ -36,6 +42,7 @@ TEST(Matrix, init) {
     EXPECT_EQ(A.vec_rhs().size(), p.size());
 }
 
+// test that solution of a tri-diagonal system works
 TEST(Matrix, solve) {
     using memory::Range;
     using memory::end;
@@ -43,7 +50,7 @@ TEST(Matrix, solve) {
     using index_type = Matrix::index_type;
 
     // create an index vector for a tridiagonal matrix
-    index_type p(32);
+    index_type p(1023);
     for(auto i : p.range()(1,end)) {
         p[i] = i-1;
     }
@@ -56,7 +63,6 @@ TEST(Matrix, solve) {
     A.vec_d()(all) = -4;
     A.vec_rhs()(all) = 1;
 
-
     A.solve();
 
     A.vec_a()(all) = 1.;
@@ -68,9 +74,32 @@ TEST(Matrix, solve) {
         ASSERT_NEAR(val, 1, 1e-15);
 }
 
-/*
 TEST(Mechanism, simple) {
-    Mechanism_KdShu();
+    using memory::Range;
+    using memory::end;
+    using memory::all;
+    using index_type = Matrix::index_type;
+
+    // create an index vector for a tridiagonal matrix
+    // this corresponds to a single cable with no splits
+    index_type p(12);
+    for(auto i : p.range()(1,end))
+        p[i] = i-1;
+    p[0] = 0;
+
+    Matrix matrix(p, 1);
+    Mechanism_KdShu mech(p, matrix);
+
+    mech.get_v()(all) = 1.0;
+    mech.init();
+
+    auto state_names = mech.information.state_names();
+    for(auto i=0; i<mech.information.num_state; ++i) {
+        printvec(mech.get_state(i), state_names[i]);
+    }
+
+    printvec(mech.get_rhs_contribution(), "rhs");
+    mech.current();
+    printvec(mech.get_rhs_contribution(), "rhs");
 }
-*/
 

@@ -508,6 +508,7 @@ TEST(ClassificationVisitor, linear) {
         auto v = new ExpressionClassifierVisitor({k_variable, x});
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_lin);
+        std::cout << v->linear_coefficient()->to_string() << std::endl;
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;

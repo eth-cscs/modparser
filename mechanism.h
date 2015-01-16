@@ -28,9 +28,9 @@ public:
     :   name_(name)
     {}
 
+    //virtual void state()   = 0;
+    //virtual void jacobi()  = 0;
     virtual void current() = 0;
-    virtual void state()   = 0;
-    virtual void jacobi()  = 0;
     virtual void init()    = 0;
 
     std::string const& name() {
