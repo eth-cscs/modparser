@@ -79,6 +79,7 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
             //std::cout << e->lhs()->to_string() << std::endl;
         }
     }
+    //std::cout << "lhs : " << e->lhs()->to_string() << std::endl;
 
     // check the rhs
     is_number = false;
@@ -91,10 +92,13 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
             //std::cout << e->rhs()->to_string() << std::endl;
         }
     }
+    //std::cout << "rhs : " << e->rhs()->to_string() << std::endl;
+
+    is_number = is_number && lhs_is_number;
 
     // check to see if both lhs and rhs are numbers
     // mark this node as a number if so
-    if(is_number && lhs_is_number) {
+    if(is_number) {
         // be careful to get the order of operation right for
         // non-computative operators
         switch(e->op()) {
@@ -133,7 +137,6 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
         }
     }
 
-    is_number = is_number && lhs_is_number;
 }
 
 void ConstantFolderVisitor::visit(CallExpression *e) {
@@ -174,3 +177,4 @@ void ConstantFolderVisitor::visit(IfExpression *e) {
         e->false_branch()->accept(this);
     }
 }
+

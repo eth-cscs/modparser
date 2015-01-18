@@ -3,16 +3,6 @@
 
 #include "expressionclassifier.h"
 
-/*
-   perform a walk of the AST to determine if 
-   - pre-order : mark node as not a number
-   - in-order  : convert all children that marked themselves as numbers into NumberExpressions
-   - post-order: mark the current node as a constant if all of its children
-                 were converted to NumberExpressions
-
-   all calculations and intermediate results use 80 bit floating point precision (long double)
-*/
-
 // default is to do nothing and return
 void ExpressionClassifierVisitor::visit(Expression *e) {
     std::cout
@@ -26,8 +16,8 @@ void ExpressionClassifierVisitor::visit(Expression *e) {
 // number expresssion
 void ExpressionClassifierVisitor::visit(NumberExpression *e) {
     // save the coefficient as the number
-    //std::cout << "+++ number : " << e->to_string() << std::endl;
     coefficient = e;
+    //std::cout << "+++ number : " << e->to_string() << "       coeff " << coefficient->to_string() << std::endl;
 }
 
 // identifier expresssion
@@ -41,7 +31,7 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     else {
         coefficient = e;
     }
-    //std::cout << (found_symbol ? " FOUND" : " CONST") << std::endl;
+    //std::cout << (found_symbol ? " FOUND" : " CONST") << " coeff " << coefficient->to_string() << std::endl;
 }
 
 /// unary expresssion
@@ -64,11 +54,15 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
                 return;
             default :
                 std::cout
-                    << red("compiler error: ") << white(pprintf("%", e->location()))
+                    << red("compiler error: ")
+                    << white(pprintf("%", e->location()))
                     << " attempted to find linear expression for an unsupported UnaryExpression "
                     << yellow(token_string(e->op())) << std::endl;
                 assert(false);
         }
+    }
+    else {
+        coefficient = e;
     }
 }
 
@@ -121,7 +115,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     return;
                 // multiplying two expressions that depend on symbol is nonlinear
                 case tok_times :
-                // 
                 case tok_pow :
                 case tok_divide :
                     is_linear = false;
@@ -134,10 +127,9 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                 case tok_gt     :
                 case tok_gte    :
                 case tok_EQ     :
+                default         :
                     is_linear = false;
                     return;
-                default         :
-                    ;
             }
         }
         // special cases :
@@ -148,10 +140,27 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         //      division    | rhs
         else if(rhs_contains_symbol) {
             switch(e->op()) {
+                case tok_times  :
+                    if( rhs_coefficient->is_number() &&
+                        rhs_coefficient->is_number()->value()==1) {
+                        coefficient = lhs_coefficient;
+                    }
+                    else {
+                        coefficient = binary_expression(
+                                Location(),
+                                tok_times,
+                                lhs_coefficient,
+                                rhs_coefficient);
+                    }
+                    return;
                 case tok_plus :
+                    coefficient = rhs_coefficient;
                     return;
                 case tok_minus :
-                    coefficient = unary_expression(Location(), e->op(), coefficient);
+                    coefficient = unary_expression(
+                            Location(),
+                            e->op(),
+                            rhs_coefficient);
                     return;
                 case tok_pow    :
                 case tok_divide :
@@ -168,16 +177,35 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         }
         else if(lhs_contains_symbol) {
             switch(e->op()) {
+                case tok_times  :
+                    // check if the lhs is == 1
+                    if( lhs_coefficient->is_number() &&
+                        lhs_coefficient->is_number()->value()==1) {
+                        coefficient = rhs_coefficient;
+                    }
+                    else {
+                        coefficient = binary_expression(
+                                Location(),
+                                tok_times,
+                                lhs_coefficient,
+                                rhs_coefficient);
+                    }
+                    return;
                 case tok_plus  :
+                    coefficient = lhs_coefficient;
                     return;
                 case tok_minus :
-                    coefficient = unary_expression(Location(), tok_minus, coefficient);
+                    coefficient = unary_expression(
+                            Location(),
+                            tok_minus,
+                            lhs_coefficient);
                     return;
                 case tok_divide:
-                    coefficient = binary_expression( Location(),
-                                                     tok_divide,
-                                                     new NumberExpression(Location(), "1"),
-                                                     coefficient);
+                    coefficient = binary_expression(
+                            Location(),
+                            tok_divide,
+                            lhs_coefficient,
+                            rhs_coefficient);
                     return;
                 case tok_pow    :
                 case tok_lt     :
@@ -191,6 +219,11 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     return;
             }
         }
+    }
+    // neither lhs or rhs contains symbol
+    // continue building the coefficient
+    else {
+        coefficient = e;
     }
 }
 

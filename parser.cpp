@@ -910,62 +910,6 @@ Expression *Parser::parse_expression() {
     return lhs;
 }
 
-Expression* Parser::unary_expression( Location loc,
-                                      TOK op,
-                                      Expression* e) {
-    switch(op) {
-        case tok_minus :
-            return new NegUnaryExpression(loc, e);
-        case tok_exp :
-            return new ExpUnaryExpression(loc, e);
-        case tok_cos :
-            return new CosUnaryExpression(loc, e);
-        case tok_sin :
-            return new SinUnaryExpression(loc, e);
-        case tok_log :
-            return new LogUnaryExpression(loc, e);
-       default :
-            error(  yellow(token_string(op))
-                  + " is not a valid unary operator");
-            return nullptr;
-    }
-    assert(false); // something catastrophic went wrong
-    return nullptr;
-}
-
-Expression* Parser::binary_expression( Location loc,
-                                       TOK op,
-                                       Expression* lhs,
-                                       Expression* rhs) {
-    switch(op) {
-        case tok_eq     :
-            return new AssignmentExpression(loc, lhs, rhs);
-        case tok_plus   :
-            return new AddBinaryExpression(loc, lhs, rhs);
-        case tok_minus  :
-            return new SubBinaryExpression(loc, lhs, rhs);
-        case tok_times  :
-            return new MulBinaryExpression(loc, lhs, rhs);
-        case tok_divide :
-            return new DivBinaryExpression(loc, lhs, rhs);
-        case tok_pow    :
-            return new PowBinaryExpression(loc, lhs, rhs);
-        case tok_lt     :
-        case tok_lte    :
-        case tok_gt     :
-        case tok_gte    :
-        case tok_EQ     :
-            return new ConditionalExpression(loc, op, lhs, rhs);
-        default         :
-            error(  yellow(token_string(op))
-                  + " is not a valid binary operator");
-            return nullptr;
-    }
-
-    assert(false); // something catastrophic went wrong
-    return nullptr;
-}
-
 /// Parse a unary expression.
 /// If called when the current node in the AST is not a unary expression the call
 /// will be forwarded to parse_primary. This mechanism makes it possible to parse

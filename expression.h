@@ -196,7 +196,7 @@ public:
         : Expression(loc), value_(value)
     {}
 
-    double value() const {return value_;};
+    long double value() const {return value_;};
 
     std::string to_string() const override {
         return purple(pprintf("%", value_));
@@ -211,7 +211,7 @@ public:
 
     void accept(Visitor *v) override;
 private:
-    double value_;
+    long double value_;
 };
 
 // declaration of a LOCAL variable

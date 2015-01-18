@@ -477,7 +477,8 @@ TEST(ClassificationVisitor, linear) {
 "x + y   ",
 "y + x   ",
 "y + z*x ",
-"2*(x + y)",
+"2*(x*z + y)",
+"(2+z)*(x*z + y)",
 "x/y",
 "(y - x)/z"
     };
@@ -508,12 +509,9 @@ TEST(ClassificationVisitor, linear) {
         auto v = new ExpressionClassifierVisitor({k_variable, x});
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_lin);
-        std::cout << v->linear_coefficient()->to_string() << std::endl;
 
 #ifdef VERBOSE_TEST
-        if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
-            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+        std::cout << e->to_string() << " ::: " << v->linear_coefficient()->to_string() << std::endl;
 #endif
     }
 }
@@ -1088,7 +1086,7 @@ TEST(Optimizer, constant_folding) {
         Expression* e = parse_line_expression_helper(str);
         VERBOSE_PRINT( e->to_string() )
         e->accept(v);
-        EXPECT_EQ(std::fabs(e->is_assignment()->rhs()->is_number()->value()-std::exp(2.0))<1e-16, true);
+        EXPECT_EQ(std::fabs(e->is_assignment()->rhs()->is_number()->value()-std::exp(2.0))<1e-15, true);
         VERBOSE_PRINT( e->to_string() )
         VERBOSE_PRINT( "" )
     }

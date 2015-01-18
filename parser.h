@@ -36,11 +36,6 @@ public:
 private:
     Module &module_;
 
-    // helpers for generating unary and binary AST nodes according to
-    // a token type passed by the user
-    Expression* unary_expression(Location, TOK, Expression*);
-    Expression* binary_expression(Location, TOK, Expression*, Expression*);
-
     // functions for parsing descriptive blocks
     // these are called in the first pass, and do not
     // construct any AST information

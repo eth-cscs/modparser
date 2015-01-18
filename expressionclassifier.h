@@ -1,7 +1,8 @@
 #pragma once
 
-#include "visitor.h"
+#include "constantfolder.h"
 #include "scope.h"
+#include "visitor.h"
 
 enum expressionClassification {k_expression_const, k_expression_lin, k_expression_nonlin};
 
@@ -9,7 +10,9 @@ class ExpressionClassifierVisitor : public Visitor {
 public:
     ExpressionClassifierVisitor(Symbol const& s)
     : symbol(s)
-    {}
+    {
+        const_folder = new ConstantFolderVisitor();
+    }
 
     void reset(Symbol const& s) {
         reset();
@@ -40,16 +43,24 @@ public:
     }
 
     Expression *linear_coefficient() {
+        coefficient->accept(const_folder);
+        if(const_folder->is_number)
+            return new NumberExpression(
+                    Location(),
+                    const_folder->value);
         return coefficient;
     }
 
+    ~ExpressionClassifierVisitor() {
+        delete const_folder;
+    }
+
 private:
-
-
-    bool        is_linear     = true; // assume linear until otherwise proven
-    bool        found_symbol  = false;
+    // assume linear until otherwise proven
+    bool is_linear     = true;
+    bool found_symbol  = false;
     Expression* coefficient   = nullptr;
     Symbol symbol;
-
+    ConstantFolderVisitor* const_folder;
 };
 
