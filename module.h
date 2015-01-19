@@ -53,6 +53,9 @@ public :
 
     // error handling
     void error(std::string const& msg, Location loc);
+    std::string const& error_string() {
+        return error_string_;
+    }
     LStat status() const {
         return status_;
     }
@@ -75,6 +78,16 @@ private :
 
     // hash table for lookup of variable and call names
     std::unordered_map<std::string, Symbol> symbols_;
+
+    /// tests if symbol is defined
+    bool has_symbol(const std::string& name) {
+        return symbols_.find(name) != symbols_.end();
+    }
+    /// tests if symbol is defined
+    bool has_symbol(const std::string& name, symbolKind kind) {
+        auto s = symbols_.find(name);
+        return s == symbols_.end() ? false : s->second.kind == kind;
+    }
 
     // blocks
     NeuronBlock neuron_block_;

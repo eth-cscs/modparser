@@ -40,7 +40,9 @@ int main(int argc, char **argv) {
 
     // semantic analysis
     std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
-    m.semantic();
+    if( m.semantic() == false ) {
+        std::cout << m.error_string() << std::endl;
+    }
 
     #ifdef VERBOSE
     std::cout << "====== symbols ======" << std::endl;

@@ -511,7 +511,9 @@ TEST(ClassificationVisitor, linear) {
         EXPECT_EQ(v->classify(), k_expression_lin);
 
 #ifdef VERBOSE_TEST
-        std::cout << e->to_string() << " ::: " << v->linear_coefficient()->to_string() << std::endl;
+        std::cout << "eq    "   << e->to_string()
+                  << "\ncoeff " << v->linear_coefficient()->to_string()
+                  << "\n----"   << std::endl;
 #endif
     }
 }
@@ -565,6 +567,8 @@ TEST(ClassificationVisitor, nonlinear) {
     std::vector<const char*> expressions =
     {
 "x*x",
+"x*2*x",
+"x*(2+x)",
 "y/x",
 "x*(y + z*(x/y))",
 "exp(x)",
@@ -573,6 +577,8 @@ TEST(ClassificationVisitor, nonlinear) {
 "log(x)",
 "cos(x)",
 "sin(x)",
+"x^y",
+"y^x",
     };
 
     // create a scope that contains the symbols used in the tests
@@ -978,8 +984,8 @@ TEST(Parser, parse_parenthesis_expression) {
 "(x             ",
 "((x+3)         ",
 "(x+ +)         ",
-"(x=3)          ",
-"(a + (b*2^(x)) ",
+"(x=3)          ",  // assignment inside parenthesis isn't allowed
+"(a + (b*2^(x)) ",  // missing closing parenthesis
     };
 
     for(auto const& expression : bad_expressions) {
@@ -1035,14 +1041,14 @@ TEST(Parser, parse_line_expression) {
 
     std::vector<const char*> bad_expressions =
     {
-"x=2+       ",
-"x=         ",
+"x=2+       ",      // incomplete binary expression on rhs
+"x=         ",      // missing rhs of assignment
 "x=)y + 2 * z",
 "x=(y + 2   ",
 "x=(y ++ z  ",
-"x/=3       ",
-"foo+8      ",
-"foo()=8    ",
+"x/=3       ",      // compound binary expressions not supported
+"foo+8      ",      // missing assignment
+"foo()=8    ",      // lhs of assingment must be an lvalue
     };
 
     for(auto const& expression : bad_expressions) {
@@ -1086,6 +1092,11 @@ TEST(Optimizer, constant_folding) {
         Expression* e = parse_line_expression_helper(str);
         VERBOSE_PRINT( e->to_string() )
         e->accept(v);
+        // The tolerance has to be loosend to 1e-15, because the optimizer performs
+        // all intermediate calculations in 80 bit precision, which disagrees in
+        // the 16 decimal place to the double precision value from std::exp(2.0).
+        // This is a good thing: by using the constant folder we increase accuracy
+        // over the unoptimized code!
         EXPECT_EQ(std::fabs(e->is_assignment()->rhs()->is_number()->value()-std::exp(2.0))<1e-15, true);
         VERBOSE_PRINT( e->to_string() )
         VERBOSE_PRINT( "" )

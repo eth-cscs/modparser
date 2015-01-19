@@ -75,7 +75,6 @@ void Module::error(std::string const& msg, Location loc) {
     }
 }
 
-
 bool Module::semantic() {
     ////////////////////////////////////////////////////////////////////////////
     // create the symbol table
@@ -154,6 +153,18 @@ bool Module::semantic() {
         std::cout << "\nthere were " << errors
                   << " errors in the semantic analysis" << std::endl;
         status_ = k_compiler_error;
+        return false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //  generate the metadata required to make the init block
+    ////////////////////////////////////////////////////////////////////////////
+    if( has_symbol("initial", k_procedure) ) {
+        auto fn_init = symbols_["initial"];
+        std::cout << fn_init.expression->to_string() << std::endl;
+    }
+    else {
+        error("an INITIAL block is required", Location());
     }
 
     return status() == k_compiler_happy;
@@ -161,7 +172,8 @@ bool Module::semantic() {
 
 /// populate the symbol table with class scope variables
 void Module::add_variables_to_symbols() {
-    // add reserved symbols (not v, because for some reason it has to be added by the user)
+    // add reserved symbols (not v, because for some reason it has to be added
+    // by the user)
     auto t = new VariableExpression(Location(), "t");
     t->state(false);            t->linkage(k_local_link);
     t->ion_channel(k_ion_none); t->range(k_scalar);
@@ -254,7 +266,6 @@ void Module::add_variables_to_symbols() {
                     ),
                     e->location()); // location of definition
         }
-        std::cout << green("symbol definition found an expression ") << e->name() << std::endl;
         id->access(k_readwrite);
         id->visibility(k_global_visibility);
         id->ion_channel(k_ion_nonspecific);
