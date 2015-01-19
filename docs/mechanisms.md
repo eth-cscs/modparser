@@ -258,27 +258,8 @@ BREAKPOINT {
 ##KdShu2007
 
 ### Issues
-* There are two parameters, `gkbar` and `ek`, which are declared as `RANGE` and `PARAMETER`, but are not `GLOBAL`. By my understanding, these should be scalars
-  * they can't be modified by external processes, because they are not `GLOBAL`
-  * they can't be changed by any kernels because they are `PARAMETERS``
-  * because they are given initial values in the `PARAMETER` block
+* There are two parameters, `gkbar` and `ek`, which are declared as `RANGE` and `PARAMETER`, but are not `GLOBAL`. **update** This is fine, because parameters are GLOBAL by default, and the driver modify them by default.
 
-These sorts of inconsistencies in the NMODL language make it too easy for users to write bad code, and have to be cleaned up, with compiler errors.
-
-```
-NEURON {
-  ...
-  RANGE  gkbar, ik, ek
-  ...
-}
-
-PARAMETER {
-  gkbar = 0.1   : must be explicitly def. in hoc
-  ek    = 100
-  ...
-}
-
-```
 * The `trates()` function sets the values of the range variables `minf`, `hinf`, `mtau` and `htau`. For `minf` and `hinf` this makes sense, because these are functions of voltage, which varies spatially. However, the value of `mtau` and `htau` are always set to the same constant value, with no spatial variation. This wastes the memory required to store the two fields, and also stores. The values in `[hm]tau` might have varied in space during development of the mechanism, and the developer probably forgot to change them to scalar parameters. The `qt` parameter is also never used. **This is the sort of practice that would be caught if mechanisms had to go through proper code review from somebody who understands performance**.
 
 ```
@@ -293,4 +274,13 @@ PROCEDURE trates(v) {
 
 ```
 ### fixes
-* The values of the `[hm]inf` and `[hm]tau` do not need to be stored in, instead they could be computed inline. This would remove four range variables, and the bandwidth required to store the values contained therein.
+* The values of the `[hm]inf` and `[hm]tau` do not need to be stored in arrays, instead they could be computed inline. This would remove four range variables, and the bandwidth required to store the values contained therein. The `trates` procedure is used in two places, once in INITIAL and the other in the DERIVATIVE block. Another approach would be to define functions with the same name as the variables:
+```
+FUNCTION minf(v_l) {
+  minf=1-1/(1+exp((v_l-vhalfm)/km))
+}
+FUNCTION hinf(v_l) {
+  hinf=1/(1+exp((v_l-vhalfh)/kh))
+}
+```
+

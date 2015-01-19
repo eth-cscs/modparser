@@ -62,13 +62,12 @@ public :
         h = data_(4*n_alloc, 4*n_alloc + n);
         rhs_contribution = data_(5*n_alloc, 5*n_alloc + n);
 
-        ik  = data_(6*n_alloc, 6*n_alloc + n);
-        gkbar = data_(7*n_alloc, 7*n_alloc + n);
-        ek = data_(8*n_alloc, 8*n_alloc + n);
+        ik      = data_(6*n_alloc, 6*n_alloc + n);
+        gkbar   = data_(7*n_alloc, 7*n_alloc + n);
+        ek      = data_(8*n_alloc, 8*n_alloc + n);
 
         // initialize initial values for parameters from PARAMETER block
         // these were declared as both RANGE + PARAMETER
-        //      it stinks that ghey are not declared GLOBAL, and yet still need
         gkbar(memory::all) = 0.1;
         ek(memory::all) = -100;
     }

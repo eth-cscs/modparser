@@ -111,35 +111,20 @@ public :
     }
 
     //INITIAL {
-    //  trates(v)
-    //  m=minf
-    //  h=hinf
-    //}
-    //PROCEDURE trates(v) {
-    //  LOCAL qt
-    //  qt=q10^((celsius-22)/10)
-    //  minf=1-1/(1+exp((v-vhalfm)/km))
-    //  hinf=1/(1+exp((v-vhalfh)/kh))
-    //  mtau = 0.6
-    //  htau = 1500
+    //  g=0
     //}
     void init() override {
-        // high arithmetic intensity:
-        //      1 load
-        //      2 stores
-        //      2 exp + 4 div + 5 flops
         // TODO : load v
         auto n = size();
         for(int i=0; i<n; ++i) {
-            // note that qt isn't actually used
-            // all the values used below are actually constant (parameters that aren't global)
-            auto minf = 1. - 1./(1 + exp((v[i] - info::vhalfm)/info::km));
-            auto hinf =      1./(1 + exp((v[i] - info::vhalfh)/info::kh));
-            m[i] = minf;
-            h[i] = hinf;
+            g_state[i] = 0.;
         }
     }
 
+    //BREAKPOINT {
+    //    SOLVE state METHOD cnexp
+    //    i = g*(v - e)
+    //}
     void current() override {
         // low arithmetic intensity:
         //      5 loads
@@ -148,9 +133,9 @@ public :
         auto n = size();
         // TODO : load v
         for(int i=0; i<n; ++i) {
-            ik[i] = gkbar[i] * m[i] * h[i] * (v[i] - ek[i]);
-            g[i]  = gkbar[i] * m[i] * h[i];
-            rhs_contribution[i] = ik[i];
+            i_rng[i] = g_state[i] * (v[i] - e[i]);
+            g[i]  = g_state[i];
+            rhs_contribution[i] = i_rng[i];
         }
         // TODO : flush rhs
         // TODO : flush currents
