@@ -6,6 +6,8 @@
 #include "gtest.h"
 
 #include "constantfolder.h"
+#include "variablerenamer.h"
+#include "cprinter.h"
 #include "expressionclassifier.h"
 #include "lexer.h"
 #include "module.h"
@@ -324,6 +326,25 @@ TEST(Lexer, numbers) {
 /**************************************************************
  * visitors
  **************************************************************/
+// just visually inspect for the time being
+TEST(VariableRenamer, line_expressions) {
+    VariableRenamer *visitor = new VariableRenamer("_", "z");
+
+    {
+    Expression *e = parse_line_expression_helper("y = _ + y");
+    std::cout << e->to_string() << " --- ";
+    e->accept(visitor);
+    std::cout << e->to_string() << std::endl;
+    }
+
+    {
+    Expression *e = parse_line_expression_helper("y = foo(_+2, exp(_))");
+    std::cout << e->to_string() << " --- ";
+    e->accept(visitor);
+    std::cout << e->to_string() << std::endl;
+    }
+}
+
 TEST(FlopVisitor, basic) {
     {
     FlopVisitor *visitor = new FlopVisitor();
@@ -488,9 +509,9 @@ TEST(ClassificationVisitor, linear) {
     auto y = new IdentifierExpression(Location(), "y");
     auto z = new IdentifierExpression(Location(), "z");
     Scope::symbol_map globals = {
-        {"x", {k_variable, x}},
-        {"y", {k_variable, y}},
-        {"z", {k_variable, z}}
+        {"x", {k_symbol_variable, x}},
+        {"y", {k_symbol_variable, y}},
+        {"z", {k_symbol_variable, z}}
     };
     auto scope = std::make_shared<Scope>(globals);
 
@@ -506,7 +527,7 @@ TEST(ClassificationVisitor, linear) {
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new ExpressionClassifierVisitor({k_variable, x});
+        auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_lin);
 
@@ -533,9 +554,9 @@ TEST(ClassificationVisitor, constant) {
     auto y = new IdentifierExpression(Location(), "y");
     auto z = new IdentifierExpression(Location(), "z");
     Scope::symbol_map globals = {
-        {"x", {k_variable, x}},
-        {"y", {k_variable, y}},
-        {"z", {k_variable, z}}
+        {"x", {k_symbol_variable, x}},
+        {"y", {k_symbol_variable, y}},
+        {"z", {k_symbol_variable, z}}
     };
     auto scope = std::make_shared<Scope>(globals);
 
@@ -551,7 +572,7 @@ TEST(ClassificationVisitor, constant) {
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new ExpressionClassifierVisitor({k_variable, x});
+        auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_const);
 
@@ -586,13 +607,13 @@ TEST(ClassificationVisitor, nonlinear) {
     auto y = new IdentifierExpression(Location(), "y");
     auto z = new IdentifierExpression(Location(), "z");
     Scope::symbol_map globals = {
-        {"x", {k_variable, x}},
-        {"y", {k_variable, y}},
-        {"z", {k_variable, z}}
+        {"x", {k_symbol_variable, x}},
+        {"y", {k_symbol_variable, y}},
+        {"z", {k_symbol_variable, z}}
     };
     auto scope = std::make_shared<Scope>(globals);
 
-    auto v = new ExpressionClassifierVisitor({k_variable, x});
+    auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
     for(auto const& expression : expressions) {
         auto m = make_module(expression);
         Parser p(m, false);
@@ -1146,6 +1167,95 @@ TEST(Optimizer, constant_folding) {
         e->accept(v);
         VERBOSE_PRINT( e->to_string() )
         VERBOSE_PRINT("");
+    }
+}
+
+TEST(CPrinter, statement) {
+    std::vector<const char*> expressions =
+    {
+"y=x+3",
+"y=y^z",
+"y=exp(x/2 + 3)",
+    };
+
+    // create a scope that contains the symbols used in the tests
+    auto x = new IdentifierExpression(Location(), "x");
+    auto y = new IdentifierExpression(Location(), "y");
+    auto z = new IdentifierExpression(Location(), "z");
+    Scope::symbol_map symbols = {
+        {"x", {k_symbol_variable, x}},
+        {"y", {k_symbol_variable, y}},
+        {"z", {k_symbol_variable, z}}
+    };
+    auto scope = std::make_shared<Scope>(symbols);
+
+    for(auto const& expression : expressions) {
+        auto m = make_module(expression);
+        Parser p(m, false);
+        Expression *e = p.parse_line_expression();
+
+        // sanity check the compiler
+        EXPECT_NE(e, nullptr);
+        EXPECT_NE(p.status(), k_compiler_error);
+
+        if(p.status()==k_compiler_error)
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if( e==nullptr ) continue;
+
+        e->semantic(scope);
+        auto v = new CPrinter();
+        e->accept(v);
+
+#ifdef VERBOSE_TEST
+        std::cout << e->to_string() << std::endl;
+                  << " :--: " << v->text() << std::endl;
+#endif
+    }
+}
+
+TEST(CPrinter, proc) {
+    std::vector<const char*> expressions =
+    {
+"PROCEDURE trates(v) {\n"
+"    LOCAL k\n"
+"    minf=1-1/(1+exp((v-k)/k))\n"
+"    hinf=1/(1+exp((v-k)/k))\n"
+"    mtau = 0.6\n"
+"    htau = 1500\n"
+"}"
+    };
+
+    // create a scope that contains the symbols used in the tests
+    auto minf = new IdentifierExpression(Location(), "minf");
+    auto hinf = new IdentifierExpression(Location(), "hinf");
+    auto mtau = new IdentifierExpression(Location(), "mtau");
+    auto htau = new IdentifierExpression(Location(), "htau");
+    auto v    = new IdentifierExpression(Location(), "v");
+    for(auto const& expression : expressions) {
+        Expression *e = parse_procedure_helper(expression);
+
+        // sanity check the compiler
+        EXPECT_NE(e, nullptr);
+
+        if( e==nullptr ) continue;
+
+        Scope::symbol_map symbols = {
+            {"minf",   {k_symbol_variable,  minf}},
+            {"hinf",   {k_symbol_variable,  hinf}},
+            {"mtau",   {k_symbol_variable,  mtau}},
+            {"htau",   {k_symbol_variable,  htau}},
+            {"v",      {k_symbol_variable,  v}},
+            {"trates", {k_symbol_procedure, e}},
+        };
+
+        e->semantic(symbols);
+        auto v = new CPrinter();
+        e->accept(v);
+
+#ifdef VERBOSE_TEST
+        std::cout << e->to_string() << std::endl;
+                  << " :--: " << v->text() << std::endl;
+#endif
     }
 }
 

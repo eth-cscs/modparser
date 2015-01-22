@@ -5,6 +5,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(BASE_SOURCES
+    variablerenamer.cpp
+    cprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp
@@ -13,6 +15,7 @@ set(BASE_SOURCES
     lexer.cpp
     module.cpp
     parser.cpp
+    inline.cpp
 )
 
 set(TEST_SOURCES

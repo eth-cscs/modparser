@@ -5,16 +5,18 @@
 
 std::string to_string(procedureKind k) {
     switch(k) {
-        case k_proc             :
-            return "PROCEDURE";
+        case k_proc_normal             :
+            return "procedure";
+        case k_proc_api             :
+            return "APIprocedure";
         case k_proc_initial     :
-            return "INITIAL";
+            return "initial";
         case k_proc_net_receive :
-            return "NET_RECEIVE";
+            return "net_receive";
         case k_proc_breakpoint  :
-            return "BREAKPOINT";
+            return "breakpoint";
         case k_proc_derivative  :
-            return "DERIVATIVE";
+            return "derivative";
     }
 }
 
@@ -24,8 +26,12 @@ std::string to_string(procedureKind k) {
 
 void Expression::semantic(std::shared_ptr<Scope>) {
     error_ = true;
-    error_string_ =
-        pprintf("semantic() has not been implemented for this expression");
+    error_string_ = "semantic() has not been implemented for this expression";
+}
+
+Expression* Expression::clone() const {
+    std::cerr << "clone() has not been implemented for " << this->to_string() << std::endl;
+    assert(false);
 }
 
 /*******************************************************************************
@@ -44,7 +50,7 @@ void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
                     yellow(name_), location_);
         return;
     }
-    if(s.kind == k_procedure || s.kind == k_function) {
+    if(s.kind == k_symbol_procedure || s.kind == k_symbol_function) {
         error_ = true;
         error_string_ =
             pprintf("the symbol '%' is a function/procedure, not a variable",
@@ -54,6 +60,10 @@ void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
 
     // save the symbol
     symbol_ = s;
+}
+
+Expression* IdentifierExpression::clone() const {
+    return new IdentifierExpression(location_, name_);
 }
 
 VariableExpression* IdentifierExpression::variable() {
@@ -67,9 +77,17 @@ bool IdentifierExpression::is_lvalue() {
     if(var) return var->is_writeable();
 
     // else look for local symbol
-    if(symbol_.kind == k_local ) return true;
+    if(symbol_.kind == k_symbol_local || symbol_.kind == k_symbol_argument ) return true;
 
     return false;
+}
+
+/*******************************************************************************
+  NumberExpression
+********************************************************************************/
+
+Expression* NumberExpression::clone() const {
+    return new NumberExpression(location_, value_);
 }
 
 /*******************************************************************************
@@ -107,14 +125,36 @@ void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
         // Note that we allow for local variables with the same name as
         // class scope variables (globals), in which case the local variable
         // name will be used for lookup
-        if(s.expression==nullptr || (s.expression && s.kind==k_variable)) {
+        if(s.expression==nullptr || (s.expression && s.kind==k_symbol_variable)) {
             symbols_.push_back( scope_->add_local_symbol(name, this) );
         }
         else {
             error_ = true;
             error_string_ =
-                pprintf("the symbol '%' is already defined", yellow(name));
+                pprintf("the symbol '%' @ '%' is already defined", yellow(name), location());
         }
+    }
+}
+
+/*******************************************************************************
+  ArgumentExpression
+*******************************************************************************/
+std::string ArgumentExpression::to_string() const {
+    return blue("arg") + " " + yellow(name_);
+}
+
+void ArgumentExpression::semantic(std::shared_ptr<Scope> scp) {
+    scope_ = scp;
+
+    Symbol s = scope_->find(name_);
+
+    if(s.expression==nullptr || (s.expression && s.kind==k_symbol_variable)) {
+        scope_-> add_local_symbol(name_, this, k_symbol_argument);
+    }
+    else {
+        error_ = true;
+        error_string_ =
+            pprintf("the symbol '%' @ '%' is already defined", yellow(name_), location());
     }
 }
 
@@ -164,7 +204,7 @@ void CallExpression::semantic(std::shared_ptr<Scope> scp) {
             pprintf("there is no function or procedure named '%' ",
                     colorize(name_, kYellow));
     }
-    if(s.kind==k_local || s.kind==k_variable) {
+    if(s.kind==k_symbol_local || s.kind==k_symbol_variable) {
         error_ = true;
         error_string_ = 
             pprintf("the symbol '%' refers to a variable, but it is being called like a function",
@@ -183,6 +223,16 @@ void CallExpression::semantic(std::shared_ptr<Scope> scp) {
     for(auto a : args_) {
         a->semantic(scp);
     }
+}
+
+Expression* CallExpression::clone() const {
+    // clone the arguments
+    std::vector<Expression*> cloned_args;
+    for(auto a: args_) {
+        cloned_args.push_back(a->clone());
+    }
+
+    return new CallExpression(location_, name_, cloned_args);
 }
 
 /*******************************************************************************
@@ -355,6 +405,10 @@ void UnaryExpression::replace_expression(Expression* other) {
     expression_ = other;
 }
 
+Expression* UnaryExpression::clone() const {
+    return unary_expression(location_, op_, expression_->clone());
+}
+
 /*******************************************************************************
   BinaryExpression
 *******************************************************************************/
@@ -366,6 +420,10 @@ void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
         error_ = true;
         error_string_ = "procedure calls can't be made in an expression";
     }
+}
+
+Expression* BinaryExpression::clone() const {
+    return binary_expression(location_, op_, lhs_->clone(), rhs_->clone());
 }
 
 void BinaryExpression::replace_lhs(Expression* other) {
@@ -509,6 +567,9 @@ void NumberExpression::accept(Visitor *v) {
 void LocalExpression::accept(Visitor *v) {
     v->visit(this);
 }
+void ArgumentExpression::accept(Visitor *v) {
+    v->visit(this);
+}
 void PrototypeExpression::accept(Visitor *v) {
     v->visit(this);
 }
@@ -566,6 +627,11 @@ void PowBinaryExpression::accept(Visitor *v) {
 void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
+/*
+void APIMethod::accept(Visitor *v) {
+    v->visit(this);
+}
+*/
 
 
 Expression* unary_expression( Location loc,

@@ -3,28 +3,30 @@
 
 std::string to_string(symbolKind k) {
     switch (k) {
-        case k_variable:
+        case k_symbol_variable:
             return std::string("global");
-        case k_local:
+        case k_symbol_local:
             return std::string("local");
-        case k_procedure:
+        case k_symbol_argument:
+            return std::string("argument");
+        case k_symbol_procedure:
             return std::string("procedure");
-        case k_function:
+        case k_symbol_function:
             return std::string("function");
-        case k_no_symbol:
+        case k_symbol_none:
             return std::string("none");
     }
 }
 
 Symbol::Symbol()
-    : kind(k_no_symbol), expression(nullptr)
+    : kind(k_symbol_none), expression(nullptr)
 {}
 
 Symbol::Symbol(symbolKind k, Expression* e)
     : kind(k), expression(e)
 {
     // should never have a non-null pointer and invalid symbol
-    assert(!(k==k_no_symbol && e));
+    assert(!(k==k_symbol_none && e));
 }
 
 std::string Symbol::to_string() const {
@@ -37,14 +39,17 @@ Scope::Scope(symbol_map &s)
     : global_symbols_(&s)
 {}
 
-Symbol Scope::add_local_symbol(std::string const& name, Expression* e) {
+Symbol Scope::add_local_symbol( std::string const& name,
+                                Expression* e,
+                                symbolKind kind)
+{
     // check to see if the symbol already exists
     if( local_symbols_.find(name) != local_symbols_.end() ) {
         return Symbol();
     }
 
     // add symbol to list
-    Symbol s = Symbol(k_local, e);
+    Symbol s = Symbol(kind, e);
     local_symbols_[name] = s;
 
     return s;
@@ -89,5 +94,13 @@ std::string Scope::to_string() const {
     }
 
     return s;
+}
+
+Scope::symbol_map& Scope::locals() {
+    return local_symbols_;
+}
+
+Scope::symbol_map* Scope::globals() {
+    return global_symbols_;
 }
 

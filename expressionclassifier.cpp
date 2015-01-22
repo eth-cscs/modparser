@@ -16,7 +16,7 @@ void ExpressionClassifierVisitor::visit(Expression *e) {
 // number expresssion
 void ExpressionClassifierVisitor::visit(NumberExpression *e) {
     // save the coefficient as the number
-    coefficient = e;
+    coefficient = e->clone();
     //std::cout << "+++ number : " << e->to_string() << "       coeff " << coefficient->to_string() << std::endl;
 }
 
@@ -29,7 +29,7 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
         coefficient = new NumberExpression(Location(), "1");
     }
     else {
-        coefficient = e;
+        coefficient = e->clone();
     }
     //std::cout << (found_symbol ? " FOUND" : " CONST") << " coeff " << coefficient->to_string() << std::endl;
 }

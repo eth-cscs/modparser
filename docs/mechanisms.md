@@ -284,3 +284,160 @@ FUNCTION hinf(v_l) {
 }
 ```
 
+#Source-2-Source
+
+## PROCEDURE
+Ultimately, we want to inline procedure calls. By inlining, then performing optimization techniques like constant folding, we can hopefully get significant reductions to both floating point work and memory allocation. As a motivating example, take the following code snippet from KdShu2007
+```
+INITIAL {
+  trates(v)
+  m = minf
+}
+PROCEDURE trates(v) {
+  minf=1-1/(1+exp((v-vhalfm)/km))
+  mtau = 0.6
+}
+```
+
+inlining this would produce:
+```
+INITIAL {
+  minf=1-1/(1+exp((v-vhalfm)/km))
+  mtau = 0.6
+  m = minf
+}
+```
+constant folding and variable reduction would give
+```
+INITIAL {
+  LOCAL minf=1-1/(1+exp((v-vhalfm)/km))
+  m = minf
+}
+```
+
+In the model, `mtau` and `minf` are `RANGE` variables. But, with the inlined code, the `mtau` array is replaced with a stack variable. The final C++ code generated will look something like:
+```
+void initial() {
+  for(int i=0; i<n_; ++i) {
+    double minf=1-1/(1+exp((v[i]-vhalfm)/km));
+    m[i] = minf;
+  }
+}
+```
+which is a damn site better than the _equivalent_ code that would be generated without inlining
+```
+void initial() {
+  for(int i=0; i<n_; ++i) {
+    minf[i]=1-1/(1+exp((v[i]-vhalfm)/km));
+    mtau[i]=0.6;
+    m[i] = minf[i];
+  }
+}
+```
+The nonlined version has two additional stores to main memory (which the C++ compiler can't optimize out). It also requires that memory for the two arrays be allocated. With inlining, it would be possible for `modparser` to detect that the memory for `minf` and `mtau` never has to be allocated, which reduces storage requirements.
+
+However, as a first step, we perform no inlining. The approaches below produce vectorized code for x86 with gcc.
+### with no arguments
+The implementation of a procedure will be as follows.
+```
+PROCEDURE foo() {
+  LOCAL x
+  x = exp(b)
+  a = 2*x
+}
+```
+becomes
+```
+void foo(const int i) {
+  double x;
+  x = std::exp(b[i]);
+  a[i] = double(2)*x;
+}
+```
+* the index i is passed as a constant parameter
+* the index is used to index the arrays `a` and `b`, which are members of the mechanism class
+* local variables are declared as stack variable with type double
+* we use `std::exp` to calculate the exponential
+
+### with arguments
+```
+PROCEDURE foo(v) {
+  htau = 1 - exp(v-60)
+}
+```
+becomes
+```
+void foo(const double v, const int i) {
+  htau[i] = double(1) - std::exp(v-double(60));
+}
+```
+* The key here is that `v` is passed as an argument. This 'shadows' the `v` field, which is the vector of voltage values. This is a usage pattern that is quite common in the Neuron `.mod` files.
+
+##STATES
+
+The state function is computed from the DERIVATIVE block, take our good friend KdShu2007:
+
+```
+DERIVATIVE states {
+  trates(v)
+  m' = (minf-m)/mtau
+  h' = (hinf-h)/htau
+}
+PROCEDURE trates(v) {
+  minf=1-1/(1+exp((v-vhalfm)/km))
+  hinf=1/(1+exp((v-vhalfh)/kh))
+  mtau = 0.6
+  htau = 1500
+}
+```
+The `states` method is generated as an intermediate step by the `modparser` compiler:
+```
+PROCEDURE states() {
+  trates(v)
+  m = minf + (m-minf)*exp(-(1/mtau)*dt)
+  h = hinf + (h-hinf)*exp(-(1/htau)*dt)
+}
+```
+Where we take advantage of the fact that the ordinary differential equations (ODEs) for the state variables are all linear. The compiler actually analyses the ODE, to produce this optimal update above if the ODE is linear.
+
+
+At the end of the day, we want to fully inline the states procedure:
+```
+PROCEDURE states() {
+  LOCAL minf, hinf
+  minf=1-1/(1+exp((v-vhalfm)/km))
+  hinf=1/(1+exp((v-vhalfh)/kh))
+  m = minf + (m-minf)*exp(-1.66666666666666666666667*dt)
+  h = hinf + (h-hinf)*exp(-0.00066666666666666666667*dt)
+}
+```
+Note that the compiler can perform constant folding on terms like `-(1/mtau)`. The constant folding is performed using 80-bit `long double` precision, which ensures that it will be more acurate than without constant folding.
+
+This will generate the following C++ code
+```C++
+void states() {
+  for(int i=0; i<n_; ++i) {
+    double minf, hinf;
+    minf = 1-1/(1+exp((v[i]-vhalfm)/km))
+    hinf = 1/(1+exp((v[i]-vhalfh)/kh))
+    m[i] = minf + (m[i]-minf)*exp(-1.66666666666666666666667*dt)
+    h[i] = hinf + (h[i]-hinf)*exp(-0.00066666666666666666667*dt)
+  }
+}
+```
+This performs 3 loads and 2 (5 memory ops) stores for each loop iteration, compared to 3 loads and 6 stores (9 memory ops). This reduces the bandwidth requirements by a factor of almost two!
+
+**update** the actual C++ code produced would probably look more like the following...
+```C++
+void states() {
+  auto n = size();
+  #pragma ivdep
+  for(int i=0; i<n; ++i) {
+    double l_minf, l_hinf;
+    l_minf = double(1)-double(1)/(double(1)+exp((v[i]-info::vhalfm)/info::km))
+    l_hinf = double(1)/(double(1)+exp((v[i]-info::vhalfh)/info::kh))
+    state_m[i] = l_minf + (state_m[i]-l_minf)*exp(double(-1.66666666666666666666667)*info::dt)
+    state_h[i] = l_hinf + (state_h[i]-l_hinf)*exp(double(-0.00066666666666666666667)*info::dt)
+  }
+}
+```

@@ -155,6 +155,9 @@ public :
         auto n = size();
         // TODO : load v
         for(int i=0; i<n; ++i) {
+            //v[i] = v_global[node_indices_[i]];
+        }
+        for(int i=0; i<n; ++i) {
             ik[i] = gkbar[i] * m[i] * h[i] * (v[i] - ek[i]);
             g[i]  = gkbar[i] * m[i] * h[i];
             rhs_contribution[i] = ik[i];

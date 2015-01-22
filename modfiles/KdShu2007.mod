@@ -68,8 +68,8 @@ DERIVATIVE states {
 }
 
 PROCEDURE trates(v) {
-    LOCAL qt
-    qt=q10^((celsius-22)/10)
+    :LOCAL qt
+    :qt=q10^((celsius-22)/10)
     minf=1-1/(1+exp((v-vhalfm)/km))
     hinf=1/(1+exp((v-vhalfh)/kh))
 

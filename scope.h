@@ -8,11 +8,12 @@
 class Expression;
 
 enum symbolKind {
-    k_function,     ///< function call
-    k_procedure,    ///< procedure call
-    k_variable,     ///< variable at module scope
-    k_local,        ///< variable at local scope
-    k_no_symbol,    ///< no symbol kind (placeholder)
+    k_symbol_function,     ///< function call
+    k_symbol_procedure,    ///< procedure call
+    k_symbol_variable,     ///< variable at module scope
+    k_symbol_local,        ///< variable at local scope
+    k_symbol_argument,     ///< argument variable
+    k_symbol_none,    ///< no symbol kind (placeholder)
 };
 
 struct Symbol {
@@ -35,9 +36,15 @@ public:
 
     Scope(symbol_map& s);
     ~Scope() {};
-    Symbol add_local_symbol(std::string const& name, Expression* e);
+    Symbol add_local_symbol(
+        std::string const& name,
+        Expression* e,
+        symbolKind kind=k_symbol_local);
     Symbol find(std::string const& name) const;
     std::string to_string() const;
+
+    symbol_map& locals();
+    symbol_map* globals();
 
 private:
     symbol_map* global_symbols_=nullptr;

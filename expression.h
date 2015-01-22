@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <list>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,6 +21,8 @@ class IfExpression;
 class VariableExpression;
 class NumberExpression;
 class LocalExpression;
+class ArgumentExpression;
+class DerivativeExpression;
 class PrototypeExpression;
 class CallExpression;
 class ProcedureExpression;
@@ -39,6 +42,7 @@ class MulBinaryExpression;
 class DivBinaryExpression;
 class PowBinaryExpression;
 class ConditionalExpression;
+class SolveExpression;
 
 
 // helper functions for generating unary and binary expressions
@@ -47,7 +51,8 @@ Expression* binary_expression(Location, TOK, Expression*, Expression*);
 
 /// specifies special properties of a ProcedureExpression
 enum procedureKind {
-    k_proc,             // PROCEDURE
+    k_proc_normal,      // PROCEDURE
+    k_proc_api,         // API PROCEDURE
     k_proc_initial,     // INITIAL
     k_proc_net_receive, // NET_RECEIVE
     k_proc_breakpoint,  // BREAKPOINT
@@ -97,15 +102,20 @@ public:
     virtual void semantic(std::shared_ptr<Scope>);
     virtual void semantic(Scope::symbol_map&) {assert(false);};
 
+    // clone an expression
+    virtual Expression* clone() const;
+
     // easy lookup of properties
     virtual CallExpression*       is_function_call()  {return nullptr;}
     virtual CallExpression*       is_procedure_call() {return nullptr;}
     virtual BlockExpression*      is_block()          {return nullptr;}
     virtual IfExpression*         is_if()             {return nullptr;}
     virtual LocalExpression*      is_local_declaration() {return nullptr;}
+    virtual ArgumentExpression*   is_argument()       {return nullptr;}
     virtual FunctionExpression*   is_function()       {return nullptr;}
     virtual ProcedureExpression*  is_procedure()      {return nullptr;}
     virtual NetReceiveExpression* is_net_receive()    {return nullptr;}
+    virtual DerivativeExpression* is_derivative()     {return nullptr; }
     virtual PrototypeExpression*  is_prototype()      {return nullptr;}
     virtual IdentifierExpression* is_identifier()     {return nullptr;}
     virtual VariableExpression*   is_variable()       {return nullptr;}
@@ -115,6 +125,7 @@ public:
     virtual AssignmentExpression* is_assignment()     {return nullptr;}
     virtual ConditionalExpression* is_conditional()   {return nullptr;}
     virtual InitialBlock*         is_initial_block()  {return nullptr;}
+    virtual SolveExpression*      is_solve_statement(){return nullptr;}
 
     virtual bool is_lvalue() {return false;}
 
@@ -141,17 +152,31 @@ public:
     :   Expression(loc), name_(name)
     {}
 
+    IdentifierExpression(IdentifierExpression const& other)
+    :   Expression(other.location()), name_(other.name())
+    {}
+
+    IdentifierExpression(IdentifierExpression const* other)
+    :   Expression(other->location()), name_(other->name())
+    {}
+
     std::string const& name() const {
         return name_;
+    }
+
+    void rename(std::string const& newname) {
+        name_ = newname;
     }
 
     std::string to_string() const override {
         return yellow(pprintf("%", name_));
     }
 
+    Expression* clone() const override;
+
     void semantic(std::shared_ptr<Scope> scp) override;
 
-    Symbol symbol() { return symbol_; };
+    Symbol& symbol() { return symbol_; };
 
     void accept(Visitor *v) override;
 
@@ -179,6 +204,7 @@ public:
     std::string to_string() const override {
         return blue("diff") + "(" + yellow(name()) + ")";
     }
+    DerivativeExpression* is_derivative() override { return this; }
 
     ~DerivativeExpression() {}
 
@@ -204,6 +230,7 @@ public:
 
     // do nothing for number semantic analysis
     void semantic(std::shared_ptr<Scope> scp) override {};
+    Expression* clone() const override;
 
     NumberExpression* is_number() override {return this;}
 
@@ -240,6 +267,35 @@ private:
     std::vector<Symbol> symbols_;
     // there has to be some pointer to a table of identifiers
     std::map<std::string, Token> vars_;
+};
+
+// declaration of an argument
+class ArgumentExpression : public Expression {
+public:
+    ArgumentExpression(Location loc, Token const& tok)
+    :   Expression(loc),
+        token_(tok),
+        name_(tok.name)
+    {}
+
+    std::string to_string() const override;
+
+    bool add_variable(Token name);
+    ArgumentExpression* is_argument() override {return this;}
+    void semantic(std::shared_ptr<Scope> scp) override;
+    //Symbol& symbol() {return symbol_;}
+    Token   token()  {return token_;}
+    std::string const& name()  {return name_;}
+    void set_name(std::string const& n) {
+        name_ = n;
+    }
+
+    ~ArgumentExpression() {}
+    void accept(Visitor *v) override;
+private:
+    //Symbol symbol_;
+    Token token_;
+    std::string name_;
 };
 
 // variable definition
@@ -342,6 +398,10 @@ public:
         procedure_ = e;
     }
 
+    SolveExpression* is_solve_statement() override {
+        return this;
+    }
+
     void semantic(std::shared_ptr<Scope> scp) override;
 
     void accept(Visitor *v) override;
@@ -357,19 +417,19 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 // recursive if statement
-// requires a BlockExpression that is a simple wrapper around a std::vector
+// requires a BlockExpression that is a simple wrapper around a std::list
 // of Expressions surrounded by {}
 ////////////////////////////////////////////////////////////////////////////////
 
 class BlockExpression : public Expression {
 protected:
-    std::vector<Expression*> body_;
+    std::list<Expression*> body_;
     bool is_nested_ = false;
 
 public:
     BlockExpression(
         Location loc,
-        std::vector<Expression*> body,
+        std::list<Expression*> body,
         bool is_nested)
     :   Expression(loc),
         body_(body),
@@ -380,7 +440,7 @@ public:
         return this;
     }
 
-    std::vector<Expression*>& body() {
+    std::list<Expression*>& body() {
         return body_;
     }
 
@@ -396,6 +456,9 @@ public:
     }
     auto front() -> decltype(body_.front()) {
         return body_.front();
+    }
+    bool is_nested() const {
+        return is_nested_;
     }
 
     void semantic(std::shared_ptr<Scope> scp) override;
@@ -476,19 +539,19 @@ public:
     std::string& name() { return name_; }
 
     void semantic(std::shared_ptr<Scope> scp) override;
+    Expression* clone() const override;
 
     std::string to_string() const override;
 
     void accept(Visitor *v) override;
 
     CallExpression* is_function_call()  override {
-        return symbol_.kind == k_function ? this : nullptr;
+        return symbol_.kind == k_symbol_function ? this : nullptr;
     }
     CallExpression* is_procedure_call() override {
-        return symbol_.kind == k_procedure ? this : nullptr;
+        return symbol_.kind == k_symbol_procedure ? this : nullptr;
     }
 private:
-    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
@@ -501,7 +564,7 @@ public:
                          std::string const& name,
                          std::vector<Expression*> const& args,
                          Expression* body,
-                         procedureKind k=k_proc)
+                         procedureKind k=k_proc_normal)
     :   Expression(loc), name_(name), args_(args), kind_(k)
     {
         assert(body->is_block());
@@ -528,13 +591,12 @@ public:
     procedureKind kind() const {return kind_;}
 
 protected:
-    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
     std::vector<Expression *> args_;
     BlockExpression* body_;
-    procedureKind kind_ = k_proc;
+    procedureKind kind_ = k_proc_normal;
 };
 
 /// stores the INITIAL block in a NET_RECEIVE block, if there is one
@@ -543,7 +605,7 @@ class InitialBlock : public BlockExpression {
 public:
     InitialBlock(
         Location loc,
-        std::vector<Expression*> body)
+        std::list<Expression*> body)
     :   BlockExpression(loc, body, true)
     {}
 
@@ -580,7 +642,6 @@ protected:
 
 class FunctionExpression : public Expression {
 private:
-    std::shared_ptr<Scope> scope_;
     Symbol symbol_;
 
     std::string name_;
@@ -635,6 +696,8 @@ public:
     std::string to_string() const {
         return pprintf("(% %)", green(token_string(op_)), expression_->to_string());
     }
+
+    Expression* clone() const override;
 
     TOK op() const {return op_;}
     UnaryExpression* is_unary() override {return this;};
@@ -722,6 +785,7 @@ public:
     const Expression* rhs() const {return rhs_;}
     BinaryExpression* is_binary() override {return this;}
     void semantic(std::shared_ptr<Scope> scp) override;
+    Expression* clone() const override;
     void replace_rhs(Expression* other);
     void replace_lhs(Expression* other);
     std::string to_string() const;

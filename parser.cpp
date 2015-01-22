@@ -1,4 +1,5 @@
 #include <iostream>
+#include <list>
 #include <cstring>
 
 #include "parser.h"
@@ -637,7 +638,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     // pack the arguments into LocalExpressions
     std::vector<Expression*> arg_expressions;
     for(auto const& t : arg_tokens) {
-        arg_expressions.push_back(new LocalExpression(t.location, t.name));
+        arg_expressions.push_back(new ArgumentExpression(t.location, t));
     }
 
     return new PrototypeExpression( identifier.location,
@@ -671,7 +672,7 @@ void Parser::parse_title() {
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
 Expression* Parser::parse_procedure() {
     Expression* p = nullptr;
-    procedureKind kind = k_proc;
+    procedureKind kind = k_proc_normal;
 
     switch( token_.type ) {
         case tok_derivative:
@@ -681,7 +682,7 @@ Expression* Parser::parse_procedure() {
             p = parse_prototype();
             break;
         case tok_procedure:
-            kind = k_proc;
+            kind = k_proc_normal;
             get_token(); // consume keyword token
             if( !expect( tok_identifier ) ) return nullptr;
             p = parse_prototype();
@@ -1166,7 +1167,7 @@ Expression *Parser::parse_block(bool is_nested) {
     // save the location of the first statement as the starting point for the block
     Location block_location = token_.location;
 
-    std::vector<Expression*> body;
+    std::list<Expression*> body;
     while(token_.type != tok_rbrace) {
         Expression *e = parse_statement();
         if(e==nullptr) return nullptr;
@@ -1204,7 +1205,7 @@ Expression *Parser::parse_initial() {
     if(!expect(tok_lbrace)) return nullptr;
     get_token(); // consume '{'
 
-    std::vector<Expression*> body;
+    std::list<Expression*> body;
     while(token_.type != tok_rbrace) {
         Expression *e = parse_statement();
         if(e==nullptr) return nullptr;

@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "cprinter.h"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
@@ -50,6 +51,15 @@ int main(int argc, char **argv) {
         std::cout << var.second.expression->to_string() << std::endl;
     }
     #endif
+
+    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    for(auto const &var : m.symbols()) {
+        if(var.second.kind==k_symbol_procedure && proctest(var.second.expression->is_procedure()->kind())) {
+            auto v = new CPrinter();
+            var.second.expression->accept(v);
+            std::cout << v->text();
+        }
+    }
 
     if(m.status() == k_compiler_error) return 1;
 

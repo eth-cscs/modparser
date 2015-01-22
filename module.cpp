@@ -1,7 +1,10 @@
 #include <fstream>
 #include <iostream>
+#include <set>
 
 #include "errorvisitor.h"
+#include "expressionclassifier.h"
+#include "inline.h"
 #include "module.h"
 
 Module::Module(std::string const& fname)
@@ -111,7 +114,7 @@ bool Module::semantic() {
             return false;
         }
         // add symbol to table
-        symbols_[fun->name()] = Symbol(k_function, f);
+        symbols_[fun->name()] = Symbol(k_symbol_function, f);
     }
     for(auto p: procedures_) {
         auto proc = static_cast<ProcedureExpression*>(p);
@@ -125,7 +128,7 @@ bool Module::semantic() {
             return false;
         }
         // add symbol to table
-        symbols_[proc->name()] = Symbol(k_procedure, p);
+        symbols_[proc->name()] = Symbol(k_symbol_procedure, p);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -138,7 +141,7 @@ bool Module::semantic() {
     for(auto e : symbols_) {
         Symbol s = e.second;
 
-        if( s.kind == k_function || s.kind == k_procedure ) {
+        if( s.kind == k_symbol_function || s.kind == k_symbol_procedure ) {
             // first perform semantic analysis
             s.expression->semantic(symbols_);
             // then use an error visitor to print out all the semantic errors
@@ -158,13 +161,148 @@ bool Module::semantic() {
 
     ////////////////////////////////////////////////////////////////////////////
     //  generate the metadata required to make the init block
+    //
+    //  we want to create a new procedure expression by
+    //      - remove all local declarations
+    //      - clone all expressions
+    //      - generate new scope
+    //          - keep global symbols
+    //          - generate new local symbols
+    //      - inline procedures
+    //          - localize variables
+    //
+    //  we can the do multiple rounds of constant folding, eliminating variables
+    //  as we go. The point of this would be that once performed, the arrays
+    //  hinf/minf in KdShy2007 would be indicated as being not used on rhs by
+    //  any methods, and thus as being safe for removal
     ////////////////////////////////////////////////////////////////////////////
-    if( has_symbol("initial", k_procedure) ) {
-        auto fn_init = symbols_["initial"];
-        std::cout << fn_init.expression->to_string() << std::endl;
+    if( has_symbol("initial", k_symbol_procedure) ) {
+        // clone the initial procedure
+        auto initial = symbols_["initial"].expression->is_procedure();
+        auto loc = initial->location();
+        auto proc_init = new ProcedureExpression(
+                            initial->location(),
+                            "init",       // corresponds to nrn_init()
+                            {},           // no arguments
+                            new BlockExpression(loc, {}, false),
+                            k_proc_api);
+
+        if( symbols_.find("init")!=symbols_.end() ) {
+            error("'init' defined at % clashes with INITIAL, please rename it",
+                  loc);
+            return false;
+        }
+        symbols_["init"] = Symbol(k_symbol_procedure, proc_init);
+
+        // get a reference to the empty body of the init function
+        auto& body = proc_init->body()->body();
+        for(auto e : *(initial->body())) {
+            if(e->is_local_declaration()) continue;
+            body.push_back(e->clone());
+        }
+        // perform semantic analysis for init
+        proc_init->semantic(symbols_);
+
+        procedures_.push_back(proc_init);
     }
     else {
         error("an INITIAL block is required", Location());
+        return false;
+    }
+    if( has_symbol("breakpoint", k_symbol_procedure) ) {
+        ////////////////////////////////////////////////////////////
+        // first the solve
+        ////////////////////////////////////////////////////////////
+        auto breakpoint = symbols_["breakpoint"].expression->is_procedure();
+        auto loc = breakpoint->location();
+        // find the SOLVE statement
+        SolveExpression* sexp = nullptr;
+        for(auto e: *(breakpoint->body())) {
+            sexp = e->is_solve_statement();
+            if(sexp) break;
+        }
+        // handle the case where there is no SOLVE in BREAKPOINT
+        if( sexp==nullptr ) {
+            std::cout << purple("warning:")
+                      << " there is no SOLVE statement, required to update the"
+                      << " state variables, in the BREAKPOINT block"
+                      << std::endl;
+            auto proc_state =
+                new ProcedureExpression(
+                        loc,
+                        "state",
+                        {},
+                        new BlockExpression(loc, {}, false),
+                        k_proc_api
+                    );
+
+            // perform semantic analysis for init
+            proc_state->semantic(symbols_);
+
+            procedures_.push_back(proc_state);
+            symbols_["state"] = Symbol(k_symbol_procedure, proc_state);
+        }
+        else {
+            // get the DERIVATIVE block
+            auto dblock = sexp->procedure();
+            auto proc_state =
+                new ProcedureExpression(
+                        dblock->location(),
+                        "state",
+                        {},
+                        new BlockExpression(loc, {}, false),
+                        k_proc_api
+                    );
+            // check for symbol clash
+            if( symbols_.find("state")!=symbols_.end() ) {
+                error("'state' defined at % clashes with state, please rename it",
+                      loc);
+                return false;
+            }
+
+            // get a reference to the empty body of the init function
+            auto& body = proc_state->body()->body();
+            for(auto e : *(dblock->body())) {
+                std::cout << red("... ") << e->to_string() << std::endl;
+                if(e->is_local_declaration()) continue;
+                if(e->is_assignment()) {
+                    auto lhs = e->is_assignment()->lhs();
+                    auto rhs = e->is_assignment()->rhs();
+                    if(lhs->is_derivative()) {
+                        std::cout << red("derivative ") << e->to_string()
+                                  << std::endl;
+                        auto sym = lhs->is_derivative()->symbol();
+
+                        // create visitor for lineary analysis
+                        auto v = new ExpressionClassifierVisitor(sym);
+
+                        // analyse the rhs
+                        rhs->accept(v);
+                        auto coeff = v->linear_coefficient();
+                        if( v->classify() != k_expression_lin ) {
+                            error("unable to integrate nonlinear state ODEs",
+                                  rhs->location());
+                            return false;
+                        }
+
+                        continue;
+                    }
+                    else {
+                        body.push_back(e->clone());
+                    }
+                }
+                body.push_back(e->clone());
+            }
+
+            symbols_["state"] = Symbol(k_symbol_procedure, proc_state);
+            proc_state->semantic(symbols_);
+
+            procedures_.push_back(proc_state);
+        }
+    }
+    else {
+        error("an INITIAL block is required", Location());
+        return false;
     }
 
     return status() == k_compiler_happy;
@@ -178,12 +316,12 @@ void Module::add_variables_to_symbols() {
     t->state(false);            t->linkage(k_local_link);
     t->ion_channel(k_ion_none); t->range(k_scalar);
     t->access(k_read);          t->visibility(k_global_visibility);
-    symbols_["t"]    = Symbol(k_variable, t);
+    symbols_["t"]    = Symbol(k_symbol_variable, t);
     auto dt = new VariableExpression(Location(), "dt");
     dt->state(false);            dt->linkage(k_local_link);
     dt->ion_channel(k_ion_none); dt->range(k_scalar);
     dt->access(k_read);          dt->visibility(k_global_visibility);
-    symbols_["dt"]    = Symbol(k_variable, dt);
+    symbols_["dt"]    = Symbol(k_symbol_variable, dt);
 
     // add state variables
     for(auto const &var : state_block()) {
@@ -200,7 +338,7 @@ void Module::add_variables_to_symbols() {
         id->range(k_range);             // always a range
         id->access(k_readwrite);
 
-        symbols_[var] = Symbol(k_variable, id);
+        symbols_[var] = Symbol(k_symbol_variable, id);
     }
 
     // add the parameters
@@ -229,7 +367,7 @@ void Module::add_variables_to_symbols() {
             id->linkage(k_extern_link);
         }
 
-        symbols_[name] = Symbol(k_variable, id);
+        symbols_[name] = Symbol(k_symbol_variable, id);
     }
 
     // add the assigned variables
@@ -246,7 +384,7 @@ void Module::add_variables_to_symbols() {
         id->range(k_range);
         id->access(k_readwrite);
 
-        symbols_[name] = Symbol(k_variable, id);
+        symbols_[name] = Symbol(k_symbol_variable, id);
     }
 
     ////////////////////////////////////////////////////
