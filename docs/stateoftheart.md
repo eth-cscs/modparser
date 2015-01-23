@@ -98,23 +98,24 @@ double _lv;
 ```
 is replaced by the following in my rewrite
 ```
-void trates(const int i, double v) {
-    minf[i] = (1-(1/(1+exp(((v-vhalfm)/km)))));
-    hinf[i] = (1/(1+exp(((v-vhalfh)/kh))));
-    mtau[i] = 0.6;
-    htau[i] = 1500;
+void trates(const int idx, double v) {
+    minf[idx] = (1-(1/(1+exp(((v-vhalfm)/km)))));
+    hinf[idx] = (1/(1+exp(((v-vhalfh)/kh))));
+    mtau[idx] = 0.6;
+    htau[idx] = 1500;
 }
-void state(const int i) {
+void state() {
     double l_ba;
+    double l_a;
     auto n = node_indices_.size();
-    for(int i=0; i<n; ++i) {
-        trates(i, v[i]);
-        l_a = (-1/mtau[i]);
-        l_ba = ((minf[i]/mtau[i])/l_a);
-        m[i] = -l_ba + (m[i] + l_ba)*exp(l_a*dt);
-        l_a = (-1/htau[i]);
-        l_ab = ((hinf[i]/htau[i])/l_a);
-        h[i] = -l_ba + (h[i] + l_ba)*exp(l_a*dt);
+    for(int idx=0; idx<n; ++idx) {
+        trates(idx, v[idx]);
+        l_a = (-1/mtau[idx]);
+        l_ba = ((minf[idx]/mtau[idx])/l_a);
+        m[idx] = -l_ba + (m[idx] + l_ba)*exp(l_a*dt);
+        l_a = (-1/htau[idx]);
+        l_ab = ((hinf[idx]/htau[idx])/l_a);
+        h[idx] = -l_ba + (h[idx] + l_ba)*exp(l_a*dt);
     }
 }
 ```
