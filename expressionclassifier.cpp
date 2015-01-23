@@ -3,6 +3,8 @@
 
 #include "expressionclassifier.h"
 
+// this turns out to be quite easy, however quite fiddly to do right.
+
 // default is to do nothing and return
 void ExpressionClassifierVisitor::visit(Expression *e) {
     std::cout
@@ -17,13 +19,11 @@ void ExpressionClassifierVisitor::visit(Expression *e) {
 void ExpressionClassifierVisitor::visit(NumberExpression *e) {
     // save the coefficient as the number
     coefficient_ = e->clone();
-    //std::cout << "+++ number : " << e->to_string() << "       coeff " << coefficient_->to_string() << std::endl;
 }
 
 // identifier expresssion
 void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     // check if symbol of identifier matches the identifier
-    //std::cout << "+++ symbol : " << e->to_string();
     if(symbol == e->symbol()) {
         found_symbol_ = true;
         coefficient_ = new NumberExpression(Location(), "1");
@@ -31,7 +31,6 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     else {
         coefficient_ = e->clone();
     }
-    //std::cout << (found_symbol_ ? " FOUND" : " CONST") << " coeff " << coefficient_->to_string() << std::endl;
 }
 
 /// unary expresssion
@@ -79,7 +78,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     Expression *lhs_constant;
     Expression *rhs_constant;
 
-    //std::cout << "+++ binary : " << e->to_string() << std::endl;
     // check the lhs
     reset();
     e->lhs()->accept(this);
@@ -87,7 +85,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     lhs_is_linear       = is_linear_;
     lhs_coefficient     = coefficient_;
     lhs_constant        = constant_;
-    //std::cout << " LHS " << (found_symbol_ ? " FOUND" : " CONST") << (is_linear_ ? " LINEAR\n" : "NONLINEAR\n");
     if(!is_linear_) return; // early return if nonlinear
 
     // check the rhs
@@ -97,7 +94,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     rhs_is_linear       = is_linear_;
     rhs_coefficient     = coefficient_;
     rhs_constant        = constant_;
-    //std::cout << " RHS " << (found_symbol_ ? " FOUND" : " CONST") << (is_linear_ ? " LINEAR\n" : "NONLINEAR\n");
     if(!is_linear_) return; // early return if nonlinear
 
     // mark symbol as found if in either lhs or rhs
@@ -238,11 +234,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     else {
                         constant_ = rhs_coefficient;
                     }
-
-                    //std::cout << red("tok_plus") << " "
-                    //          << (coefficient_ ? coefficient_->to_string() : "null") << " :  "
-                    //          << (constant_ ? constant_->to_string() : "null")
-                    //          << std::endl;
                     return;
                 case tok_minus :
                     coefficient_ = lhs_coefficient;

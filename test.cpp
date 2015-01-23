@@ -332,16 +332,16 @@ TEST(VariableRenamer, line_expressions) {
 
     {
     Expression *e = parse_line_expression_helper("y = _ + y");
-    std::cout << e->to_string() << " --- ";
+    //std::cout << e->to_string() << " --- ";
     e->accept(visitor);
-    std::cout << e->to_string() << std::endl;
+    //std::cout << e->to_string() << std::endl;
     }
 
     {
     Expression *e = parse_line_expression_helper("y = foo(_+2, exp(_))");
-    std::cout << e->to_string() << " --- ";
+    //std::cout << e->to_string() << " --- ";
     e->accept(visitor);
-    std::cout << e->to_string() << std::endl;
+    //std::cout << e->to_string() << std::endl;
     }
 }
 
@@ -543,12 +543,12 @@ TEST(ClassificationVisitor, linear) {
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_lin);
 
-//#ifdef VERBOSE_TEST
+#ifdef VERBOSE_TEST
         std::cout << "eq    "   << e->to_string()
                   << "\ncoeff " << v->linear_coefficient()->to_string()
                   << "\nconst " << v-> constant_term()->to_string()
                   << "\n----"   << std::endl;
-//#endif
+#endif
     }
 }
 
