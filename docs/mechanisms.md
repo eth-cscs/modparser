@@ -148,11 +148,16 @@ The compiler could extract the SOLVE statement from the AST for the BREAKPOINT, 
 #### Exponential growth
 Very often the derivative of state variables is of the linear form
 ```
-s' = -k*(s-sinf)
+s' = a*s + b
 ```
 which can be solved exactly for a time step (assuming that k and kinf are constant during the timestep. The update function for this is
 ```
-s = sinf + (s - sinf) * exp(-k*dt)
+s = -b/a + (s + b/a)exp(a*dt)
+```
+
+for equations of the form `s'=(sinf - s)/stau`
+```
+s = sinf + (s - sinf) * exp(-dt/stau)
 ```
 The linear form of the equation could be obtained by analysing the AST, and this special case used when the appropriate form is detected. I think that the current compiler might attempt something similar, but doesn't simplify very effectively.
 
