@@ -263,7 +263,7 @@ bool Module::semantic() {
             // get a reference to the empty body of the init function
             auto& body = proc_state->body()->body();
             for(auto e : *(dblock->body())) {
-                std::cout << red("... ") << e->to_string() << std::endl;
+                //std::cout << red("... ") << e->to_string() << std::endl;
                 if(e->is_local_declaration()) continue;
                 if(e->is_assignment()) {
                     auto lhs = e->is_assignment()->lhs();
@@ -278,12 +278,27 @@ bool Module::semantic() {
 
                         // analyse the rhs
                         rhs->accept(v);
-                        //auto coeff = v->linear_coefficient();
+                        auto a = v->linear_coefficient();
+                        auto b = v->constant_term();
+                        auto ba = binary_expression
+                                    (Location(), tok_divide, b, a);
+
+                        std::cout << a->to_string() << " :: "
+                                  << b->to_string() << " :: "
+                                  << ba->to_string() << std::endl;
+
                         if( v->classify() != k_expression_lin ) {
                             error("unable to integrate nonlinear state ODEs",
                                   rhs->location());
                             return false;
                         }
+
+                        /*
+                        auto update = binary_expression(
+                                e->location(),
+                                ,
+                                rhs
+                        */
 
                         continue;
                     }
