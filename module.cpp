@@ -278,7 +278,7 @@ bool Module::semantic() {
 
                         // analyse the rhs
                         rhs->accept(v);
-                        auto coeff = v->linear_coefficient();
+                        //auto coeff = v->linear_coefficient();
                         if( v->classify() != k_expression_lin ) {
                             error("unable to integrate nonlinear state ODEs",
                                   rhs->location());

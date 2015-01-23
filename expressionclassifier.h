@@ -11,7 +11,7 @@ public:
     ExpressionClassifierVisitor(Symbol const& s)
     : symbol(s)
     {
-        const_folder = new ConstantFolderVisitor();
+        const_folder_ = new ConstantFolderVisitor();
     }
 
     void reset(Symbol const& s) {
@@ -20,9 +20,10 @@ public:
     }
 
     void reset() {
-        is_linear    = true;
-        found_symbol = false;
-        coefficient  = nullptr;
+        is_linear_    = true;
+        found_symbol_ = false;
+        coefficient_  = nullptr;
+        constant_     = nullptr;
     }
 
     void visit(Expression *e)           override;
@@ -33,34 +34,63 @@ public:
     void visit(CallExpression *e)       override;
 
     expressionClassification classify() const {
-        if(!found_symbol) {
+        if(!found_symbol_) {
             return k_expression_const;
         }
-        if(is_linear) {
+        if(is_linear_) {
             return k_expression_lin;
         }
         return k_expression_nonlin;
     }
 
     Expression *linear_coefficient() {
-        coefficient->accept(const_folder);
-        if(const_folder->is_number)
-            return new NumberExpression(
-                    Location(),
-                    const_folder->value);
-        return coefficient;
+        // if is a linear expression with nonzero linear coefficient
+        if(classify() == k_expression_lin) {
+            coefficient_->accept(const_folder_);
+            if(const_folder_->is_number)
+                return new NumberExpression(
+                        Location(),
+                        const_folder_->value);
+            return coefficient_;
+        }
+        // constant expression
+        else if(classify() == k_expression_const) {
+            return new NumberExpression(Location(), 0.);
+        }
+        // nonlinear expression
+        else {
+            return nullptr;
+        }
+    }
+
+    Expression *constant_term() {
+        // if is a linear expression with nonzero linear coefficient
+        if(classify() == k_expression_lin) {
+            //return constant_;
+            return constant_ ? constant_ : new NumberExpression(Location(), 0.);
+        }
+        // constant expression
+        else if(classify() == k_expression_const) {
+            return coefficient_;
+            //return coefficient_ ? coefficient_ : new NumberExpression(Location(), 0.);
+        }
+        // nonlinear expression
+        else {
+            return nullptr;
+        }
     }
 
     ~ExpressionClassifierVisitor() {
-        delete const_folder;
+        delete const_folder_;
     }
 
 private:
     // assume linear until otherwise proven
-    bool is_linear     = true;
-    bool found_symbol  = false;
-    Expression* coefficient   = nullptr;
+    bool is_linear_     = true;
+    bool found_symbol_  = false;
+    Expression* coefficient_   = nullptr;
+    Expression* constant_  = nullptr;
     Symbol symbol;
-    ConstantFolderVisitor* const_folder;
+    ConstantFolderVisitor* const_folder_;
 };
 

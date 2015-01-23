@@ -490,6 +490,15 @@ TEST(FlopVisitor, function) {
 TEST(ClassificationVisitor, linear) {
     std::vector<const char*> expressions =
     {
+"x + y + z",
+"y + x + z",
+"y + z + x",
+"x - y - z",
+"y - x - z",
+"y - z - x",
+"z*(x + y + 2)",
+"(x + y)*z",
+"(x + y)/z",
 "x+3",
 "-x",
 "x+x+x+x",
@@ -499,9 +508,12 @@ TEST(ClassificationVisitor, linear) {
 "y + x   ",
 "y + z*x ",
 "2*(x*z + y)",
+"z*x - y",
 "(2+z)*(x*z + y)",
 "x/y",
-"(y - x)/z"
+"(y - x)/z",
+"(x - y)/z",
+"y*(x - y)/z",
     };
 
     // create a scope that contains the symbols used in the tests
@@ -531,11 +543,12 @@ TEST(ClassificationVisitor, linear) {
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_lin);
 
-#ifdef VERBOSE_TEST
+//#ifdef VERBOSE_TEST
         std::cout << "eq    "   << e->to_string()
                   << "\ncoeff " << v->linear_coefficient()->to_string()
+                  << "\nconst " << v-> constant_term()->to_string()
                   << "\n----"   << std::endl;
-#endif
+//#endif
     }
 }
 
