@@ -118,6 +118,8 @@ struct Token {
     {};
 };
 
+extern std::string token_string(TOK token);
+
 std::ostream& operator<< (std::ostream& os, Token const& t);
 bool is_keyword(Token const& t);
 std::ostream& operator<< (std::ostream& os, Location const& L);
@@ -144,10 +146,24 @@ public:
     :   Lexer(v.data(), v.data()+v.size())
     {}
 
+    Lexer(std::string const& s)
+    :   buffer_(s.data(), s.data()+s.size()+1)
+    {
+        begin_   = buffer_.data();
+        end_     = buffer_.data() + buffer_.size();
+        current_ = begin_;
+        line_    = begin_;
+        //std::cout << "init " << std::endl;
+        //std::cout << begin_ << std::endl;
+        //std::cout << "close" << std::endl;
+    }
+
     // get the next token
     Token parse();
 
-    void get_token() { token_ = parse(); }
+    void get_token() {
+        token_ = parse();
+    }
 
     // return the next token in the stream without advancing the current position
     Token peek();
@@ -174,6 +190,9 @@ public:
 
     const std::string& error_message() {return error_string_;};
 protected:
+    // buffer used for short-lived parsers
+    std::vector<char> buffer_;
+
     // generate lookup tables (hash maps) for keywords
     void keywords_init();
     void token_strings_init();
@@ -194,6 +213,4 @@ protected:
 
     Token token_;
 };
-
-extern std::string token_string(TOK token);
 

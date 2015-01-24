@@ -6,6 +6,7 @@
 #include "expressionclassifier.h"
 #include "inline.h"
 #include "module.h"
+#include "parser.h"
 
 Module::Module(std::string const& fname)
 : fname_(fname)
@@ -261,45 +262,59 @@ bool Module::semantic() {
             }
 
             // get a reference to the empty body of the init function
+            bool has_derivaties = false;
             auto& body = proc_state->body()->body();
             for(auto e : *(dblock->body())) {
-                //std::cout << red("... ") << e->to_string() << std::endl;
                 if(e->is_local_declaration()) continue;
                 if(e->is_assignment()) {
                     auto lhs = e->is_assignment()->lhs();
                     auto rhs = e->is_assignment()->rhs();
                     if(lhs->is_derivative()) {
-                        std::cout << red("derivative ") << e->to_string()
-                                  << std::endl;
+                        has_derivaties = true;
                         auto sym = lhs->is_derivative()->symbol();
+                        auto name = lhs->is_derivative()->name();
 
                         // create visitor for lineary analysis
                         auto v = new ExpressionClassifierVisitor(sym);
 
                         // analyse the rhs
                         rhs->accept(v);
-                        auto a = v->linear_coefficient();
-                        auto b = v->constant_term();
-                        auto ba = binary_expression
-                                    (Location(), tok_divide, b, a);
 
-                        std::cout << a->to_string() << " :: "
-                                  << b->to_string() << " :: "
-                                  << ba->to_string() << std::endl;
-
+                        // quit if ODE is not linear
                         if( v->classify() != k_expression_lin ) {
                             error("unable to integrate nonlinear state ODEs",
                                   rhs->location());
                             return false;
                         }
 
-                        /*
-                        auto update = binary_expression(
-                                e->location(),
-                                ,
-                                rhs
-                        */
+                        // the linear differential equation is of the form
+                        // s' = a*s + b
+                        // integration by separation of variables gives the following
+                        // update function to integrate s for one time step dt
+                        // s = -b/a + (s+b/a)*exp(a*dt)
+                        // we are going to build this update function by
+                        //  1. generating statements that define a_=a and ba_=b/a
+                        //  2. generating statements that updates the solution
+                        auto a = v->linear_coefficient();
+                        auto id_a  = new IdentifierExpression(Location(), "a_");
+                        // statement : a_ = a
+                        auto stmt_a  = binary_expression(Location(), tok_eq, id_a, a);
 
+                        // define ba
+                        auto b = v->constant_term();
+                        auto id_ab = new IdentifierExpression(Location(), "ba_");
+                        // expression : b/a
+                        auto expr_ba = binary_expression(Location(), tok_divide, b, id_a);
+                        // statement  : ba_ = b/a
+                        auto stmt_ba = binary_expression(Location(), tok_eq, id_ab, expr_ba);
+
+                        // the update function
+                        auto e_string = name + "  = -ba_ + (" + name + " + ba_)*exp(a_*dt)";
+                        auto stmt_update = Parser(e_string).parse_line_expression();
+
+                        body.push_back(stmt_a);
+                        body.push_back(stmt_ba);
+                        body.push_back(stmt_update);
                         continue;
                     }
                     else {
@@ -311,6 +326,25 @@ bool Module::semantic() {
 
             symbols_["state"] = Symbol(k_symbol_procedure, proc_state);
             proc_state->semantic(symbols_);
+
+            // if there are derivative expressions, we need to add symbols for
+            // local variables a_ and ab_ to the symbol table
+            if(has_derivaties) {
+                auto scp = proc_state->scope();
+
+                // If this assertion fails, it is because the variable shadows
+                // one that is already present. Which sholuld be caught
+                // earlier because we want to prohibit variable names that end
+                // with an underscore, like a_ and ab_
+                assert(scp->find("a_").kind == k_symbol_none);
+                assert(scp->find("ab_").kind == k_symbol_none);
+
+                // TODO: ensure that we can define a local variable with
+                // expression==nullptr, because that makes sense in situations
+                // like this, where we inject a symbol
+                scp->add_local_symbol("a_",  nullptr, k_symbol_local);
+                scp->add_local_symbol("ba_", nullptr, k_symbol_local);
+            }
 
             procedures_.push_back(proc_state);
         }

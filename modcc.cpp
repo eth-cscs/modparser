@@ -72,11 +72,13 @@ int main(int argc, char **argv) {
 
         auto start = clock::now();
         for(int i=0; i<N; ++i) {
+            Module m(filename.c_str());
             Parser p(m);
             if(p.status() != k_compiler_happy) {
                 std::cout << "error: unable to parse file" << std::endl;
                 return 1;
             }
+            m.semantic();
         }
         auto last = clock::now();
         auto time_span = duration(last - start);

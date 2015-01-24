@@ -35,7 +35,8 @@ bool Parser::expect(TOK tok, std::string const& str) {
 }
 
 void Parser::error(std::string msg) {
-    std::string location_info = pprintf("%:% ", module_.name(), token_.location);
+    std::string location_info = pprintf(
+            "%:% ", module_ ? module_->name() : "", token_.location);
     if(status_==k_compiler_error) {
         // append to current string
         error_string_ += "\n" + white(location_info) + "\n  " +msg;
@@ -47,7 +48,8 @@ void Parser::error(std::string msg) {
 }
 
 void Parser::error(std::string msg, Location loc) {
-    std::string location_info = pprintf("%:% ", module_.name(), loc);
+    std::string location_info = pprintf(
+            "%:% ", module_ ? module_->name() : "", loc);
     if(status_==k_compiler_error) {
         // append to current string
         error_string_ += "\n" + green(location_info) + msg;
@@ -60,7 +62,7 @@ void Parser::error(std::string msg, Location loc) {
 
 Parser::Parser(Module& m, bool advance)
 :   Lexer(m.buffer()),
-    module_(m)
+    module_(&m)
 {
     // prime the first token
     get_token();
@@ -68,6 +70,14 @@ Parser::Parser(Module& m, bool advance)
     if(advance) {
         parse();
     }
+}
+
+Parser::Parser(std::string const& buf)
+:   Lexer(buf),
+    module_(nullptr)
+{
+    // prime the first token
+    get_token();
 }
 
 bool Parser::parse() {
@@ -103,12 +113,12 @@ bool Parser::parse() {
             case tok_procedure  :
                 e = parse_procedure();
                 if(!e) break;
-                module_.procedures().push_back(e);
+                module_->procedures().push_back(e);
                 break;
             case tok_function  :
                 e = parse_function();
                 if(!e) break;
-                module_.functions().push_back(e);
+                module_->functions().push_back(e);
                 break;
             default :
                 error(pprintf("expected block type, found '%'", token_.name));
@@ -328,7 +338,7 @@ void Parser::parse_neuron_block() {
     }
 
     // copy neuron block into module
-    module_.neuron_block(neuron_block);
+    module_->neuron_block(neuron_block);
 
     //std::cout << neuron_block;
 
@@ -361,7 +371,7 @@ void Parser::parse_state_block() {
     }
 
     // add this state block information to the module
-    module_.state_block(state_block);
+    module_->state_block(state_block);
 
     // now we have a curly brace, so prime the next token
     get_token();
@@ -403,7 +413,7 @@ void Parser::parse_units_block() {
     }
 
     // add this state block information to the module
-    module_.units_block(units_block);
+    module_->units_block(units_block);
 
     // now we have a curly brace, so prime the next token
     get_token();
@@ -475,7 +485,7 @@ void Parser::parse_parameter_block() {
 
     get_token(); // consume closing brace
 
-    module_.parameter_block(block);
+    module_->parameter_block(block);
 
     return;
 parm_error:
@@ -538,7 +548,7 @@ void Parser::parse_assigned_block() {
 
     get_token(); // consume closing brace
 
-    module_.assigned_block(block);
+    module_->assigned_block(block);
 
     return;
 ass_error:
@@ -661,7 +671,7 @@ void Parser::parse_title() {
     }
 
     // set the module title
-    module_.title(title);
+    module_->title(title);
 
     // load next token
     get_token();

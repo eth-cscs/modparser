@@ -88,11 +88,6 @@ void CPrinter::visit(ProcedureExpression *e) {
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
 
-    // ------------- declare local variables ------------- //
-    for(auto var : e->scope()->locals()) {
-        if(var.second.kind == k_symbol_local)
-            text_ << gutter_ << "  double " << var.first << ";\n";
-    }
     increase_indentation();
 
     // ------------- add loop if API call ------------- //
@@ -102,11 +97,16 @@ void CPrinter::visit(ProcedureExpression *e) {
         increase_indentation();
     }
 
+    // ------------- declare local variables ------------- //
+    for(auto var : e->scope()->locals()) {
+        if(var.second.kind == k_symbol_local)
+            text_ << gutter_ << "double " << var.first << ";\n";
+    }
+
     // ------------- statements ------------- //
     for(auto stmt : *(e->body())) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
-        //if(stmt->is_procedure_call()) continue;
         text_ << gutter_;
         stmt->accept(this);
         text_ << ";\n";

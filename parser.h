@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "expression.h"
 #include "lexer.h"
 #include "module.h"
@@ -7,6 +9,7 @@
 class Parser : public Lexer {
 public:
     explicit Parser(Module& m, bool advance=true);
+    Parser(std::string const&);
     bool parse();
 
     Expression* parse_prototype(std::string);
@@ -34,7 +37,7 @@ public:
     }
 
 private:
-    Module &module_;
+    Module *module_;
 
     // functions for parsing descriptive blocks
     // these are called in the first pass, and do not
