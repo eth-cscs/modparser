@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
         if(var.second.kind==k_symbol_procedure && proctest(var.second.expression->is_procedure()->kind())) {
             auto v = new CPrinter();
             var.second.expression->accept(v);
+            std::cout << var.second.expression->to_string() << std::endl;
             std::cout << v->text();
         }
     }

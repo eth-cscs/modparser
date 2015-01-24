@@ -20,8 +20,8 @@ public:
     void visit(ProcedureExpression *e)  override;
     void visit(LocalExpression *e)      override;
     //void visit(FunctionExpression *e)   override;
-    //void visit(BlockExpression *e)      override;
-    //void visit(IfExpression *e)         override;
+    void visit(BlockExpression *e)      override;
+    void visit(IfExpression *e)         override;
 
     std::string text() const {
         return text_.str();

@@ -59,7 +59,6 @@ PROCEDURE rates(){
         if((v == -27) ){
             v = v+0.0001
         }
-    UNITSOFF
         mAlpha =  (0.055*(-27-v))/(exp((-27-v)/3.8) - 1)
         mBeta  =  (0.94*exp((-75-v)/17))
         mInf = mAlpha/(mAlpha + mBeta)
@@ -68,5 +67,4 @@ PROCEDURE rates(){
         hBeta  =  (0.0065/(exp((-v-15)/28)+1))
         hInf = hAlpha/(hAlpha + hBeta)
         hTau = 1/(hAlpha + hBeta)
-    UNITSON
 }

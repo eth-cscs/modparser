@@ -21,6 +21,7 @@ void CPrinter::decrease_indentation() {
 }
 
 void CPrinter::visit(Expression *e) {
+    std::cout << "CPrinter :: error printing : " << e->to_string() << std::endl;
     assert(false);
 }
 
@@ -77,6 +78,36 @@ void CPrinter::visit(UnaryExpression *e) {
     }
 }
 
+void CPrinter::visit(BlockExpression *e) {
+    // ------------- declare local variables ------------- //
+    // only if this is the outer block
+    if(!e->is_nested()) {
+        for(auto var : e->scope()->locals()) {
+            if(var.second.kind == k_symbol_local)
+                text_ << gutter_ << "double " << var.first << ";\n";
+        }
+    }
+
+    // ------------- statements ------------- //
+    for(auto stmt : e->body()) {
+        if(stmt->is_local_declaration()) continue;
+        // these all must be handled
+        text_ << gutter_;
+        stmt->accept(this);
+        text_ << ";\n";
+    }
+}
+
+void CPrinter::visit(IfExpression *e) {
+    text_ << "if(";
+    e->condition()->accept(this);
+    text_ << ") {\n";
+    increase_indentation();
+    e->true_branch()->accept(this);
+    decrease_indentation();
+    text_ << gutter_ << "}";
+}
+
 void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     set_gutter(0);
@@ -97,20 +128,7 @@ void CPrinter::visit(ProcedureExpression *e) {
         increase_indentation();
     }
 
-    // ------------- declare local variables ------------- //
-    for(auto var : e->scope()->locals()) {
-        if(var.second.kind == k_symbol_local)
-            text_ << gutter_ << "double " << var.first << ";\n";
-    }
-
-    // ------------- statements ------------- //
-    for(auto stmt : *(e->body())) {
-        if(stmt->is_local_declaration()) continue;
-        // these all must be handled
-        text_ << gutter_;
-        stmt->accept(this);
-        text_ << ";\n";
-    }
+    e->body()->accept(this);
 
     if(e->kind() == k_proc_api) {
         decrease_indentation();
@@ -163,6 +181,21 @@ void CPrinter::visit(BinaryExpression *e) {
             break;
         case tok_divide :
             text_ << "/";
+            break;
+        case tok_lt     :
+            text_ << "<";
+            break;
+        case tok_lte    :
+            text_ << "<=";
+            break;
+        case tok_gt     :
+            text_ << ">";
+            break;
+        case tok_gte    :
+            text_ << ">=";
+            break;
+        case tok_EQ     :
+            text_ << "==";
             break;
         default :
             std::cout
