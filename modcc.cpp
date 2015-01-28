@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <fstream>
 
 #include "cprinter.h"
 #include "lexer.h"
@@ -52,16 +53,6 @@ int main(int argc, char **argv) {
     }
     #endif
 
-    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
-    for(auto const &var : m.symbols()) {
-        if(var.second.kind==k_symbol_procedure && proctest(var.second.expression->is_procedure()->kind())) {
-            auto v = new CPrinter();
-            var.second.expression->accept(v);
-            std::cout << var.second.expression->to_string() << std::endl;
-            std::cout << v->text();
-        }
-    }
-
     if(m.status() == k_compiler_error) return 1;
 
     //#define WITH_PROFILING
@@ -92,6 +83,19 @@ int main(int argc, char **argv) {
     // generate output
     auto outputname = basename + ".h";
     std::cout << "output file name " << white(outputname) << std::endl;
+
+    std::ofstream fout(outputname);
+    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    for(auto const &var : m.symbols()) {
+        if(var.second.kind==k_symbol_procedure && proctest(var.second.expression->is_procedure()->kind())) {
+            auto v = new CPrinter();
+            var.second.expression->accept(v);
+            //std::cout << var.second.expression->to_string() << std::endl;
+            fout << v->text();
+        }
+    }
+    fout.close();
+
 
     return 0;
 }

@@ -11,8 +11,8 @@
 struct IonDep {
     ionKind kind() const {
         if(name=="k")  return k_ion_K;
-        if(name=="Na") return k_ion_Na;
-        if(name=="Ca") return k_ion_Ca;
+        if(name=="na") return k_ion_Na;
+        if(name=="ca") return k_ion_Ca;
         return k_ion_none;
     }
     std::string name;               // name of ion channel

@@ -4,6 +4,9 @@
 *.o
 *.obj
 
+# generated mechanism header files
+modfiles/*.h
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -40,3 +43,4 @@ Makefile
 
 # youcompleteme pyc
 .ycm*.pyc
+tmp

@@ -279,12 +279,17 @@ void Parser::parse_neuron_block() {
                 {
                     IonDep ion;
                     // we have to parse the name of the ion first
-                    // we assume that the user has asked for a valid ion channel
                     get_token();
+                    // check this is an identifier token
                     if(token_.type != tok_identifier) {
-                        // TODO: extended to test for valid ion names (k, Ca, ... others)
                         error(pprintf("invalid name for an ion chanel '%'",
                                       token_.name));
+                        return;
+                    }
+                    // check that the ion type is valid (insist on lower case?)
+                    if(!(token_.name == "k" || token_.name == "ca" || token_.name == "na")) {
+                        error(pprintf("invalid ion type % must be on eof 'k' 'ca' or 'na'",
+                                      yellow(token_.name)));
                         return;
                     }
                     ion.name = token_.name;
@@ -305,6 +310,7 @@ void Parser::parse_neuron_block() {
                             target.push_back(id.name);
                         }
                     }
+                    //std::cout << red("ion ") << ion << std::endl;
                     // add the ion dependency to the NEURON block
                     neuron_block.ions.push_back(ion);
                 }
@@ -1140,7 +1146,7 @@ Expression *Parser::parse_if() {
     if(cond==nullptr) return nullptr;
 
     // parse the block of the true branch
-    Expression* true_branch = parse_block(false);
+    Expression* true_branch = parse_block(true);
     if(true_branch==nullptr) return nullptr;
 
     // parse the false branch if there is an else
@@ -1154,7 +1160,7 @@ Expression *Parser::parse_if() {
         }
         // we have a closing 'else {}'
         else if(token_.type == tok_lbrace) {
-            false_branch = parse_block(false);
+            false_branch = parse_block(true);
         }
         else {
             error("expect either '"+yellow("if")+"' or '"+yellow("{")+" after else");

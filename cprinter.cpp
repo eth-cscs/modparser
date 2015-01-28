@@ -40,10 +40,18 @@ void CPrinter::visit(IdentifierExpression *e) {
     }
 }
 
+void CPrinter::visit(VariableExpression *e) {
+    text_ << e->name();
+    if(e->is_range()) {
+        text_ << "[i]";
+    }
+}
+
+void CPrinter::visit(IndexedVariable *e) {
+    text_ << e->name() << "[i]";
+}
+
 void CPrinter::visit(UnaryExpression *e) {
-    //auto is_leaf = [] (Expression* e) {
-        //return e->is_number() || e->is_identifier() || e->is_function_call();
-    //};
     switch(e->op()) {
         case tok_minus :
             text_ << "-";
@@ -84,7 +92,7 @@ void CPrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         for(auto var : e->scope()->locals()) {
             if(var.second.kind == k_symbol_local)
-                text_ << gutter_ << "double " << var.first << ";\n";
+                text_ << gutter_ << "double " << var.first << " = 0.;\n";
         }
     }
 
@@ -121,19 +129,55 @@ void CPrinter::visit(ProcedureExpression *e) {
 
     increase_indentation();
 
-    // ------------- add loop if API call ------------- //
-    if(e->kind() == k_proc_api) {
-        text_ << gutter_ << "auto n = node_indices_.size();\n";
-        text_ << gutter_ << "for(int i=0; i<n; ++i) {\n";
-        increase_indentation();
+    e->body()->accept(this);
+
+    // ------------- close up ------------- //
+    decrease_indentation();
+    text_ << gutter_ << "}\n";
+    return;
+}
+
+void CPrinter::visit(APIMethod *e) {
+    // ------------- print prototype ------------- //
+    set_gutter(0);
+    text_ << gutter_ << "void " << e->name() << "(const int i";
+    for(auto arg : e->args()) {
+        text_ << ", double " << arg->is_argument()->name();
+    }
+    text_ << ") {\n";
+
+    assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
+
+    increase_indentation();
+
+    // ------------- add loop for API call ------------- //
+    text_ << gutter_ << "int n = node_indices_.size();\n";
+
+    text_ << gutter_ << "for(int i=0; i<n; ++i) {\n";
+    increase_indentation();
+
+    // insert loads from external state here
+    for(auto &in : e->inputs()) {
+        text_ << gutter_;
+        in.local.expression->accept(this);
+        text_ << " = ";
+        in.external.expression->accept(this);
+        text_ << ";\n";
     }
 
     e->body()->accept(this);
 
-    if(e->kind() == k_proc_api) {
-        decrease_indentation();
-        text_ << gutter_ << "}\n";
+    // insert stores here
+    for(auto &out : e->outputs()) {
+        text_ << gutter_;
+        out.external.expression->accept(this);
+        text_ << (out.op==tok_plus ? " += " : " -= ");
+        out.local.expression->accept(this);
+        text_ << ";\n";
     }
+
+    decrease_indentation();
+    text_ << gutter_ << "}\n";
 
     // ------------- close up ------------- //
     decrease_indentation();

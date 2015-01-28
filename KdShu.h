@@ -57,7 +57,7 @@ public :
         // point sub-vectors into storage
         v = data_(0*n_alloc, 0*n_alloc + n);
         g = data_(1*n_alloc, 1*n_alloc + n);
-        i = data_(2*n_alloc, 2*n_alloc + n);
+        //i = data_(2*n_alloc, 2*n_alloc + n);
         m = data_(3*n_alloc, 3*n_alloc + n);
         h = data_(4*n_alloc, 4*n_alloc + n);
         rhs_contribution = data_(5*n_alloc, 5*n_alloc + n);

@@ -9,6 +9,7 @@
 #include "util.h"
 #include "identifier.h"
 #include "lexer.h"
+#include "memop.h"
 #include "scope.h"
 
 class Visitor;
@@ -19,6 +20,7 @@ class BlockExpression;
 class InitialBlock;
 class IfExpression;
 class VariableExpression;
+class IndexedVariable;
 class NumberExpression;
 class LocalExpression;
 class ArgumentExpression;
@@ -27,6 +29,7 @@ class PrototypeExpression;
 class CallExpression;
 class ProcedureExpression;
 class NetReceiveExpression;
+class APIMethod;
 class FunctionExpression;
 class UnaryExpression;
 class NegUnaryExpression;
@@ -47,7 +50,9 @@ class SolveExpression;
 
 // helper functions for generating unary and binary expressions
 Expression* unary_expression(Location, TOK, Expression*);
+Expression* unary_expression(TOK, Expression*);
 Expression* binary_expression(Location, TOK, Expression*, Expression*);
+Expression* binary_expression(TOK, Expression*, Expression*);
 
 /// specifies special properties of a ProcedureExpression
 enum procedureKind {
@@ -106,26 +111,28 @@ public:
     virtual Expression* clone() const;
 
     // easy lookup of properties
-    virtual CallExpression*       is_function_call()  {return nullptr;}
-    virtual CallExpression*       is_procedure_call() {return nullptr;}
-    virtual BlockExpression*      is_block()          {return nullptr;}
-    virtual IfExpression*         is_if()             {return nullptr;}
+    virtual CallExpression*       is_function_call()     {return nullptr;}
+    virtual CallExpression*       is_procedure_call()    {return nullptr;}
+    virtual BlockExpression*      is_block()             {return nullptr;}
+    virtual IfExpression*         is_if()                {return nullptr;}
     virtual LocalExpression*      is_local_declaration() {return nullptr;}
-    virtual ArgumentExpression*   is_argument()       {return nullptr;}
-    virtual FunctionExpression*   is_function()       {return nullptr;}
-    virtual ProcedureExpression*  is_procedure()      {return nullptr;}
-    virtual NetReceiveExpression* is_net_receive()    {return nullptr;}
-    virtual DerivativeExpression* is_derivative()     {return nullptr; }
-    virtual PrototypeExpression*  is_prototype()      {return nullptr;}
-    virtual IdentifierExpression* is_identifier()     {return nullptr;}
-    virtual VariableExpression*   is_variable()       {return nullptr;}
-    virtual NumberExpression*     is_number()         {return nullptr;}
-    virtual BinaryExpression*     is_binary()         {return nullptr;}
-    virtual UnaryExpression*      is_unary()          {return nullptr;}
-    virtual AssignmentExpression* is_assignment()     {return nullptr;}
-    virtual ConditionalExpression* is_conditional()   {return nullptr;}
-    virtual InitialBlock*         is_initial_block()  {return nullptr;}
-    virtual SolveExpression*      is_solve_statement(){return nullptr;}
+    virtual ArgumentExpression*   is_argument()          {return nullptr;}
+    virtual FunctionExpression*   is_function()          {return nullptr;}
+    virtual ProcedureExpression*  is_procedure()         {return nullptr;}
+    virtual NetReceiveExpression* is_net_receive()       {return nullptr;}
+    virtual APIMethod*            is_api_method()        {return nullptr;}
+    virtual DerivativeExpression* is_derivative()        {return nullptr;}
+    virtual PrototypeExpression*  is_prototype()         {return nullptr;}
+    virtual IdentifierExpression* is_identifier()        {return nullptr;}
+    virtual VariableExpression*   is_variable()          {return nullptr;}
+    virtual IndexedVariable*      is_indexed_variable()  {return nullptr;}
+    virtual NumberExpression*     is_number()            {return nullptr;}
+    virtual BinaryExpression*     is_binary()            {return nullptr;}
+    virtual UnaryExpression*      is_unary()             {return nullptr;}
+    virtual AssignmentExpression* is_assignment()        {return nullptr;}
+    virtual ConditionalExpression* is_conditional()      {return nullptr;}
+    virtual InitialBlock*         is_initial_block()     {return nullptr;}
+    virtual SolveExpression*      is_solve_statement()   {return nullptr;}
 
     virtual bool is_lvalue() {return false;}
 
@@ -366,6 +373,48 @@ protected:
     ionKind        ion_channel_ = k_ion_none;
 };
 
+// an indexed variable
+class IndexedVariable : public Expression {
+public:
+    IndexedVariable(Location loc, std::string const& name)
+    :   Expression(loc), name_(name)
+    {}
+
+    std::string const& name() const {
+        return name_;
+    }
+
+    std::string to_string() const override;
+
+    void access(accessKind a) {
+        access_ = a;
+    }
+    void ion_channel(ionKind i) {
+        ion_channel_ = i;
+    }
+
+    accessKind access() const {
+        return access_;
+    }
+    ionKind ion_channel() const {
+        return ion_channel_;
+    }
+
+    bool is_ion()       const {return ion_channel_ != k_ion_none;}
+    bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
+    bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
+
+    void accept(Visitor *v) override;
+    IndexedVariable* is_indexed_variable() override {return this;}
+
+    ~IndexedVariable() {}
+protected:
+    // there has to be some pointer to a table of identifiers
+    std::string name_;
+
+    accessKind     access_      = k_readwrite;
+    ionKind        ion_channel_ = k_ion_none;
+};
 
 // a SOLVE statement
 class SolveExpression : public Expression {
@@ -402,8 +451,9 @@ public:
         return this;
     }
 
-    void semantic(std::shared_ptr<Scope> scp) override;
+    Expression* clone() const override;
 
+    void semantic(std::shared_ptr<Scope> scp) override;
     void accept(Visitor *v) override;
 
     ~SolveExpression() {}
@@ -443,6 +493,8 @@ public:
     std::list<Expression*>& body() {
         return body_;
     }
+
+    Expression* clone() const override;
 
     // provide iterators for easy iteration over body
     auto begin() -> decltype(body_.begin()) {
@@ -597,6 +649,39 @@ protected:
     std::vector<Expression *> args_;
     BlockExpression* body_;
     procedureKind kind_ = k_proc_normal;
+};
+
+class APIMethod : public ProcedureExpression {
+public:
+    APIMethod( Location loc,
+               std::string const& name,
+               std::vector<Expression*> const& args,
+               Expression* body)
+    :   ProcedureExpression(loc, name, args, body, k_proc_api)
+    {}
+
+    APIMethod* is_api_method() override {return this;}
+    //std::string to_string() const override;
+    void accept(Visitor *v) override;
+
+    std::vector<MemOp>& inputs() {
+        return in_;
+    }
+
+    std::vector<MemOp>& outputs() {
+        return out_;
+    }
+
+protected:
+    /// lists the fields that have to be read in from an
+    /// indexed array before the kernel can be executed
+    /// e.g. voltage values from global voltage vector
+    std::vector<MemOp> in_;
+
+    /// lists the fields that have to be written via an
+    /// indexed array after the kernel has been executed
+    /// e.g. current update for RHS vector
+    std::vector<MemOp> out_;
 };
 
 /// stores the INITIAL block in a NET_RECEIVE block, if there is one

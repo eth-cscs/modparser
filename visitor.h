@@ -24,6 +24,7 @@ public:
     virtual void visit(PrototypeExpression *e)  { visit((Expression*) e);       }
     virtual void visit(CallExpression *e)       { visit((Expression*) e);       }
     virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
+    virtual void visit(IndexedVariable *e)      { visit((Expression*) e);       }
     virtual void visit(FunctionExpression *e)   { visit((Expression*) e);       }
     virtual void visit(IfExpression *e)         { visit((Expression*) e);       }
     virtual void visit(SolveExpression *e)      { visit((Expression*) e);       }
@@ -31,6 +32,7 @@ public:
 
     virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
     virtual void visit(NetReceiveExpression *e) { visit((ProcedureExpression*) e); }
+    virtual void visit(APIMethod *e)            { visit((Expression*) e);       }
 
     virtual void visit(BlockExpression *e)      { visit((Expression*) e);       }
     virtual void visit(InitialBlock *e)         { visit((BlockExpression*) e);  }

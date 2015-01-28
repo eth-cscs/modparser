@@ -3,7 +3,7 @@
 NEURON  {
     THREADSAFE
     SUFFIX KdShu2007
-    USEION Ca WRITE ik READ ki, cai
+    USEION ca WRITE ik READ ki, cai
     RANGE  gkbar, ik, ek, ki, cai
     GLOBAL minf, mtau, hinf, htau
 }

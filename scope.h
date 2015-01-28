@@ -11,6 +11,7 @@ enum symbolKind {
     k_symbol_function,     ///< function call
     k_symbol_procedure,    ///< procedure call
     k_symbol_variable,     ///< variable at module scope
+    k_symbol_indexed_variable, ///< a variable that is indexed
     k_symbol_local,        ///< variable at local scope
     k_symbol_argument,     ///< argument variable
     k_symbol_none,    ///< no symbol kind (placeholder)

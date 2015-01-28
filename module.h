@@ -70,7 +70,7 @@ private :
 
     // error handling
     std::string error_string_;
-    LStat status_;
+    LStat status_ = k_compiler_happy;
 
     // AST storage
     std::vector<Expression *> procedures_;

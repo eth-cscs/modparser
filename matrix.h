@@ -125,6 +125,9 @@ public:
     view_type const& vec_rhs() const { return rhs_; }
     view_type&       vec_rhs()       { return rhs_; }
 
+    view_type const& vec_v() const { return v_; }
+    view_type&       vec_v()       { return v_; }
+
     view_type const& data() const { return data_; }
     view_type&       data()       { return data_; }
 
@@ -142,5 +145,6 @@ private:
     view_type   d_;
     view_type   b_;
     view_type   rhs_;
+    view_type   v_;
 };
 

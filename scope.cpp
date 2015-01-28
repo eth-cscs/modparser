@@ -4,7 +4,9 @@
 std::string to_string(symbolKind k) {
     switch (k) {
         case k_symbol_variable:
-            return std::string("global");
+            return std::string("variable");
+        case k_symbol_indexed_variable:
+            return std::string("indexed variable");
         case k_symbol_local:
             return std::string("local");
         case k_symbol_argument:

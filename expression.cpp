@@ -179,6 +179,22 @@ std::string VariableExpression::to_string() const {
 }
 
 /*******************************************************************************
+  IndexedVariable
+*******************************************************************************/
+
+std::string IndexedVariable::to_string() const {
+    char name[17];
+    snprintf(name, 17, "%-10s", name_.c_str());
+    std::string
+        s = blue("indexed") + "  " + yellow(name) + "("
+          + (is_writeable() ? green("write") : red("write")) + ", "
+          + (is_readable()  ? green("read")  : red("read")) + ", "
+          + "ion" + colorize(::to_string(ion_channel()),
+                             (ion_channel()==k_ion_none) ? kRed : kGreen) + ") ";
+    return s;
+}
+
+/*******************************************************************************
   CallExpression
 *******************************************************************************/
 
@@ -479,11 +495,16 @@ void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
     }
     else {
         error_ = true;
-        error_string_ = "'" + yellow(name_)
-            + "' is not a valid procedure name for computing the derivatives in a SOLVE statement";
+        error_string_ = "'" + yellow(name_) + "' is not a valid procedure name"
+                        " for computing the derivatives in a SOLVE statement";
     }
 }
 
+Expression* SolveExpression::clone() const {
+    auto s = new SolveExpression(location_, name_, method_);
+    s->procedure(procedure_);
+    return s;
+}
 /*******************************************************************************
   BlockExpression
 *******************************************************************************/
@@ -502,6 +523,14 @@ void BlockExpression::semantic(std::shared_ptr<Scope> scp) {
     for(auto e : body_) {
         e->semantic(scope_);
     }
+}
+
+Expression* BlockExpression::clone() const {
+    std::list<Expression*> body;
+    for(auto e: body_) {
+        body.push_back(e->clone());
+    }
+    return new BlockExpression(location_, body, is_nested_);
 }
 
 /*******************************************************************************
@@ -561,6 +590,9 @@ void DerivativeExpression::accept(Visitor *v) {
 void VariableExpression::accept(Visitor *v) {
     v->visit(this);
 }
+void IndexedVariable::accept(Visitor *v) {
+    v->visit(this);
+}
 void NumberExpression::accept(Visitor *v) {
     v->visit(this);
 }
@@ -580,6 +612,9 @@ void ProcedureExpression::accept(Visitor *v) {
     v->visit(this);
 }
 void NetReceiveExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void APIMethod::accept(Visitor *v) {
     v->visit(this);
 }
 void FunctionExpression::accept(Visitor *v) {
@@ -633,6 +668,10 @@ void APIMethod::accept(Visitor *v) {
 }
 */
 
+Expression* unary_expression( TOK op,
+                              Expression* e) {
+    return unary_expression(op, e);
+}
 
 Expression* unary_expression( Location loc,
                               TOK op,
@@ -656,6 +695,12 @@ Expression* unary_expression( Location loc,
     }
     assert(false); // something catastrophic went wrong
     return nullptr;
+}
+
+Expression* binary_expression( TOK op,
+                               Expression* lhs,
+                               Expression* rhs) {
+    return binary_expression(Location(), op, lhs, rhs);
 }
 
 Expression* binary_expression( Location loc,
