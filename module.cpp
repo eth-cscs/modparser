@@ -389,7 +389,6 @@ bool Module::semantic() {
             // we are updating an ionic current
             // so keep track of current and conductance accumulation
             if(auto var = is_ion_update(e)) {
-                std::cout << "ion update : " << var->to_string() << std::endl;
                 auto lhs = e->is_assignment()->lhs()->is_identifier();
                 auto rhs = e->is_assignment()->rhs();
 
@@ -445,7 +444,6 @@ bool Module::semantic() {
             proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["VEC_RHS"]});
             // assume that all input ion variables are used
             for(auto var: symbols_) {
-                std::cout << var.first << " --- " << var.second.expression << std::endl;
                 auto e = var.second.expression->is_variable();
                 if( e && e->is_ion() && e->is_readable()) {
                     proc_current->inputs().push_back({tok_eq, scp->find(e->name()), symbols_["ion_"+e->name()]});
@@ -586,7 +584,6 @@ void Module::add_variables_to_symbols() {
     // check for nonspecific current
     if( neuron_block().has_nonspecific_current() ) {
         auto e = neuron_block().nonspecific_current;
-        std::cout << red("there is a nonspecific current... ") << e->to_string() << std::endl;
         auto id = dynamic_cast<VariableExpression*>(symbols_[e->name()].expression);
         if(id==nullptr) {
             error( pprintf(
