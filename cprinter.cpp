@@ -1,5 +1,34 @@
 #include "cprinter.h"
 
+ionKind ion_kind_from_name(std::string field) {
+    if(field.substr(0,4) == "ion_") {
+        field = field.substr(4);
+    }
+    if(field=="ica" || field=="eca" || field=="cai" || field=="cao") {
+        return k_ion_Ca;
+    }
+    if(field=="ik" || field=="ek" || field=="ki" || field=="ko") {
+        return k_ion_K;
+    }
+    if(field=="ina" || field=="ena" || field=="nai" || field=="nao") {
+        return k_ion_Na;
+    }
+    return k_ion_none;
+}
+
+std::string ion_store(ionKind k) {
+    switch(k) {
+        case k_ion_Ca:
+            return "ion_ca";
+        case k_ion_Na:
+            return "ion_na";
+        case k_ion_K:
+            return "ion_k";
+        default:
+            return "";
+    }
+}
+
 void CPrinter::set_gutter(int width) {
     indent_ = width;
     gutter_ = std::string(indent_, ' ');
@@ -33,10 +62,11 @@ void CPrinter::visit(NumberExpression *e) {
 }
 
 void CPrinter::visit(IdentifierExpression *e) {
-    text_ << e->name();
-    auto var = e->variable();
-    if(var!=nullptr && var->is_range()) {
-        text_ << "[i]";
+    if(auto var = e->variable()) {
+        var->accept(this);
+    }
+    else {
+        text_ << e->name();
     }
 }
 
@@ -54,7 +84,9 @@ void CPrinter::visit(IndexedVariable *e) {
 void CPrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
         case tok_minus :
-            text_ << "-";
+            // place a space in front of minus sign to avoid invalid
+            // expressions of the form : (v[i]--67)
+            text_ << " -";
             e->expression()->accept(this);
             return;
         case tok_exp :
@@ -107,9 +139,12 @@ void CPrinter::visit(BlockExpression *e) {
 }
 
 void CPrinter::visit(IfExpression *e) {
-    text_ << "if(";
+    // for now we remove the brackets around the condition because
+    // the binary expression printer adds them, and we want to work
+    // around the -Wparentheses-equality warning
+    text_ << "if";
     e->condition()->accept(this);
-    text_ << ") {\n";
+    text_ << " {\n";
     increase_indentation();
     e->true_branch()->accept(this);
     decrease_indentation();
@@ -118,7 +153,7 @@ void CPrinter::visit(IfExpression *e) {
 
 void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
-    set_gutter(0);
+    //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "(const int i";
     for(auto arg : e->args()) {
         text_ << ", double " << arg->is_argument()->name();
@@ -133,13 +168,13 @@ void CPrinter::visit(ProcedureExpression *e) {
 
     // ------------- close up ------------- //
     decrease_indentation();
-    text_ << gutter_ << "}\n";
+    text_ << gutter_ << "}\n\n";
     return;
 }
 
 void CPrinter::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
-    set_gutter(0);
+    //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "(const int i";
     for(auto arg : e->args()) {
         text_ << ", double " << arg->is_argument()->name();
@@ -149,6 +184,46 @@ void CPrinter::visit(APIMethod *e) {
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
 
     increase_indentation();
+
+    // create local indexed views
+    for(auto &in : e->inputs()) {
+        auto const& name =
+            in.external.expression->is_indexed_variable()->name();
+        text_ << gutter_ + "const indexed_view " + name;
+        if(name.substr(0,3) == "vec") {
+            text_ << "(matrix_." + name + "(), node_indices_);\n";
+        }
+        else if(name.substr(0,3) == "ion") {
+            auto iname = ion_store(ion_kind_from_name(name));
+            text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
+        }
+        else {
+            std::cout << red("compliler error:")
+                      << " what to do with indexed view `" << name
+                      << "`, which doesn't start with vec_ or ion_?"
+                      << std::endl;;
+            assert(false);
+        }
+    }
+    for(auto &in : e->outputs()) {
+        auto const& name =
+            in.external.expression->is_indexed_variable()->name();
+        text_ << gutter_ + "indexed_view " + name;
+        if(name.substr(0,3) == "vec") {
+            text_ << "(matrix_." + name + "(), node_indices_);\n";
+        }
+        else if(name.substr(0,3) == "ion") {
+            auto iname = ion_store(ion_kind_from_name(name));
+            text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
+        }
+        else {
+            std::cout << red("compliler error:")
+                      << " what to do with indexed view `" << name
+                      << "`, which doesn't start with vec_ or ion_?"
+                      << std::endl;;
+            assert(false);
+        }
+    }
 
     // ------------- add loop for API call ------------- //
     text_ << gutter_ << "int n = node_indices_.size();\n";
@@ -181,7 +256,7 @@ void CPrinter::visit(APIMethod *e) {
 
     // ------------- close up ------------- //
     decrease_indentation();
-    text_ << gutter_ << "}\n";
+    text_ << gutter_ << "}\n\n";
     return;
 }
 

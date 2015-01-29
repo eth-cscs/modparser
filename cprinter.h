@@ -29,12 +29,14 @@ public:
     std::string text() const {
         return text_.str();
     }
-private:
 
     void set_gutter(int);
     void increase_indentation();
     void decrease_indentation();
+private:
 
+
+    //TOK parent_op_;
     int indent_ = 0;
     const int indentation_width_=4;
     std::string gutter_ = "";

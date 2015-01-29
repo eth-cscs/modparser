@@ -4,7 +4,7 @@
 NEURON  {
     SUFFIX Ih
     NONSPECIFIC_CURRENT ihcn
-    RANGE gIhbar, gIh, ihcn 
+    RANGE gIhbar, gIh, ihcn
 }
 
 UNITS   {

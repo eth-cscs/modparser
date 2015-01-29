@@ -66,7 +66,7 @@ std::string to_string(T val) {
 //'\e[1;37m' # White
 enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow, kPurple, kCyan};
 
-//#define COLOR_PRINTING
+#define COLOR_PRINTING
 #ifdef COLOR_PRINTING
 static std::string colorize(std::string const& s, stringColor c) {
     switch(c) {

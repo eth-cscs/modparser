@@ -203,8 +203,8 @@ bool Module::semantic() {
         // perform semantic analysis for init
         proc_init->semantic(symbols_);
 
-        // set input VEC_V
-        proc_init->inputs().push_back({tok_eq, proc_init->scope()->find("v"), symbols_["VEC_V"]});
+        // set input vec_v
+        proc_init->inputs().push_back({tok_eq, proc_init->scope()->find("v"), symbols_["vec_v"]});
         procedures_.push_back(proc_init);
     }
     else {
@@ -317,7 +317,8 @@ bool Module::semantic() {
                         auto stmt_ba = binary_expression(Location(), tok_eq, id_ab, expr_ba);
 
                         // the update function
-                        auto e_string = name + "  = -ba_ + (" + name + " + ba_)*exp(a_*dt)";
+                        auto e_string = name + "  = -ba_ + "
+                                        "(" + name + " + ba_)*exp(a_*dt)";
                         auto stmt_update = Parser(e_string).parse_line_expression();
 
                         body.push_back(stmt_a);
@@ -354,8 +355,8 @@ bool Module::semantic() {
                 scp->add_local_symbol("ba_", id("ba_"), k_symbol_local);
             }
 
-            // set input VEC_V
-            proc_state->inputs().push_back({tok_eq, proc_state->scope()->find("v"), symbols_["VEC_V"]});
+            // set input vec_v
+            proc_state->inputs().push_back({tok_eq, proc_state->scope()->find("v"), symbols_["vec_v"]});
 
             procedures_.push_back(proc_state);
         }
@@ -441,7 +442,7 @@ bool Module::semantic() {
         }
         // only output contribution to RHS if there is one to make
         if(outputs.size()>0) {
-            proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["VEC_RHS"]});
+            proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["vec_rhs"]});
             // assume that all input ion variables are used
             for(auto var: symbols_) {
                 auto e = var.second.expression->is_variable();
@@ -450,8 +451,8 @@ bool Module::semantic() {
                 }
             }
         }
-        // set input VEC_V
-        proc_current->inputs().push_back({tok_eq, scp->find("v"), symbols_["VEC_V"]});
+        // set input vec_v
+        proc_current->inputs().push_back({tok_eq, scp->find("v"), symbols_["vec_v"]});
     }
     else {
         error("a BREAKPOINT block is required", Location());
@@ -468,8 +469,8 @@ bool Module::semantic() {
     symbols_["nrn_jacob"] = Symbol(k_symbol_procedure, proc_jacob);
     proc_jacob->semantic(symbols_);
 
-    // set output update for VEC_D
-    proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["VEC_V"]});
+    // set output update for vec_d
+    proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_v"]});
 
     return status() == k_compiler_happy;
 }
@@ -491,26 +492,26 @@ void Module::add_variables_to_symbols() {
     symbols_["dt"]    = Symbol(k_symbol_variable, dt);
 
     auto g_ = new VariableExpression(Location(), "g_");
-    dt->state(false);            dt->linkage(k_local_link);
-    dt->ion_channel(k_ion_none); dt->range(k_range);
-    dt->access(k_readwrite);          dt->visibility(k_global_visibility);
+    g_->state(false);            g_->linkage(k_local_link);
+    g_->ion_channel(k_ion_none); g_->range(k_range);
+    g_->access(k_readwrite);     g_->visibility(k_global_visibility);
     symbols_["g_"]    = Symbol(k_symbol_variable, g_);
 
     // add indexed variables to the table
-    auto vec_rhs = new IndexedVariable(Location(), "VEC_RHS");
+    auto vec_rhs = new IndexedVariable(Location(), "vec_rhs");
     vec_rhs->access(k_write);
     vec_rhs->ion_channel(k_ion_none);
-    symbols_["VEC_RHS"] = Symbol(k_symbol_indexed_variable, vec_rhs);
+    symbols_["vec_rhs"] = Symbol(k_symbol_indexed_variable, vec_rhs);
 
-    auto vec_d = new IndexedVariable(Location(), "VEC_D");
+    auto vec_d = new IndexedVariable(Location(), "vec_d");
     vec_d->access(k_write);
     vec_d->ion_channel(k_ion_none);
-    symbols_["VEC_D"] = Symbol(k_symbol_indexed_variable, vec_d);
+    symbols_["vec_d"] = Symbol(k_symbol_indexed_variable, vec_d);
 
-    auto vec_v = new IndexedVariable(Location(), "VEC_V");
+    auto vec_v = new IndexedVariable(Location(), "vec_v");
     vec_v->access(k_read);
     vec_v->ion_channel(k_ion_none);
-    symbols_["VEC_V"] = Symbol(k_symbol_indexed_variable, vec_v);
+    symbols_["vec_v"] = Symbol(k_symbol_indexed_variable, vec_v);
 
     // add state variables
     for(auto const &var : state_block()) {
@@ -589,8 +590,14 @@ void Module::add_variables_to_symbols() {
             error( pprintf(
                     "nonspecific current % must be declared as "
                     " declared as PARAMETER or ASSIGNED",
-                     yellow(e->name())
-                    ),
+                     yellow(e->name())),
+                    e->location()); // location of definition
+        }
+        std::string name = id->name();
+        if(name[0] != 'i') {
+            error( pprintf(
+                    "nonspecific current % does not start with 'i'",
+                     yellow(e->name())),
                     e->location()); // location of definition
         }
         id->access(k_readwrite);
@@ -647,7 +654,7 @@ void Module::add_variables_to_symbols() {
             symbols_[shadow_id->name()] = {k_symbol_indexed_variable, shadow_id};
         }
     }
-    // then GLOBAL variables channels
+    // then GLOBAL variables
     for(auto const& var : neuron_block().globals) {
         //auto id = dynamic_cast<VariableExpression*>(symbols_[var].expression);
         auto id = symbols_[var].expression->is_variable();

@@ -85,17 +85,95 @@ int main(int argc, char **argv) {
     std::cout << "output file name " << white(outputname) << std::endl;
 
     std::ofstream fout(outputname);
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    fout << "#pragma once\n\n";
+    fout << "#include <cmath>\n\n";
+    //fout << "#include \"../mechanism.h\"\n";
+    fout << "#include \"../matrix.h\"\n";
+    fout << "#include \"../indexedview.h\"\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    fout << "class Mechanism {\n";
+    fout << "public:\n\n";
+    fout << "    using value_type  = double;\n";
+    fout << "    using size_type   = int;\n";
+    fout << "    using vector_type = memory::HostVector<value_type>;\n";
+    fout << "    using view_type   = memory::HostView<value_type>;\n";
+    fout << "    using index_type  = memory::HostVector<size_type>;\n";
+    fout << "    using indexed_view= IndexedView<value_type, size_type>;\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    for(auto& ion: m.neuron_block().ions) {
+        auto tname = "Ion" + ion.name;
+        fout << "    struct " + tname + " {\n";
+        for(auto& field : ion.read) {
+            fout << "        view_type " + field + ";\n";
+        }
+        for(auto& field : ion.write) {
+            fout << "        view_type " + field + ";\n";
+        }
+        fout << "        index_type index;\n";
+        fout << "    };\n";
+        fout << "    " + tname + " ion_" + ion.name + ";\n\n";
+    }
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    fout << "    Mechanism( index_type const& node_indices,\n";
+    fout << "               Matrix &matrix)\n";
+    fout << "    :  matrix_(matrix), node_indices_(node_indices)\n";
+    fout << "    {}\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    auto v = new CPrinter();
+    v->increase_indentation();
     auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
     for(auto const &var : m.symbols()) {
-        if(var.second.kind==k_symbol_procedure && proctest(var.second.expression->is_procedure()->kind())) {
-            auto v = new CPrinter();
+        if(   var.second.kind==k_symbol_procedure
+           && proctest(var.second.expression->is_procedure()->kind()))
+        {
             var.second.expression->accept(v);
-            //std::cout << var.second.expression->to_string() << std::endl;
-            fout << v->text();
         }
     }
-    fout.close();
+    fout << v->text();
 
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    fout << "private:\n\n";
+    fout << "    vector_type data_;" << std::endl;
+    for(auto sym: m.symbols()) {
+        if(sym.second.kind==k_symbol_variable) {
+            auto var = sym.second.expression->is_variable();
+            if(var->is_range()) {
+                fout << "    view_type " << var->name() << ";\n";
+            }
+            else {
+                fout << "    double " << var->name() << ";\n";
+            }
+        }
+        else if(sym.second.kind==k_symbol_indexed_variable) {
+            auto var = sym.second.expression->is_indexed_variable();
+            fout << "    view_type " << var->name() << ";\n";
+        }
+    }
+
+    fout << "    Matrix &matrix_;\n";
+    fout << "    index_type const& node_indices_;\n";
+
+    fout << "};\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    fout.close();
 
     return 0;
 }

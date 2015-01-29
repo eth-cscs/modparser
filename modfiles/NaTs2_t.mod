@@ -68,7 +68,7 @@ PROCEDURE rates(){
     mTau = (1/(mAlpha + mBeta))/qt
 
     if(v == -60){
-      v = v + 0.0001
+      v = v + 0.0001 + t
     }
     hAlpha = (-0.015 * (v- -60))/(1-(exp((v- -60)/6)))
     hBeta  = (-0.015 * (-v -60))/(1-(exp((-v -60)/6)))
