@@ -39,7 +39,7 @@ STATE   {
 
 BREAKPOINT  {
     SOLVE states METHOD cnexp
-    gNaTs2_t = gNaTs2_tbar*m*m*m*h
+    gNaTs2_t = gNaTs2_tbar*m*m*m*h + (1/2*exp(7))
     ina = gNaTs2_t*(v-ena)
 }
 
@@ -68,7 +68,7 @@ PROCEDURE rates(){
     mTau = (1/(mAlpha + mBeta))/qt
 
     if(v == -60){
-      v = v + 0.0001 + t
+      v = v + 0.0001
     }
     hAlpha = (-0.015 * (v- -60))/(1-(exp((v- -60)/6)))
     hBeta  = (-0.015 * (-v -60))/(1-(exp((-v -60)/6)))

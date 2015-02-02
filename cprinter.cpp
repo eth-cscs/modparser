@@ -1,4 +1,5 @@
 #include "cprinter.h"
+#include "lexer.h"
 
 ionKind ion_kind_from_name(std::string field) {
     if(field.substr(0,4) == "ion_") {
@@ -142,9 +143,9 @@ void CPrinter::visit(IfExpression *e) {
     // for now we remove the brackets around the condition because
     // the binary expression printer adds them, and we want to work
     // around the -Wparentheses-equality warning
-    text_ << "if";
+    text_ << "if(";
     e->condition()->accept(this);
-    text_ << " {\n";
+    text_ << ") {\n";
     increase_indentation();
     e->true_branch()->accept(this);
     decrease_indentation();
@@ -175,11 +176,7 @@ void CPrinter::visit(ProcedureExpression *e) {
 void CPrinter::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
-    text_ << gutter_ << "void " << e->name() << "(const int i";
-    for(auto arg : e->args()) {
-        text_ << ", double " << arg->is_argument()->name();
-    }
-    text_ << ") {\n";
+    text_ << gutter_ << "void " << e->name() << "() {\n";
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
 
@@ -284,9 +281,15 @@ void CPrinter::visit(PowBinaryExpression *e) {
 }
 
 void CPrinter::visit(BinaryExpression *e) {
+    auto pop = parent_op_;
+    bool use_brackets = Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op());
+    parent_op_ = e->op();
+
     auto lhs = e->lhs();
     auto rhs = e->rhs();
-    text_ << "(";
+    if(use_brackets) {
+        text_ << "(";
+    }
     lhs->accept(this);
     switch(e->op()) {
         case tok_minus :
@@ -324,6 +327,11 @@ void CPrinter::visit(BinaryExpression *e) {
             assert(false);
     }
     rhs->accept(this);
-    text_ << ")";
+    if(use_brackets) {
+        text_ << ")";
+    }
+
+    // reset parent precedence
+    parent_op_ = pop;
 }
 

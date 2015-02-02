@@ -45,7 +45,7 @@ public:
         auto const alignment = 64; // alignment in bytes (TODO: get this info from allocator)
         auto padding = memory::impl::get_padding<value_type>(alignment, n);
         auto n_alloc = n + padding;
-        auto total_size = 4 * n_alloc;
+        auto total_size = 5 * n_alloc;
 
         data_= vector_type(total_size);       // allocate total storage
         data_(memory::all) = std::numeric_limits<value_type>::quiet_NaN(); // set to NaN
@@ -55,6 +55,7 @@ public:
         d_   = data_(  n_alloc,   n_alloc + n);
         b_   = data_(2*n_alloc, 2*n_alloc + n);
         rhs_ = data_(3*n_alloc, 3*n_alloc + n);
+        v_   = data_(4*n_alloc, 4*n_alloc + n);
     }
 
     size_type size() const {

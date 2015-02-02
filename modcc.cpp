@@ -85,6 +85,21 @@ int main(int argc, char **argv) {
     std::cout << "output file name " << white(outputname) << std::endl;
 
     std::ofstream fout(outputname);
+    // make a list of vector types, both parameters and assigned
+    // and a list of all scalar types
+    std::vector<VariableExpression*> scalar_variables;
+    std::vector<VariableExpression*> array_variables;
+    for(auto sym: m.symbols()) {
+        if(sym.second.kind==k_symbol_variable) {
+            auto var = sym.second.expression->is_variable();
+            if(var->is_range()) {
+                array_variables.push_back(var);
+            }
+            else {
+                scalar_variables.push_back(var);
+            }
+        }
+    }
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -96,8 +111,9 @@ int main(int argc, char **argv) {
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
+    std::string class_name = "Mechanism_" + m.name();
 
-    fout << "class Mechanism {\n";
+    fout << "class " + class_name + " {\n";
     fout << "public:\n\n";
     fout << "    using value_type  = double;\n";
     fout << "    using size_type   = int;\n";
@@ -124,10 +140,33 @@ int main(int argc, char **argv) {
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
-    fout << "    Mechanism( index_type const& node_indices,\n";
+    fout << "    " + class_name + "( index_type const& node_indices,\n";
     fout << "               Matrix &matrix)\n";
     fout << "    :  matrix_(matrix), node_indices_(node_indices)\n";
-    fout << "    {}\n\n";
+    fout << "    {\n";
+    auto num_vars = array_variables.size();
+    fout << "        size_type num_fields = " << num_vars << ";\n";
+    fout << "        size_type n = size();\n";
+    fout << "        data_ = vector_type(n * num_fields);\n";
+    for(int i=0; i<num_vars; ++i) {
+        char namestr[128];
+        sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
+        fout << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
+    }
+    fout << "    }\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    fout << "    size_type size() const {\n";
+    fout << "        return node_indices_.size();\n";
+    fout << "    }\n\n";
+
+    fout << "    void set_params(double t_, double dt_) {\n";
+    fout << "        t = t_;\n";
+    fout << "        dt = dt_;\n";
+    fout << "    }\n\n";
+
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -148,21 +187,12 @@ int main(int argc, char **argv) {
     //////////////////////////////////////////////
 
     fout << "private:\n\n";
-    fout << "    vector_type data_;" << std::endl;
-    for(auto sym: m.symbols()) {
-        if(sym.second.kind==k_symbol_variable) {
-            auto var = sym.second.expression->is_variable();
-            if(var->is_range()) {
-                fout << "    view_type " << var->name() << ";\n";
-            }
-            else {
-                fout << "    double " << var->name() << ";\n";
-            }
-        }
-        else if(sym.second.kind==k_symbol_indexed_variable) {
-            auto var = sym.second.expression->is_indexed_variable();
-            fout << "    view_type " << var->name() << ";\n";
-        }
+    fout << "    vector_type data_;\n\n" << std::endl;
+    for(auto var: array_variables) {
+        fout << "    view_type " << var->name() << ";\n";
+    }
+    for(auto var: scalar_variables) {
+        fout << "    double " << var->name() << ";\n";
     }
 
     fout << "    Matrix &matrix_;\n";

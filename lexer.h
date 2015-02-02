@@ -189,6 +189,8 @@ public:
     LStat status() {return status_;}
 
     const std::string& error_message() {return error_string_;};
+
+    static int binop_precedence(TOK tok);
 protected:
     // buffer used for short-lived parsers
     std::vector<char> buffer_;
@@ -197,8 +199,6 @@ protected:
     void keywords_init();
     void token_strings_init();
     void binop_prec_init();
-
-    int binop_precedence(TOK tok);
 
     // helper for determining if an identifier string matches a keyword
     TOK get_identifier_type(std::string const& identifier);

@@ -36,7 +36,7 @@ public:
 private:
 
 
-    //TOK parent_op_;
+    TOK parent_op_ = tok_eq;
     int indent_ = 0;
     const int indentation_width_=4;
     std::string gutter_ = "";

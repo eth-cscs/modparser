@@ -15,7 +15,8 @@ public :
         return buffer_;
     }
 
-    std::string const& name()  const {return fname_;}
+    std::string const& file_name()  const {return fname_;}
+    std::string const& name()  const {return neuron_block_.name;}
 
     void               title(const std::string& t) {title_ = t;}
     std::string const& title() const          {return title_;}

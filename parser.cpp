@@ -36,7 +36,7 @@ bool Parser::expect(TOK tok, std::string const& str) {
 
 void Parser::error(std::string msg) {
     std::string location_info = pprintf(
-            "%:% ", module_ ? module_->name() : "", token_.location);
+            "%:% ", module_ ? module_->file_name() : "", token_.location);
     if(status_==k_compiler_error) {
         // append to current string
         error_string_ += "\n" + white(location_info) + "\n  " +msg;
@@ -49,7 +49,7 @@ void Parser::error(std::string msg) {
 
 void Parser::error(std::string msg, Location loc) {
     std::string location_info = pprintf(
-            "%:% ", module_ ? module_->name() : "", loc);
+            "%:% ", module_ ? module_->file_name() : "", loc);
     if(status_==k_compiler_error) {
         // append to current string
         error_string_ += "\n" + green(location_info) + msg;

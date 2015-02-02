@@ -68,7 +68,7 @@ Module::symbols() const {
 }
 
 void Module::error(std::string const& msg, Location loc) {
-    std::string location_info = pprintf("%:% ", name(), loc);
+    std::string location_info = pprintf("%:% ", file_name(), loc);
     if(status_==k_compiler_error) {
         // append to current string
         error_string_ += "\n" + white(location_info) + msg;
@@ -146,7 +146,7 @@ bool Module::semantic() {
             // first perform semantic analysis
             s.expression->semantic(symbols_);
             // then use an error visitor to print out all the semantic errors
-            ErrorVisitor* v = new ErrorVisitor(name());
+            ErrorVisitor* v = new ErrorVisitor(file_name());
             s.expression->accept(v);
             errors += v->num_errors();
             delete v;
@@ -419,6 +419,13 @@ bool Module::semantic() {
                     outputs.push_back(lhs->name());
                 }
             }
+        }
+        if(outputs.size()>0) {
+            block.push_back(Parser("g_ = current_").parse_line_expression());
+        }
+        ConstantFolderVisitor* v = new ConstantFolderVisitor();
+        for(auto e : block) {
+            e->accept(v);
         }
 
         auto proc_current =
