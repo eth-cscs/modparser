@@ -27,6 +27,7 @@ modfiles/*.h
 *.out
 *.app
 modcc
+driver
 
 # cmake detritus
 compile_commands.json

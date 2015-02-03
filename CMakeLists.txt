@@ -5,4 +5,5 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(src)
+add_subdirectory(tests)
 
