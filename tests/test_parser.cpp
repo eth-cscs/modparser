@@ -3,8 +3,12 @@
 #include "../src/module.h"
 #include "../src/parser.h"
 
-TEST(Parser, parser_full_file) {
+TEST(Parser, full_file) {
     Module m("./modfiles/test.mod");
+    if(m.buffer().size()==0) {
+        std::cout << "skipping Parser.full_file test because unable to open input file" << std::endl;
+        return;
+    }
     Parser p(m);
     EXPECT_EQ(p.status(), k_compiler_happy);
 }

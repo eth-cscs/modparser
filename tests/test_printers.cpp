@@ -29,7 +29,7 @@ TEST(CPrinter, statement) {
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new CPrinter();
+        auto v = new CPrinterVisitor();
         e->accept(v);
 
 #ifdef VERBOSE_TEST
@@ -75,7 +75,7 @@ TEST(CPrinter, proc) {
         };
 
         e->semantic(symbols);
-        auto v = new CPrinter();
+        auto v = new CPrinterVisitor();
         e->accept(v);
 
 #ifdef VERBOSE_TEST
