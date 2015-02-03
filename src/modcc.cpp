@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <tclap/include/CmdLine.h>
+
 #include "cprinter.h"
 #include "lexer.h"
 #include "module.h"
@@ -11,16 +13,38 @@
 //#define VERBOSE
 
 int main(int argc, char **argv) {
-    if(argc < 2) {
-        std::cout << red("error: ")
-                  << "requires file name to parse" << std::endl;
-        return 1;
+
+    std::string filename;
+    std::string outputname;
+
+    // parse command line arguments
+    try {
+        TCLAP::CmdLine cmd("welcome to mod2c", ' ', "0.1");
+
+        // input file name (to load multiple files we have to use UnlabeledMultiArg
+        TCLAP::UnlabeledValueArg<std::string>
+            fin_arg("input_file", "the name of the .mod file to compile", true, "", "filename");
+        // output filename
+        TCLAP::ValueArg<std::string>
+            fout_arg("o","output","name of output file",true,"","filename");
+
+        cmd.add(fin_arg);
+        cmd.add(fout_arg);
+
+        cmd.parse(argc, argv);
+
+        outputname = fout_arg.getValue();
+        filename = fin_arg.getValue();
+        std::cout << "input and output names : " << filename << " " << outputname << std::endl;
+    }
+    // catch any exceptions in command line handling
+    catch(TCLAP::ArgException &e) {
+        std::cerr << "error: " << e.error()
+                  << " for arg " << e.argId()
+                  << std::endl;
     }
 
     // load the module from file passed as first argument
-    std::string filename = argv[1];
-    std::string basename = filename.substr(0, filename.find_last_of("."));
-
     Module m(filename.c_str());
 
     // check that the module is not empty
@@ -81,7 +105,6 @@ int main(int argc, char **argv) {
     #endif
 
     // generate output
-    auto outputname = basename + ".h";
     std::cout << "output file name " << white(outputname) << std::endl;
 
     std::ofstream fout(outputname);
