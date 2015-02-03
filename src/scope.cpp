@@ -15,7 +15,7 @@ std::string to_string(symbolKind k) {
             return std::string("procedure");
         case k_symbol_function:
             return std::string("function");
-        case k_symbol_none:
+        default:
             return std::string("none");
     }
 }

@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     fout << "               Matrix &matrix)\n";
     fout << "    :  matrix_(matrix), node_indices_(node_indices)\n";
     fout << "    {\n";
-    auto num_vars = array_variables.size();
+    int num_vars = array_variables.size();
     fout << "        size_type num_fields = " << num_vars << ";\n";
     fout << "        size_type n = size();\n";
     fout << "        data_ = vector_type(n * num_fields);\n";

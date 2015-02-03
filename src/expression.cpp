@@ -17,6 +17,8 @@ std::string to_string(procedureKind k) {
             return "breakpoint";
         case k_proc_derivative  :
             return "derivative";
+        default :
+            return "undefined";
     }
 }
 

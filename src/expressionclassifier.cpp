@@ -71,8 +71,6 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
 void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     bool lhs_contains_symbol = false;
     bool rhs_contains_symbol = false;
-    bool lhs_is_linear = true;
-    bool rhs_is_linear = true;
     Expression *lhs_coefficient;
     Expression *rhs_coefficient;
     Expression *lhs_constant;
@@ -82,7 +80,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     reset();
     e->lhs()->accept(this);
     lhs_contains_symbol = found_symbol_;
-    lhs_is_linear       = is_linear_;
     lhs_coefficient     = coefficient_;
     lhs_constant        = constant_;
     if(!is_linear_) return; // early return if nonlinear
@@ -91,7 +88,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     reset();
     e->rhs()->accept(this);
     rhs_contains_symbol = found_symbol_;
-    rhs_is_linear       = is_linear_;
     rhs_coefficient     = coefficient_;
     rhs_constant        = constant_;
     if(!is_linear_) return; // early return if nonlinear
