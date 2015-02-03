@@ -35,7 +35,6 @@ int main(int argc, char **argv) {
 
         outputname = fout_arg.getValue();
         filename = fin_arg.getValue();
-        std::cout << "input and output names : " << filename << " " << outputname << std::endl;
     }
     // catch any exceptions in command line handling
     catch(TCLAP::ArgException &e) {
