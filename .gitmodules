@@ -1,0 +1,3 @@
+[submodule "external/vector"]
+	path = external/vector
+	url = git@github.com:bcumming/vector.git
