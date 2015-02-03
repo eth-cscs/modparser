@@ -1,3 +1,0 @@
-[submodule "lib/vector"]
-	path = lib/vector
-	url = git@github.com:bcumming/vector.git
