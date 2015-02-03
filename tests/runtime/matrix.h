@@ -2,8 +2,8 @@
 
 #include <limits>
 
-#include "util.h"
-#include "lib/vector/include/Vector.h"
+#include "../../src/util.h"
+#include <vector/include/Vector.h>
 
 /*
    let's define the matrix storage class here, for starters

@@ -1,20 +1,3 @@
-set(TEST_SOURCES
-    # google test library sources
-    gtest-all.cpp
-
-    # unit tests
-    test_lexer.cpp
-    test_module.cpp
-    test_optimization.cpp
-    test_parser.cpp
-    test_printers.cpp
-    test_visitors.cpp
-
-    # unit test driver
-    driver.cpp
-)
-
-add_executable(driver ${TEST_SOURCES})
-
-target_link_libraries(driver LINK_PUBLIC compiler)
+add_subdirectory(compiler)
+add_subdirectory(runtime)
 

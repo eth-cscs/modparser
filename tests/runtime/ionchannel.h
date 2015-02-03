@@ -4,7 +4,9 @@
 #include <iostream>
 #include <limits>
 
-#include "lib/vector/include/Vector.h"
+#include <vector/include/Vector.h>
+
+#include "indexedview.h"
 
 /*******************************************************************************
 
