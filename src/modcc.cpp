@@ -12,10 +12,15 @@
 
 //#define VERBOSE
 
-int main(int argc, char **argv) {
-
+struct Options {
     std::string filename;
     std::string outputname;
+    bool verbose = true;
+};
+
+int main(int argc, char **argv) {
+
+    Options options;
 
     // parse command line arguments
     try {
@@ -27,14 +32,17 @@ int main(int argc, char **argv) {
         // output filename
         TCLAP::ValueArg<std::string>
             fout_arg("o","output","name of output file",true,"","filename");
+        // verbose mode
+        TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
 
         cmd.add(fin_arg);
         cmd.add(fout_arg);
 
         cmd.parse(argc, argv);
 
-        outputname = fout_arg.getValue();
-        filename = fin_arg.getValue();
+        options.outputname = fout_arg.getValue();
+        options.filename = fin_arg.getValue();
+        options.verbose = verbose_arg.getValue();
     }
     // catch any exceptions in command line handling
     catch(TCLAP::ArgException &e) {
@@ -44,7 +52,7 @@ int main(int argc, char **argv) {
     }
 
     // load the module from file passed as first argument
-    Module m(filename.c_str());
+    Module m(options.filename.c_str());
 
     // check that the module is not empty
     if(m.buffer().size()==0) {
@@ -53,18 +61,18 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::cout << "parsing file " << white(filename) << std::endl;
+    std::cout << yellow("compiling ") << white(options.filename) << std::endl;
 
     // initialize the parser
     Parser p(m, false);
 
     // parse
-    std::cout << green("[") + "parsing" + green("]") << std::endl;
+    if(options.verbose) std::cout << green("[") + "parsing" + green("]") << std::endl;
     p.parse();
     if(p.status() == k_compiler_error) return 1;
 
     // semantic analysis
-    std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
+    if(options.verbose) std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
     if( m.semantic() == false ) {
         std::cout << m.error_string() << std::endl;
     }
@@ -87,7 +95,7 @@ int main(int argc, char **argv) {
 
         auto start = clock::now();
         for(int i=0; i<N; ++i) {
-            Module m(filename.c_str());
+            Module m(options.filename.c_str());
             Parser p(m);
             if(p.status() != k_compiler_happy) {
                 std::cout << "error: unable to parse file" << std::endl;
@@ -104,9 +112,9 @@ int main(int argc, char **argv) {
     #endif
 
     // generate output
-    std::cout << "output file name " << white(outputname) << std::endl;
+    if(options.verbose) std::cout << green("[") + "output " + white(options.outputname) + green("]") << std::endl;
 
-    std::ofstream fout(outputname);
+    std::ofstream fout(options.outputname);
     fout << CPrinter(m).text();
     fout.close();
 

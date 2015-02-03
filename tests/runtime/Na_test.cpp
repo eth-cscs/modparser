@@ -1,7 +1,7 @@
 #include "ionchannel.h"
 #include "runtime.h"
 
-#include "NaTs2_t.h"
+#include "mechanisms/NaTs2_t.h"
 
 int main(void) {
     // load index data from file

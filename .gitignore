@@ -32,7 +32,7 @@ bin/*
 tests/test_*
 
 # mechanism headers created for testing
-tests/compiler/mechanisms/*
+tests/runtime/mechanisms/*
 
 # cmake detritus
 compile_commands.json
