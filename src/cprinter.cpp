@@ -30,19 +30,19 @@ std::string ion_store(ionKind k) {
     }
 }
 
-void CPrinter::set_gutter(int width) {
+void CPrinterVisitor::set_gutter(int width) {
     indent_ = width;
     gutter_ = std::string(indent_, ' ');
 }
 
-void CPrinter::increase_indentation() {
+void CPrinterVisitor::increase_indentation() {
     indent_ += indentation_width_;
     if(indent_<0) {
         indent_=0;
     }
     gutter_ = std::string(indent_, ' ');
 }
-void CPrinter::decrease_indentation() {
+void CPrinterVisitor::decrease_indentation() {
     indent_ -= indentation_width_;
     if(indent_<0) {
         indent_=0;
@@ -50,19 +50,19 @@ void CPrinter::decrease_indentation() {
     gutter_ = std::string(indent_, ' ');
 }
 
-void CPrinter::visit(Expression *e) {
-    std::cout << "CPrinter :: error printing : " << e->to_string() << std::endl;
+void CPrinterVisitor::visit(Expression *e) {
+    std::cout << "CPrinterVisitor :: error printing : " << e->to_string() << std::endl;
     assert(false);
 }
 
-void CPrinter::visit(LocalExpression *e) {
+void CPrinterVisitor::visit(LocalExpression *e) {
 }
 
-void CPrinter::visit(NumberExpression *e) {
+void CPrinterVisitor::visit(NumberExpression *e) {
     text_ << e->value();
 }
 
-void CPrinter::visit(IdentifierExpression *e) {
+void CPrinterVisitor::visit(IdentifierExpression *e) {
     if(auto var = e->variable()) {
         var->accept(this);
     }
@@ -71,18 +71,18 @@ void CPrinter::visit(IdentifierExpression *e) {
     }
 }
 
-void CPrinter::visit(VariableExpression *e) {
+void CPrinterVisitor::visit(VariableExpression *e) {
     text_ << e->name();
     if(e->is_range()) {
         text_ << "[i]";
     }
 }
 
-void CPrinter::visit(IndexedVariable *e) {
+void CPrinterVisitor::visit(IndexedVariable *e) {
     text_ << e->name() << "[i]";
 }
 
-void CPrinter::visit(UnaryExpression *e) {
+void CPrinterVisitor::visit(UnaryExpression *e) {
     switch(e->op()) {
         case tok_minus :
             // place a space in front of minus sign to avoid invalid
@@ -119,7 +119,7 @@ void CPrinter::visit(UnaryExpression *e) {
     }
 }
 
-void CPrinter::visit(BlockExpression *e) {
+void CPrinterVisitor::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
@@ -139,7 +139,7 @@ void CPrinter::visit(BlockExpression *e) {
     }
 }
 
-void CPrinter::visit(IfExpression *e) {
+void CPrinterVisitor::visit(IfExpression *e) {
     // for now we remove the brackets around the condition because
     // the binary expression printer adds them, and we want to work
     // around the -Wparentheses-equality warning
@@ -152,7 +152,7 @@ void CPrinter::visit(IfExpression *e) {
     text_ << gutter_ << "}";
 }
 
-void CPrinter::visit(ProcedureExpression *e) {
+void CPrinterVisitor::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "(const int i";
@@ -173,7 +173,7 @@ void CPrinter::visit(ProcedureExpression *e) {
     return;
 }
 
-void CPrinter::visit(APIMethod *e) {
+void CPrinterVisitor::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "() {\n";
@@ -257,7 +257,7 @@ void CPrinter::visit(APIMethod *e) {
     return;
 }
 
-void CPrinter::visit(CallExpression *e) {
+void CPrinterVisitor::visit(CallExpression *e) {
     text_ << e->name() << "(i";
     for(auto& arg: e->args()) {
         text_ << ", ";
@@ -266,13 +266,13 @@ void CPrinter::visit(CallExpression *e) {
     text_ << ")";
 }
 
-void CPrinter::visit(AssignmentExpression *e) {
+void CPrinterVisitor::visit(AssignmentExpression *e) {
     e->lhs()->accept(this);
     text_ << " = ";
     e->rhs()->accept(this);
 }
 
-void CPrinter::visit(PowBinaryExpression *e) {
+void CPrinterVisitor::visit(PowBinaryExpression *e) {
     text_ << "std::pow(";
     e->lhs()->accept(this);
     text_ << ", ";
@@ -280,7 +280,7 @@ void CPrinter::visit(PowBinaryExpression *e) {
     text_ << ")";
 }
 
-void CPrinter::visit(BinaryExpression *e) {
+void CPrinterVisitor::visit(BinaryExpression *e) {
     auto pop = parent_op_;
     bool use_brackets = Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op());
     parent_op_ = e->op();
@@ -333,5 +333,122 @@ void CPrinter::visit(BinaryExpression *e) {
 
     // reset parent precedence
     parent_op_ = pop;
+}
+
+CPrinter::CPrinter(Module &m) {
+    // make a list of vector types, both parameters and assigned
+    // and a list of all scalar types
+    std::vector<VariableExpression*> scalar_variables;
+    std::vector<VariableExpression*> array_variables;
+    for(auto sym: m.symbols()) {
+        if(sym.second.kind==k_symbol_variable) {
+            auto var = sym.second.expression->is_variable();
+            if(var->is_range()) {
+                array_variables.push_back(var);
+            }
+            else {
+                scalar_variables.push_back(var);
+            }
+        }
+    }
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    text_ << "#pragma once\n\n";
+    text_ << "#include <cmath>\n\n";
+    //text_ << "#include \"../mechanism.h\"\n";
+    text_ << "#include \"../matrix.h\"\n";
+    text_ << "#include \"../indexedview.h\"\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    std::string class_name = "Mechanism_" + m.name();
+
+    text_ << "class " + class_name + " {\n";
+    text_ << "public:\n\n";
+    text_ << "    using value_type  = double;\n";
+    text_ << "    using size_type   = int;\n";
+    text_ << "    using vector_type = memory::HostVector<value_type>;\n";
+    text_ << "    using view_type   = memory::HostView<value_type>;\n";
+    text_ << "    using index_type  = memory::HostVector<size_type>;\n";
+    text_ << "    using indexed_view= IndexedView<value_type, size_type>;\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    for(auto& ion: m.neuron_block().ions) {
+        auto tname = "Ion" + ion.name;
+        text_ << "    struct " + tname + " {\n";
+        for(auto& field : ion.read) {
+            text_ << "        view_type " + field + ";\n";
+        }
+        for(auto& field : ion.write) {
+            text_ << "        view_type " + field + ";\n";
+        }
+        text_ << "        index_type index;\n";
+        text_ << "    };\n";
+        text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
+    }
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    text_ << "    " + class_name + "( index_type const& node_indices,\n";
+    text_ << "               Matrix &matrix)\n";
+    text_ << "    :  matrix_(matrix), node_indices_(node_indices)\n";
+    text_ << "    {\n";
+    int num_vars = array_variables.size();
+    text_ << "        size_type num_fields = " << num_vars << ";\n";
+    text_ << "        size_type n = size();\n";
+    text_ << "        data_ = vector_type(n * num_fields);\n";
+    for(int i=0; i<num_vars; ++i) {
+        char namestr[128];
+        sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
+        text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
+    }
+    text_ << "    }\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    text_ << "    size_type size() const {\n";
+    text_ << "        return node_indices_.size();\n";
+    text_ << "    }\n\n";
+
+    text_ << "    void set_params(double t_, double dt_) {\n";
+    text_ << "        t = t_;\n";
+    text_ << "        dt = dt_;\n";
+    text_ << "    }\n\n";
+
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    auto v = new CPrinterVisitor();
+    v->increase_indentation();
+    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    for(auto const &var : m.symbols()) {
+        if(   var.second.kind==k_symbol_procedure
+           && proctest(var.second.expression->is_procedure()->kind()))
+        {
+            var.second.expression->accept(v);
+        }
+    }
+    text_ << v->text();
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    text_ << "private:\n\n";
+    text_ << "    vector_type data_;\n\n" << std::endl;
+    for(auto var: array_variables) {
+        text_ << "    view_type " << var->name() << ";\n";
+    }
+    for(auto var: scalar_variables) {
+        text_ << "    double " << var->name() << ";\n";
+    }
+
+    text_ << "    Matrix &matrix_;\n";
+    text_ << "    index_type const& node_indices_;\n";
+
+    text_ << "};\n\n";
 }
 

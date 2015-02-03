@@ -2,11 +2,24 @@
 
 #include <sstream>
 
+#include "module.h"
 #include "visitor.h"
 
-class CPrinter : public Visitor {
+class CPrinter {
 public:
-    CPrinter() {}
+    CPrinter(Module &module);
+
+    std::string text() const {
+        return text_.str();
+    }
+
+private:
+    std::stringstream text_;
+};
+
+class CPrinterVisitor : public Visitor {
+public:
+    CPrinterVisitor() {}
 
     void visit(Expression *e)           override;
     void visit(UnaryExpression *e)      override;
@@ -34,7 +47,6 @@ public:
     void increase_indentation();
     void decrease_indentation();
 private:
-
 
     TOK parent_op_ = tok_eq;
     int indent_ = 0;
