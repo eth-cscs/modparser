@@ -357,8 +357,8 @@ CPrinter::CPrinter(Module &m) {
     text_ << "#pragma once\n\n";
     text_ << "#include <cmath>\n\n";
     //text_ << "#include \"../mechanism.h\"\n";
-    text_ << "#include \"../matrix.h\"\n";
-    text_ << "#include \"../indexedview.h\"\n\n";
+    text_ << "#include \"matrix.h\"\n";
+    text_ << "#include \"indexedview.h\"\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
