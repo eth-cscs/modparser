@@ -65,9 +65,9 @@ int main(void) {
     // print the result
     //for(auto val : matrix.vec_rhs())
     //for(auto val : ion_na.reversal_potential())
-    for(auto val : ion_na.current())
-        std::cout << val << " ";
-    std::cout << std::endl;
+    //for(auto val : ion_na.current())
+    //   std::cout << val << " ";
+    //std::cout << std::endl;
 }
 
 
