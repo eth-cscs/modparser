@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 
 #include <vector/include/Vector.h>
@@ -22,3 +23,18 @@ index_type index_from_file(std::string fname);
 // calculates the mapping of mechanism nodes onto ion nodes
 index_type index_into(index_view mech, index_view ion);
 
+// print a vector
+template <typename Container>
+void print(std::string const& name, Container const& c) {
+    auto range = std::minmax_element(c.begin(), c.end());
+    auto min = *range.first;
+    auto max = *range.second;
+    std::cout << name << (name.size() ? " " : "");
+    if(min==max) {
+        std::cout << "[" << c.size() << " * " << min << "]" << std::endl;
+    }
+    else {
+        std::cout << "[" << c.size() << " in "
+                  << "[" << min << ":" << max << "]]" << std::endl;
+    }
+}

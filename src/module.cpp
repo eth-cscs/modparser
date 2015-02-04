@@ -477,7 +477,7 @@ bool Module::semantic() {
     proc_jacob->semantic(symbols_);
 
     // set output update for vec_d
-    proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_v"]});
+    proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_d"]});
 
     return status() == k_compiler_happy;
 }
@@ -562,6 +562,11 @@ void Module::add_variables_to_symbols() {
             id->access(k_read);
         } else if(name == "celcius") { // global celcius parameter
             id->linkage(k_extern_link);
+        }
+
+        // set default value if one was specified
+        if(var.value.size()) {
+            id->value(std::stod(var.value));
         }
 
         symbols_[name] = Symbol(k_symbol_variable, id);

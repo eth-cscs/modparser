@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <limits>
 #include <list>
 #include <memory>
 #include <string>
@@ -357,6 +358,9 @@ public:
     bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
     bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
 
+    double value()       const {return value_;}
+    void value(double v) {value_ = v;}
+
     void accept(Visitor *v) override;
     VariableExpression* is_variable() override {return this;}
 
@@ -371,6 +375,7 @@ protected:
     linkageKind    linkage_     = k_extern_link;
     rangeKind      range_kind_  = k_range;
     ionKind        ion_channel_ = k_ion_none;
+    double         value_       = std::numeric_limits<double>::quiet_NaN();
 };
 
 // an indexed variable

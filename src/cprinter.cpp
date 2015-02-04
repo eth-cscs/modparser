@@ -125,7 +125,7 @@ void CPrinterVisitor::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         for(auto var : e->scope()->locals()) {
             if(var.second.kind == k_symbol_local)
-                text_ << gutter_ << "double " << var.first << " = 0.;\n";
+                text_ << gutter_ << "value_type " << var.first << " = 0.;\n";
         }
     }
 
@@ -157,7 +157,7 @@ void CPrinterVisitor::visit(ProcedureExpression *e) {
     //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "(const int i";
     for(auto arg : e->args()) {
-        text_ << ", double " << arg->is_argument()->name();
+        text_ << ", value_type " << arg->is_argument()->name();
     }
     text_ << ") {\n";
 
@@ -398,10 +398,19 @@ CPrinter::CPrinter(Module &m) {
     text_ << "        size_type num_fields = " << num_vars << ";\n";
     text_ << "        size_type n = size();\n";
     text_ << "        data_ = vector_type(n * num_fields);\n";
+    text_ << "        data_(all) = std::numeric_limits<value_type>::quiet_NaN();\n";
     for(int i=0; i<num_vars; ++i) {
         char namestr[128];
         sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
         text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
+    }
+    for(auto const& var : array_variables) {
+        double val = var->value();
+        // only non-NaN fields need to be initialized, because data_
+        // is NaN by default
+        if(val == val) {
+            text_ << "        " << var->name() << "(all) = " << val << ";\n";
+        }
     }
     text_ << "    }\n\n";
 
@@ -412,7 +421,7 @@ CPrinter::CPrinter(Module &m) {
     text_ << "        return node_indices_.size();\n";
     text_ << "    }\n\n";
 
-    text_ << "    void set_params(double t_, double dt_) {\n";
+    text_ << "    void set_params(value_type t_, value_type dt_) {\n";
     text_ << "        t = t_;\n";
     text_ << "        dt = dt_;\n";
     text_ << "    }\n\n";
@@ -436,13 +445,22 @@ CPrinter::CPrinter(Module &m) {
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    text_ << "private:\n\n";
+    //text_ << "private:\n\n";
     text_ << "    vector_type data_;\n\n" << std::endl;
     for(auto var: array_variables) {
         text_ << "    view_type " << var->name() << ";\n";
     }
     for(auto var: scalar_variables) {
-        text_ << "    double " << var->name() << ";\n";
+        double val = var->value();
+        // test the default value for NaN
+        // useful for error propogation from bad initial conditions
+        if(val==val) {
+            text_ << "    value_type " << var->name() << " = " << val << ";\n";
+        }
+        else {
+            text_ << "    value_type " << var->name()
+              << " = std::numeric_limits<value_type>::quiet_NaN();\n";
+        }
     }
 
     text_ << "    Matrix &matrix_;\n";

@@ -248,8 +248,7 @@ void Parser::parse_neuron_block() {
             case tok_global :
                 // the ranges are a comma-seperated list of identifiers
                 {
-                    std::vector<Token> identifiers =
-                        comma_separated_identifiers();
+                    auto identifiers = comma_separated_identifiers();
                     // bail if there was an error reading the list
                     if(status_==k_compiler_error) {
                         return;
@@ -264,8 +263,7 @@ void Parser::parse_neuron_block() {
             case tok_range  :
                 // the ranges are a comma-seperated list of identifiers
                 {
-                    std::vector<Token> identifiers =
-                        comma_separated_identifiers();
+                    auto identifiers = comma_separated_identifiers();
                     if(status_==k_compiler_error) { // bail if there was an error reading the list
                         return;
                     }
