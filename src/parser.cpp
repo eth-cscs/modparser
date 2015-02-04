@@ -255,7 +255,7 @@ void Parser::parse_neuron_block() {
                         return;
                     }
                     for(auto const &id : identifiers) {
-                        neuron_block.globals.push_back(id.name);
+                        neuron_block.globals.push_back(id);
                     }
                 }
                 break;
@@ -270,7 +270,7 @@ void Parser::parse_neuron_block() {
                         return;
                     }
                     for(auto const &id : identifiers) {
-                        neuron_block.ranges.push_back(id.name);
+                        neuron_block.ranges.push_back(id);
                     }
                 }
                 break;
