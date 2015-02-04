@@ -1,6 +1,6 @@
 set(TEST_SOURCES
     # google test library sources
-    gtest-all.cpp
+    ../gtest-all.cpp
 
     # unit tests
     test_lexer.cpp
