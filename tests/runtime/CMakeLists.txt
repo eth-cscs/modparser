@@ -1,9 +1,15 @@
 set(RUNTIME_SOURCES
-    #../gtest-all.cpp
+    # google test framework
+    ../gtest-all.cpp
+
+    # runtime library
     runtime.cpp
 
-    # google test library sources
+    # individual mechanism tests
     test_NaTs2_t.cpp
+
+    # unit test driver
+    driver.cpp
 )
 
 add_executable(test_runtime ${RUNTIME_SOURCES})

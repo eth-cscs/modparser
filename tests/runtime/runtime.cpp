@@ -8,24 +8,24 @@
 
 // load an index from file
 index_type index_from_file(std::string fname) {
-        std::ifstream fid(fname);
-        if(!fid.is_open()) {
-            std::cerr << "errror: unable to open index file "
-                      << fname
-                      << std::endl;
-            return index_type();
-        }
+    std::ifstream fid(fname);
+    if(!fid.is_open()) {
+        std::cerr << "errror: unable to open index file "
+                  << fname
+                  << std::endl;
+        return index_type();
+    }
 
-        size_type n;
-        fid >> n;
-        printf( "%-6d indexes in %s\n", n, fname.c_str());
+    size_type n;
+    fid >> n;
+    printf( "%-6d indexes in %s\n", n, fname.c_str());
 
-        index_type index(n);
-        for(size_type i=0; i<n; ++i) {
-            fid >> index[i];
-        }
+    index_type index(n);
+    for(size_type i=0; i<n; ++i) {
+        fid >> index[i];
+    }
 
-        return index;
+    return index;
 }
 
 // calculates the mapping of mechanism nodes onto ion nodes

@@ -1,9 +1,11 @@
+#include "../gtest.h"
+
 #include "ionchannel.h"
 #include "runtime.h"
 
 #include "mechanisms/NaTs2_t.h"
 
-int main(void) {
+TEST(Mechanisms, NaTs2_t) {
     // load index data from file
     auto na_index = index_from_file("./nodefiles/na_ion.nodes");
     auto ca_index = index_from_file("./nodefiles/ca_ion.nodes");
