@@ -18,7 +18,7 @@ index_type index_from_file(std::string fname) {
 
     size_type n;
     fid >> n;
-    printf( "%-6d indexes in %s\n", n, fname.c_str());
+    //printf( "%-6d indexes in %s\n", n, fname.c_str());
 
     index_type index(n);
     for(size_type i=0; i<n; ++i) {

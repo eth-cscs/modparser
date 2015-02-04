@@ -1,7 +1,4 @@
 set(TEST_SOURCES
-    # google test library sources
-    ../gtest-all.cpp
-
     # unit tests
     test_lexer.cpp
     test_module.cpp
@@ -16,7 +13,7 @@ set(TEST_SOURCES
 
 add_executable(test_compiler ${TEST_SOURCES})
 
-target_link_libraries(test_compiler LINK_PUBLIC compiler)
+target_link_libraries(test_compiler LINK_PUBLIC compiler gtest)
 
 set_target_properties( test_compiler
     PROPERTIES

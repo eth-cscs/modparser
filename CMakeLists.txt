@@ -7,6 +7,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/external)
 include_directories(${CMAKE_SOURCE_DIR}/tests/runtime)
+include_directories(${CMAKE_SOURCE_DIR}/tests/gtest)
 
 add_subdirectory(src)
 add_subdirectory(tests)

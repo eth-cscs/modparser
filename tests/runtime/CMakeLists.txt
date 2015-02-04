@@ -1,12 +1,10 @@
 set(RUNTIME_SOURCES
-    # google test framework
-    ../gtest-all.cpp
-
     # runtime library
     runtime.cpp
 
     # individual mechanism tests
     test_NaTs2_t.cpp
+    test_Ca_HVA.cpp
 
     # unit test driver
     driver.cpp
@@ -14,7 +12,7 @@ set(RUNTIME_SOURCES
 
 add_executable(test_runtime ${RUNTIME_SOURCES})
 
-target_link_libraries(test_runtime LINK_PUBLIC compiler)
+target_link_libraries(test_runtime LINK_PUBLIC compiler gtest)
 
 set_target_properties( test_runtime
     PROPERTIES
