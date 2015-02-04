@@ -41,3 +41,4 @@ index_type index_into(index_view mech, index_view ion) {
     }
     return map;
 }
+

@@ -3,7 +3,7 @@ set(RUNTIME_SOURCES
     runtime.cpp
 
     # google test library sources
-    Na_test.cpp
+    test_NaTs2_t.cpp
 )
 
 add_executable(test_runtime ${RUNTIME_SOURCES})

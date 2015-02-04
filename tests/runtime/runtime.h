@@ -5,6 +5,9 @@
 #include <vector/include/Vector.h>
 #include "indexedview.h"
 
+using memory::all;
+using memory::end;
+
 using value_type  = double;
 using size_type   = int;
 using vector_type = memory::HostVector<value_type>;

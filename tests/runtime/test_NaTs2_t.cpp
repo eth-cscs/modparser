@@ -39,14 +39,14 @@ int main(void) {
     mech.ion_na.index = ion_map;
     mech.ion_na.ena   = ion_na.reversal_potential();
     mech.ion_na.ina   = ion_na.current();
-    ion_na.reversal_potential()(memory::all) = 0.2;
-    ion_na.current()(memory::all) = 0.;
+    ion_na.reversal_potential()(all) = 0.2;
+    ion_na.current()(all) = 0.;
 
-    matrix.vec_a()(memory::all) = -1.;
-    matrix.vec_b()(memory::all) = -1.;
-    matrix.vec_d()(memory::all) = 4.;
-    matrix.vec_rhs()(memory::all) = 0.;
-    matrix.vec_v()(memory::all) = 128.;
+    matrix.vec_a()(all) = -1.;
+    matrix.vec_b()(all) = -1.;
+    matrix.vec_d()(all) = 4.;
+    matrix.vec_rhs()(all) = 0.;
+    matrix.vec_v()(all) = 128.;
 
     // initialize the mechanism
     mech.nrn_init();
