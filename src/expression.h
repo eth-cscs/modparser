@@ -291,7 +291,6 @@ public:
     bool add_variable(Token name);
     ArgumentExpression* is_argument() override {return this;}
     void semantic(std::shared_ptr<Scope> scp) override;
-    //Symbol& symbol() {return symbol_;}
     Token   token()  {return token_;}
     std::string const& name()  {return name_;}
     void set_name(std::string const& n) {
@@ -301,7 +300,6 @@ public:
     ~ArgumentExpression() {}
     void accept(Visitor *v) override;
 private:
-    //Symbol symbol_;
     Token token_;
     std::string name_;
 };

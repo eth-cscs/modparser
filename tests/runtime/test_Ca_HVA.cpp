@@ -37,7 +37,6 @@ TEST(Mechanisms, Ca_HVA) {
     // configure the mapping from mechanism onto the sodium ion
     // channel by hand
     index_type ion_map = index_into(Ca_HVA_index, ca_index);
-    print("ion map ", ion_map);
     mech.ion_ca.index = ion_map;
     mech.ion_ca.eca   = ion_ca.reversal_potential();
     mech.ion_ca.ica   = ion_ca.current();
@@ -54,49 +53,21 @@ TEST(Mechanisms, Ca_HVA) {
 
     // initialize the mechanism
     mech.nrn_init();
+    /*
     std::cout << yellow("init") << std::endl;
     print("m   ", mech.m);
-    print("h   ", mech.h);
-    print("minf", mech.mInf);
-    print("hinf", mech.hInf);
-    print("mtau", mech.mTau);
-    print("htau", mech.hTau);
-    print("malpha", mech.mAlpha);
-    print("mbeta", mech.mBeta);
+    */
 
     // update state
     mech.nrn_state();
-    std::cout << yellow("state") << std::endl;
-    print("m   ", mech.m);
-    print("h   ", mech.h);
-    print("minf", mech.mInf);
-    print("hinf", mech.hInf);
-    print("mtau", mech.mTau);
-    print("htau", mech.hTau);
-    print("malpha", mech.mAlpha);
-    print("mbeta", mech.mBeta);
 
     // calculate current contribution
     mech.nrn_current();
-    std::cout << yellow("current") << std::endl;
-    print("gCa ", mech.gCa);
-    print("ica ", mech.ica);
-    print("rhs ", matrix.vec_rhs());
-    print("d   ", matrix.vec_d());
-
 
     // add contribution back to diagonal
     mech.nrn_jacob();
-    std::cout << yellow("jacob") << std::endl;
-    print("g_  ", mech.g_);
-    print("d   ", matrix.vec_d());
 
     matrix.solve();
-    std::cout << yellow("solve") << std::endl;
-    print("rhs ", matrix.vec_rhs());
-
-    // print the result
-    //print("ica ", ion_ca.current());
 }
 
 

@@ -6,6 +6,17 @@
 #include <vector/include/Vector.h>
 #include "indexedview.h"
 
+#ifdef PROFILING_PAPI
+#define START_PROFILE    pw_start_collector(handle_);
+#define STOP_PROFILE     pw_stop_collector(handle_);
+#define INIT_PROFILE(n)  handle_ = pw_new_collector(n);
+#define DATA_PROFILE     int handle_;
+#else
+#define START_PROFILE
+#define STOP_PROFILE
+#define DATA_PROFILE
+#endif
+
 using memory::all;
 using memory::end;
 
