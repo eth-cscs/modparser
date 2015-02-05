@@ -56,6 +56,10 @@ flags = [
 '/usr/include',
 '-isystem',
 '/usr/local/include',
+'-isystem',
+'~/software/github/modparser/external',
+'-isystem',
+'~/software/github/modparser/tests/runtime',
 ]
 
 
@@ -69,7 +73,7 @@ flags = [
 #
 # Most projects will NOT need to set this to anything; you can just change the
 # 'flags' list of compilation flags. Notice that YCM itself uses that approach.
-compilation_database_folder = ''
+compilation_database_folder = '/home/bcumming/software/github/modparser'
 
 if os.path.exists( compilation_database_folder ):
   database = ycm_core.CompilationDatabase( compilation_database_folder )
