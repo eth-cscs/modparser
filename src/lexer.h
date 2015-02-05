@@ -153,9 +153,10 @@ public:
         end_     = buffer_.data() + buffer_.size();
         current_ = begin_;
         line_    = begin_;
-        //std::cout << "init " << std::endl;
-        //std::cout << begin_ << std::endl;
-        //std::cout << "close" << std::endl;
+
+        keywords_init();
+        token_strings_init();
+        binop_prec_init();
     }
 
     // get the next token
