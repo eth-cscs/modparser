@@ -1,3 +1,6 @@
 [submodule "external/vector"]
 	path = external/vector
 	url = git@github.com:bcumming/vector.git
+[submodule "external/papi-wrap"]
+	path = external/papi-wrap
+	url = git@github.com:bcumming/papi-wrap.git

@@ -4,8 +4,19 @@
 
 #include <gtest.h>
 
+#include <runtime.h>
+#ifdef PROFILING_PAPI
+#include <papi_wrap.h>
+#endif
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    auto success = RUN_ALL_TESTS();
+
+    #ifdef PROFILING_PAPI
+    if(!success) pw_print_table();
+    #endif
+
+    return success;
 }
 

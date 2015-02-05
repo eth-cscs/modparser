@@ -58,16 +58,17 @@ TEST(Mechanisms, Ca_HVA) {
     print("m   ", mech.m);
     */
 
-    // update state
-    mech.nrn_state();
+    for(auto i=0; i<1000; ++i) {
+        // calculate current contribution
+        mech.nrn_current();
 
-    // calculate current contribution
-    mech.nrn_current();
+        // update state
+        mech.nrn_state();
 
-    // add contribution back to diagonal
-    mech.nrn_jacob();
+        // add contribution back to diagonal
+        mech.nrn_jacob();
 
-    matrix.solve();
+        matrix.solve();
+    }
 }
-
 

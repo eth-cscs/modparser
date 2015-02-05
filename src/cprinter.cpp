@@ -175,7 +175,6 @@ void CPrinterVisitor::visit(ProcedureExpression *e) {
 
 void CPrinterVisitor::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
-    //set_gutter(0);
     text_ << gutter_ << "void " << e->name() << "() {\n";
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
@@ -225,6 +224,7 @@ void CPrinterVisitor::visit(APIMethod *e) {
     // ------------- add loop for API call ------------- //
     text_ << gutter_ << "int n = node_indices_.size();\n";
 
+    text_ << gutter_ << "START_PROFILE\n";
     text_ << gutter_ << "for(int i=0; i<n; ++i) {\n";
     increase_indentation();
 
@@ -250,6 +250,8 @@ void CPrinterVisitor::visit(APIMethod *e) {
 
     decrease_indentation();
     text_ << gutter_ << "}\n";
+
+    text_ << gutter_ << "STOP_PROFILE\n";
 
     // ------------- close up ------------- //
     decrease_indentation();
@@ -412,6 +414,9 @@ CPrinter::CPrinter(Module &m) {
             text_ << "        " << var->name() << "(all) = " << val << ";\n";
         }
     }
+
+
+    text_ << "       INIT_PROFILE\n";
     text_ << "    }\n\n";
 
     //////////////////////////////////////////////
@@ -426,6 +431,9 @@ CPrinter::CPrinter(Module &m) {
     text_ << "        dt = dt_;\n";
     text_ << "    }\n\n";
 
+    text_ << "    std::string name() const {\n";
+    text_ << "        return \"" << m.name() << "\";\n";
+    text_ << "    }\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -466,6 +474,7 @@ CPrinter::CPrinter(Module &m) {
     text_ << "    Matrix &matrix_;\n";
     text_ << "    index_type const& node_indices_;\n";
 
+    text_ << "\n    DATA_PROFILE\n";
     text_ << "};\n\n";
 }
 

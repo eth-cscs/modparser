@@ -54,23 +54,17 @@ TEST(Mechanisms, NaTs2_t) {
     // initialize the mechanism
     mech.nrn_init();
 
-    // calculate current contribution
-    mech.nrn_current();
+    for(auto i=0; i<1000; ++i) {
+        // calculate current contribution
+        mech.nrn_current();
 
-    // update state
-    mech.nrn_state();
+        // update state
+        mech.nrn_state();
 
-    // add contribution back to rhs
-    mech.nrn_jacob();
+        // add contribution back to rhs
+        mech.nrn_jacob();
 
-    //matrix.solve();
-
-    // print the result
-    //for(auto val : matrix.vec_rhs())
-    //for(auto val : ion_na.reversal_potential())
-    //for(auto val : ion_na.current())
-    //   std::cout << val << " ";
-    //std::cout << std::endl;
+        matrix.solve();
+    }
 }
-
 
