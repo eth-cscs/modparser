@@ -43,8 +43,6 @@ TEST(Mechanisms, Ca_HVA) {
     ion_ca.reversal_potential()(all) = 0.2;
     ion_ca.current()(all) = 0.;
 
-    mech.gCa_HVAbar(all) = 2.;
-
     matrix.vec_a()(all) = -1.;
     matrix.vec_b()(all) = -1.;
     matrix.vec_d()(all) = 4.;

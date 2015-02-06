@@ -5,6 +5,7 @@ set(RUNTIME_SOURCES
     # individual mechanism tests
     test_NaTs2_t.cpp
     test_Ca_HVA.cpp
+    test_timestep.cpp
 
     # unit test driver
     driver.cpp
