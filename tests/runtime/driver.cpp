@@ -14,8 +14,8 @@ int main(int argc, char **argv) {
     auto success = RUN_ALL_TESTS();
 
     #ifdef PROFILING_PAPI
-    //if(!success) pw_print_table();
-    if(!success) pw_print();
+    if(!success) pw_print_table();
+    //if(!success) pw_print();
     #endif
 
     return success;

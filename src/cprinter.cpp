@@ -358,21 +358,22 @@ CPrinter::CPrinter(Module &m) {
     //////////////////////////////////////////////
     text_ << "#pragma once\n\n";
     text_ << "#include <cmath>\n\n";
+    text_ << "#include <indexedview.h>\n";
     text_ << "#include <matrix.h>\n";
-    text_ << "#include <indexedview.h>\n\n";
+    text_ << "#include <mechanism.hpp>\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     std::string class_name = "Mechanism_" + m.name();
 
-    text_ << "class " + class_name + " {\n";
+    text_ << "class " + class_name + " : public Mechanism {\n";
     text_ << "public:\n\n";
-    text_ << "    using value_type  = double;\n";
-    text_ << "    using size_type   = int;\n";
-    text_ << "    using vector_type = memory::HostVector<value_type>;\n";
-    text_ << "    using view_type   = memory::HostView<value_type>;\n";
-    text_ << "    using index_type  = memory::HostVector<size_type>;\n";
-    text_ << "    using indexed_view= IndexedView<value_type, size_type>;\n\n";
+    text_ << "    using value_type  = Mechanism::value_type;\n";
+    text_ << "    using size_type   = Mechanism::size_type;\n";
+    text_ << "    using vector_type = Mechanism::vector_type;\n";
+    text_ << "    using view_type   = Mechanism::view_type;\n";
+    text_ << "    using index_type  = Mechanism::index_type;\n";
+    text_ << "    using indexed_view= Mechanism::indexed_view;\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -392,9 +393,11 @@ CPrinter::CPrinter(Module &m) {
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
-    text_ << "    " + class_name + "( index_type const& node_indices,\n";
-    text_ << "               Matrix &matrix)\n";
-    text_ << "    :  matrix_(matrix), node_indices_(node_indices)\n";
+    text_ << "    " + class_name + "(\n";
+    text_ << "        Matrix &matrix,\n";
+    text_ << "        index_type const& node_indices)\n";
+    text_ << "    :   Mechanism(matrix, node_indices)\n";
+    //text_ << "    :   matrix_(matrix), node_indices_(node_indices)\n";
     text_ << "    {\n";
     int num_vars = array_variables.size();
     text_ << "        size_type num_fields = " << num_vars << ";\n";
@@ -415,16 +418,15 @@ CPrinter::CPrinter(Module &m) {
         }
     }
 
-
     text_ << "       INIT_PROFILE\n";
     text_ << "    }\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    text_ << "    size_type size() const {\n";
-    text_ << "        return node_indices_.size();\n";
-    text_ << "    }\n\n";
+    //text_ << "    size_type size() const {\n";
+    //text_ << "        return node_indices_.size();\n";
+    //text_ << "    }\n\n";
 
     text_ << "    void set_params(value_type t_, value_type dt_) {\n";
     text_ << "        t = t_;\n";
@@ -471,8 +473,8 @@ CPrinter::CPrinter(Module &m) {
         }
     }
 
-    text_ << "    Matrix &matrix_;\n";
-    text_ << "    index_type const& node_indices_;\n";
+    //text_ << "    Matrix &matrix_;\n";
+    //text_ << "    index_type const& node_indices_;\n";
 
     text_ << "\n    DATA_PROFILE\n";
     text_ << "};\n\n";

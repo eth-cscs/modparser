@@ -28,6 +28,12 @@ if( "${TESTS_USE_PAPI}" STREQUAL "ON" )
     link_directories   (${PAPI_WRAP_PATH}/lib)
 endif()
 
+set( OPTIMIZATION_INFO "OFF" CACHE BOOL "get optimization reports from compiler" )
+if( "${OPTIMIZATION_INFO}" STREQUAL "ON" )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopt-info")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopt-info-vec-all")
+endif()
+
 include_directories(${CMAKE_SOURCE_DIR}/external)
 include_directories(${CMAKE_SOURCE_DIR}/tests/runtime)
 include_directories(${CMAKE_SOURCE_DIR}/tests/gtest)

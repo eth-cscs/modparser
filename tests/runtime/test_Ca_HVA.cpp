@@ -31,7 +31,7 @@ TEST(Mechanisms, Ca_HVA) {
     IonChannel ion_ca(ca_index);
 
     // initialize the Nats2_t mechanism
-    Mechanism_Ca_HVA mech(Ca_HVA_index, matrix);
+    Mechanism_Ca_HVA mech(matrix, Ca_HVA_index);
     mech.set_params(0.0, 0.1);
 
     // configure the mapping from mechanism onto the sodium ion
@@ -58,7 +58,7 @@ TEST(Mechanisms, Ca_HVA) {
     print("m   ", mech.m);
     */
 
-    for(auto i=0; i<1000; ++i) {
+    for(auto i=0; i<100; ++i) {
         // calculate current contribution
         mech.nrn_current();
 
