@@ -34,6 +34,7 @@ void Expression::semantic(std::shared_ptr<Scope>) {
 Expression* Expression::clone() const {
     std::cerr << "clone() has not been implemented for " << this->to_string() << std::endl;
     assert(false);
+    return nullptr;
 }
 
 /*******************************************************************************
