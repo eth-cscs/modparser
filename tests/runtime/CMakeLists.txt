@@ -13,8 +13,13 @@ set(RUNTIME_SOURCES
 add_executable(test_runtime ${RUNTIME_SOURCES})
 
 target_link_libraries(test_runtime LINK_PUBLIC compiler gtest)
-target_link_libraries(test_runtime LINK_PUBLIC ${PAPI_WRAP_PATH}/lib/libpapi_wrap.a)
-target_link_libraries(test_runtime LINK_PUBLIC ${PAPI_LIB_PATH}/libpapi.a)
+
+# add papi library dependencies
+if( "${TESTS_USE_PAPI}" STREQUAL "ON" )
+    # order matters: papi-wrap before libpapi
+    target_link_libraries(test_runtime LINK_PUBLIC ${PAPI_WRAP_PATH}/lib/libpapi_wrap.a)
+    target_link_libraries(test_runtime LINK_PUBLIC ${PAPI_LIB_PATH}/libpapi.a)
+endif()
 
 set_target_properties( test_runtime
     PROPERTIES

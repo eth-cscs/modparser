@@ -5,7 +5,7 @@ project (modparser)
 enable_language(CXX)
 
 # compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wall -Wno-unused-function -Wno-sign-compare -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wall -Wno-unused-function -Wno-sign-compare")
 
 # this generates a .json file with full compilation command for each file
 set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
@@ -17,7 +17,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # turn on papi for runtime tests (off by default)
 set( TESTS_USE_PAPI "OFF" CACHE BOOL "use PAPI instrumentation for runtime tests" )
 if( "${TESTS_USE_PAPI}" STREQUAL "ON" )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPROFILING_PAPI")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPROFILING_PAPI -fopenmp")
 
     set( PAPI_WRAP_PATH ${CMAKE_SOURCE_DIR}/external/papi-wrap )
     set( PAPI_PATH "$ENV{PAPI_ROOT}" CACHE STRING "Path to papi library" )
