@@ -380,6 +380,7 @@ bool Module::semantic() {
         };
 
         // add statements that initialize the reduction variables
+        bool update_current = false;
         std::list<std::string> outputs;
         for(auto e: *(breakpoint->body())) {
             if(e->is_solve_statement()) continue;
@@ -418,9 +419,10 @@ bool Module::semantic() {
                 if(var->ion_channel()!=k_ion_nonspecific) {
                     outputs.push_back(lhs->name());
                 }
+                update_current = true;
             }
         }
-        if(outputs.size()>0) {
+        if(update_current) {
             block.push_back(Parser("g_ = current_").parse_line_expression());
         }
         ConstantFolderVisitor* v = new ConstantFolderVisitor();
@@ -448,13 +450,16 @@ bool Module::semantic() {
             proc_current->outputs().push_back({tok_plus, scp->find(var), symbols_["ion_"+var]});
         }
         // only output contribution to RHS if there is one to make
-        if(outputs.size()>0) {
+        if(update_current) {
             proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["vec_rhs"]});
-            // assume that all input ion variables are used
-            for(auto var: symbols_) {
-                auto e = var.second.expression->is_variable();
-                if( e && e->is_ion() && e->is_readable()) {
-                    proc_current->inputs().push_back({tok_eq, scp->find(e->name()), symbols_["ion_"+e->name()]});
+            if(outputs.size()>0) {
+                // only need input ionic values if external ion chennel dependency
+                // assume that all input ion variables are used
+                for(auto var: symbols_) {
+                    auto e = var.second.expression->is_variable();
+                    if( e && e->is_ion() && e->is_readable()) {
+                        proc_current->inputs().push_back({tok_eq, scp->find(e->name()), symbols_["ion_"+e->name()]});
+                    }
                 }
             }
         }
