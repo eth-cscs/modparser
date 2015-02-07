@@ -269,6 +269,7 @@ public:
     void semantic(std::shared_ptr<Scope> scp) override;
     std::vector<Symbol>& symbols() {return symbols_;}
     std::map<std::string, Token>& variables() {return vars_;}
+    Expression* clone() const override;
     ~LocalExpression() {}
     void accept(Visitor *v) override;
 private:

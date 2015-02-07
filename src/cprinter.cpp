@@ -74,12 +74,12 @@ void CPrinterVisitor::visit(IdentifierExpression *e) {
 void CPrinterVisitor::visit(VariableExpression *e) {
     text_ << e->name();
     if(e->is_range()) {
-        text_ << "[i]";
+        text_ << "[i_]";
     }
 }
 
 void CPrinterVisitor::visit(IndexedVariable *e) {
-    text_ << e->name() << "[i]";
+    text_ << e->name() << "[i_]";
 }
 
 void CPrinterVisitor::visit(UnaryExpression *e) {
@@ -155,7 +155,7 @@ void CPrinterVisitor::visit(IfExpression *e) {
 void CPrinterVisitor::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
-    text_ << gutter_ << "void " << e->name() << "(const int i";
+    text_ << gutter_ << "void " << e->name() << "(const int i_";
     for(auto arg : e->args()) {
         text_ << ", value_type " << arg->is_argument()->name();
     }
@@ -225,7 +225,7 @@ void CPrinterVisitor::visit(APIMethod *e) {
     text_ << gutter_ << "int n = node_indices_.size();\n";
 
     text_ << gutter_ << "START_PROFILE\n";
-    text_ << gutter_ << "for(int i=0; i<n; ++i) {\n";
+    text_ << gutter_ << "for(int i_=0; i_<n; ++i_) {\n";
     increase_indentation();
 
     // insert loads from external state here
@@ -260,7 +260,7 @@ void CPrinterVisitor::visit(APIMethod *e) {
 }
 
 void CPrinterVisitor::visit(CallExpression *e) {
-    text_ << e->name() << "(i";
+    text_ << e->name() << "(i_";
     for(auto& arg: e->args()) {
         text_ << ", ";
         arg->accept(this);

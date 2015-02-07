@@ -197,7 +197,7 @@ bool Module::semantic() {
         // get a reference to the empty body of the init function
         auto& body = proc_init->body()->body();
         for(auto e : *(initial->body())) {
-            if(e->is_local_declaration()) continue;
+            //if(e->is_local_declaration()) continue;
             body.push_back(e->clone());
         }
         // perform semantic analysis for init

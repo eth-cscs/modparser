@@ -105,6 +105,14 @@ std::string LocalExpression::to_string() const {
     return str;
 }
 
+Expression* LocalExpression::clone() const {
+    auto local = new LocalExpression(location());
+    for(auto &v : vars_) {
+        local->add_variable(v.second);
+    }
+    return local;
+}
+
 bool LocalExpression::add_variable(Token tok) {
     if(vars_.find(tok.name)!=vars_.end()) {
         error_ = true;
