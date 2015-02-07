@@ -8,7 +8,6 @@ args=""
 mechanisms="Ca KdShu2007 Ih NaTs2_t expsyn Ca_HVA ProbAMPANMDA_EMS"
 for mech in $mechanisms
 do
-    #echo ../../bin/modcc ../modfiles/$mech.mod -o mechanisms/$mech.h $args
-    ../../bin/modcc ../modfiles/$mech.mod -o mechanisms/$mech.h $args
+    ../bin/modcc ./modfiles/$mech.mod -o ./runtime/mechanisms/$mech.h $args
 done
 
