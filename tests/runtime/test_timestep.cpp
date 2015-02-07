@@ -6,6 +6,7 @@
 #include "mechanisms/Ca_HVA.h"
 #include "mechanisms/NaTs2_t.h"
 #include "mechanisms/Ih.h"
+#include "mechanisms/Im.h"
 #include "mechanisms/ProbAMPANMDA_EMS.h"
 
 //#include <omp.h>
@@ -23,6 +24,7 @@ TEST(Mechanisms, timestep) {
     auto Ca_HVA_index = index_from_file("./nodefiles/Ca_HVA.nodes");
     auto NaTs2_index  = index_from_file("./nodefiles/NaTs2_t.nodes");
     auto Ih_index     = index_from_file("./nodefiles/Ih.nodes");
+    auto Im_index     = index_from_file("./nodefiles/Ih.nodes");
     auto ProbAMPA_index     = index_from_file("./nodefiles/ProbAMPANMDA_EMS.nodes");
 
     // calculate some cell statistics
@@ -88,6 +90,14 @@ TEST(Mechanisms, timestep) {
     mech_Ih.set_params(t0, dt);
     // no ion channel dependencies
     mechanisms.push_back(&mech_Ih);
+
+    /////////// Im ///////////
+    Mechanism_Im mech_Im(matrix, Im_index);
+    mech_Im.set_params(t0, dt);
+    mech_Im.ion_k.index = index_into(Im_index, k_index);
+    mech_Im.ion_k.ek   = ion_k.reversal_potential();
+    mech_Im.ion_k.ik   = ion_k.current();
+    mechanisms.push_back(&mech_Im);
 
     /////////// ProbA ///////////
     Mechanism_ProbAMPANMDA_EMS mech_ProbAMPA(matrix, ProbAMPA_index);
