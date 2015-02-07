@@ -8,6 +8,7 @@
 #include "mechanisms/Ih.h"
 #include "mechanisms/Im.h"
 #include "mechanisms/ProbAMPANMDA_EMS.h"
+#include "mechanisms/ProbGABAAB_EMS.h"
 
 //#include <omp.h>
 
@@ -20,12 +21,13 @@ TEST(Mechanisms, timestep) {
     auto ca_index = index_from_file("./nodefiles/ca_ion.nodes");
     auto  k_index = index_from_file("./nodefiles/k_ion.nodes");
 
-    auto parent_index = index_from_file("./nodefiles/parent_indices.txt");
-    auto Ca_HVA_index = index_from_file("./nodefiles/Ca_HVA.nodes");
-    auto NaTs2_index  = index_from_file("./nodefiles/NaTs2_t.nodes");
-    auto Ih_index     = index_from_file("./nodefiles/Ih.nodes");
-    auto Im_index     = index_from_file("./nodefiles/Ih.nodes");
-    auto ProbAMPA_index     = index_from_file("./nodefiles/ProbAMPANMDA_EMS.nodes");
+    auto parent_index   = index_from_file("./nodefiles/parent_indices.txt");
+    auto Ca_HVA_index   = index_from_file("./nodefiles/Ca_HVA.nodes");
+    auto NaTs2_index    = index_from_file("./nodefiles/NaTs2_t.nodes");
+    auto Ih_index       = index_from_file("./nodefiles/Ih.nodes");
+    auto Im_index       = index_from_file("./nodefiles/Ih.nodes");
+    auto ProbAMPA_index = index_from_file("./nodefiles/ProbAMPANMDA_EMS.nodes");
+    auto ProbGABA_index = index_from_file("./nodefiles/ProbGABAAB_EMS.nodes");
 
     // calculate some cell statistics
     int num_cells = std::count(parent_index.begin(), parent_index.end(), 0);
@@ -99,12 +101,19 @@ TEST(Mechanisms, timestep) {
     mech_Im.ion_k.ik   = ion_k.current();
     mechanisms.push_back(&mech_Im);
 
-    /////////// ProbA ///////////
+    /////////// ProbAMPA ///////////
     Mechanism_ProbAMPANMDA_EMS mech_ProbAMPA(matrix, ProbAMPA_index);
     mech_ProbAMPA.set_params(t0, dt);
     std::cout << "ProbAMPA has size " << mech_ProbAMPA.size() << std::endl;
     // no ion channel dependencies
     mechanisms.push_back(&mech_ProbAMPA);
+
+    /////////// ProbGABA ///////////
+    Mechanism_ProbGABAAB_EMS mech_ProbGABA(matrix, ProbGABA_index);
+    mech_ProbGABA.set_params(t0, dt);
+    std::cout << "ProbGABA has size " << mech_ProbGABA.size() << std::endl;
+    // no ion channel dependencies
+    mechanisms.push_back(&mech_ProbGABA);
 
     // initialize the mechanism
     for(auto m : mechanisms) {
@@ -122,7 +131,7 @@ TEST(Mechanisms, timestep) {
     auto VEC_D   = matrix.vec_d();
     auto p       = parent_index;
 
-    const int nt = 1000;
+    const int nt = 100;
     for(auto i=0; i<nt; ++i) {
         START_PROFILE;
         VEC_RHS(all) = 0.;
