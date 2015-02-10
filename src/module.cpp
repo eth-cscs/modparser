@@ -197,7 +197,6 @@ bool Module::semantic() {
         // get a reference to the empty body of the init function
         auto& body = proc_init->body()->body();
         for(auto e : *(initial->body())) {
-            //if(e->is_local_declaration()) continue;
             body.push_back(e->clone());
         }
         // perform semantic analysis for init
@@ -273,7 +272,6 @@ bool Module::semantic() {
             bool has_derivaties = false;
             auto& body = proc_state->body()->body();
             for(auto e : *(dblock->body())) {
-                if(e->is_local_declaration()) continue;
                 if(e->is_assignment()) {
                     auto lhs = e->is_assignment()->lhs();
                     auto rhs = e->is_assignment()->rhs();
@@ -328,6 +326,7 @@ bool Module::semantic() {
                     }
                     else {
                         body.push_back(e->clone());
+                        continue;
                     }
                 }
                 body.push_back(e->clone());

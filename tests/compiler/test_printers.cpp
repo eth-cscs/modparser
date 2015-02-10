@@ -1,6 +1,6 @@
 #include "test.h"
 
-#include "../src/cprinter.h"
+#include "../src/cprinter.hpp"
 
 TEST(CPrinter, statement) {
     std::vector<const char*> expressions =

@@ -4,17 +4,19 @@
 
 #include <tclap/include/CmdLine.h>
 
-#include "cprinter.h"
+#include "cprinter.hpp"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
 #include "util.h"
 
+//#define WITH_PROFILING
 //#define VERBOSE
 
 struct Options {
     std::string filename;
     std::string outputname;
+    bool has_output = false;
     bool verbose = true;
 };
 
@@ -31,7 +33,7 @@ int main(int argc, char **argv) {
             fin_arg("input_file", "the name of the .mod file to compile", true, "", "filename");
         // output filename
         TCLAP::ValueArg<std::string>
-            fout_arg("o","output","name of output file",true,"","filename");
+            fout_arg("o","output","name of output file", false,"","filename");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
 
@@ -41,6 +43,7 @@ int main(int argc, char **argv) {
         cmd.parse(argc, argv);
 
         options.outputname = fout_arg.getValue();
+        options.has_output = options.outputname.size()>0;
         options.filename = fin_arg.getValue();
         options.verbose = verbose_arg.getValue();
     }
@@ -86,7 +89,6 @@ int main(int argc, char **argv) {
 
     if(m.status() == k_compiler_error) return 1;
 
-    //#define WITH_PROFILING
     #ifdef WITH_PROFILING
     {
         const int N = 10;
@@ -112,11 +114,22 @@ int main(int argc, char **argv) {
     #endif
 
     // generate output
-    if(options.verbose) std::cout << green("[") + "output " + white(options.outputname) + green("]") << std::endl;
+    if(options.verbose) {
+        std::cout << green("[") + "output "
+                  << (options.has_output ? white(options.outputname) : "stdout")
+                  << green("]") << std::endl;
+    }
 
-    std::ofstream fout(options.outputname);
-    fout << CPrinter(m).text();
-    fout.close();
+    if(options.has_output) {
+        std::ofstream fout(options.outputname);
+        fout << CPrinter(m).text();
+        fout.close();
+    }
+    else {
+        std::cout << cyan("--------------------------------------") << std::endl;
+        std::cout << CPrinter(m).text();
+        std::cout << cyan("--------------------------------------") << std::endl;
+    }
 
     return 0;
 }

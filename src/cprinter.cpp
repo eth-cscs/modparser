@@ -1,4 +1,4 @@
-#include "cprinter.h"
+#include "cprinter.hpp"
 #include "lexer.h"
 
 ionKind ion_kind_from_name(std::string field) {
@@ -28,26 +28,6 @@ std::string ion_store(ionKind k) {
         default:
             return "";
     }
-}
-
-void CPrinterVisitor::set_gutter(int width) {
-    indent_ = width;
-    gutter_ = std::string(indent_, ' ');
-}
-
-void CPrinterVisitor::increase_indentation() {
-    indent_ += indentation_width_;
-    if(indent_<0) {
-        indent_=0;
-    }
-    gutter_ = std::string(indent_, ' ');
-}
-void CPrinterVisitor::decrease_indentation() {
-    indent_ -= indentation_width_;
-    if(indent_<0) {
-        indent_=0;
-    }
-    gutter_ = std::string(indent_, ' ');
 }
 
 void CPrinterVisitor::visit(Expression *e) {
@@ -123,9 +103,23 @@ void CPrinterVisitor::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
+        /*
         for(auto var : e->scope()->locals()) {
             if(var.second.kind == k_symbol_local)
-                text_ << gutter_ << "value_type " << var.first << " = 0.;\n";
+                text_ << "value_type " << var.first << " = 0.;\n";
+        }
+        */
+        std::vector<std::string> names;
+        for(auto var : e->scope()->locals()) {
+            if(var.second.kind == k_symbol_local)
+                names.push_back(var.first);
+        }
+        if(names.size()>0) {
+            text_.add_gutter() << "value_type " << names[0];
+            for(auto it=names.begin()+1; it!=names.end(); ++it) {
+                    text_ <<  "(0), " << *it;
+            }
+            text_.end_line("(0);");
         }
     }
 
@@ -133,9 +127,9 @@ void CPrinterVisitor::visit(BlockExpression *e) {
     for(auto stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
-        text_ << gutter_;
+        text_.add_gutter();
         stmt->accept(this);
-        text_ << ";\n";
+        text_.end_line(";");
     }
 }
 
@@ -149,17 +143,18 @@ void CPrinterVisitor::visit(IfExpression *e) {
     increase_indentation();
     e->true_branch()->accept(this);
     decrease_indentation();
-    text_ << gutter_ << "}";
+    text_.add_gutter();
+    text_ << "}";
 }
 
 void CPrinterVisitor::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
-    text_ << gutter_ << "void " << e->name() << "(const int i_";
+    text_.add_gutter() << "void " << e->name() << "(const int i_";
     for(auto arg : e->args()) {
         text_ << ", value_type " << arg->is_argument()->name();
     }
-    text_ << ") {\n";
+    text_.end_line(") {");
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
 
@@ -169,13 +164,15 @@ void CPrinterVisitor::visit(ProcedureExpression *e) {
 
     // ------------- close up ------------- //
     decrease_indentation();
-    text_ << gutter_ << "}\n\n";
+    text_.add_line("}");
+    text_.add_line();
     return;
 }
 
 void CPrinterVisitor::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
-    text_ << gutter_ << "void " << e->name() << "() {\n";
+    text_.add_gutter() << "void " << e->name() << "() {";
+    text_.end_line();
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
 
@@ -185,7 +182,8 @@ void CPrinterVisitor::visit(APIMethod *e) {
     for(auto &in : e->inputs()) {
         auto const& name =
             in.external.expression->is_indexed_variable()->name();
-        text_ << gutter_ + "const indexed_view " + name;
+        text_.add_gutter();
+        text_ << "const indexed_view " + name;
         if(name.substr(0,3) == "vec") {
             text_ << "(matrix_." + name + "(), node_indices_);\n";
         }
@@ -204,7 +202,7 @@ void CPrinterVisitor::visit(APIMethod *e) {
     for(auto &in : e->outputs()) {
         auto const& name =
             in.external.expression->is_indexed_variable()->name();
-        text_ << gutter_ + "indexed_view " + name;
+        text_.add_gutter() << "indexed_view " + name;
         if(name.substr(0,3) == "vec") {
             text_ << "(matrix_." + name + "(), node_indices_);\n";
         }
@@ -222,40 +220,42 @@ void CPrinterVisitor::visit(APIMethod *e) {
     }
 
     // ------------- add loop for API call ------------- //
-    text_ << gutter_ << "int n = node_indices_.size();\n";
+    text_.add_line("int n = node_indices_.size();");
 
-    text_ << gutter_ << "START_PROFILE\n";
-    text_ << gutter_ << "for(int i_=0; i_<n; ++i_) {\n";
-    increase_indentation();
+    text_.add_line("START_PROFILE");
+    text_.add_line("#pragma ivdep");
+    text_.add_line("for(int i_=0; i_<n; ++i_) {");
+    text_.increase_indentation();
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {
-        text_ << gutter_;
+        text_.add_gutter();
         in.local.expression->accept(this);
         text_ << " = ";
         in.external.expression->accept(this);
-        text_ << ";\n";
+        text_.end_line(";");
     }
 
     e->body()->accept(this);
 
     // insert stores here
     for(auto &out : e->outputs()) {
-        text_ << gutter_;
+        text_.add_gutter();
         out.external.expression->accept(this);
         text_ << (out.op==tok_plus ? " += " : " -= ");
         out.local.expression->accept(this);
-        text_ << ";\n";
+        text_.end_line(";");
     }
 
-    decrease_indentation();
-    text_ << gutter_ << "}\n";
+    text_.decrease_indentation();
+    text_.add_line("}");
 
-    text_ << gutter_ << "STOP_PROFILE\n";
+    text_.add_line("STOP_PROFILE");
 
     // ------------- close up ------------- //
     decrease_indentation();
-    text_ << gutter_ << "}\n\n";
+    text_.add_line("}");
+    text_.add_line();
     return;
 }
 
@@ -424,9 +424,9 @@ CPrinter::CPrinter(Module &m) {
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    //text_ << "    size_type size() const {\n";
-    //text_ << "        return node_indices_.size();\n";
-    //text_ << "    }\n\n";
+    text_ << "    size_type memory() const {\n";
+    text_ << "        return node_indices_.size()*sizeof(value_type)*" << num_vars << ";\n";
+    text_ << "    }\n\n";
 
     text_ << "    void set_params(value_type t_, value_type dt_) {\n";
     text_ << "        t = t_;\n";
@@ -456,7 +456,7 @@ CPrinter::CPrinter(Module &m) {
     //////////////////////////////////////////////
 
     //text_ << "private:\n\n";
-    text_ << "    vector_type data_;\n\n" << std::endl;
+    text_ << "    vector_type data_;\n\n";
     for(auto var: array_variables) {
         text_ << "    view_type " << var->name() << ";\n";
     }
