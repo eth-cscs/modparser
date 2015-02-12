@@ -82,8 +82,6 @@ int main(int argc, char **argv) {
         options.print();
     }
 
-    std::cout << yellow("compiling ") << white(options.filename) << std::endl;
-
     // initialize the parser
     Parser p(m, false);
 
@@ -133,8 +131,7 @@ int main(int argc, char **argv) {
 
     // generate output
     if(options.verbose) {
-        std::cout << green("[") + "output "
-                  << (options.has_output ? white(options.outputname) : "stdout")
+        std::cout << green("[") + "code generation"
                   << green("]") << std::endl;
     }
 
