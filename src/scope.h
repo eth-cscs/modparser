@@ -14,7 +14,8 @@ enum symbolKind {
     k_symbol_indexed_variable, ///< a variable that is indexed
     k_symbol_local,        ///< variable at local scope
     k_symbol_argument,     ///< argument variable
-    k_symbol_none,    ///< no symbol kind (placeholder)
+    k_symbol_ghost,        ///< variable used as ghost buffer
+    k_symbol_none,         ///< no symbol kind (placeholder)
 };
 
 struct Symbol {

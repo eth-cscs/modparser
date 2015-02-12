@@ -18,6 +18,17 @@ struct Options {
     std::string outputname;
     bool has_output = false;
     bool verbose = true;
+    bool optimize = false;
+
+    void print() {
+        std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
+        std::cout << cyan("| file     ") << filename << std::string(61-11-filename.size(),' ') << cyan("|") << std::endl;
+        std::string outname = (outputname.size() ? outputname : "stdout");
+        std::cout << cyan("| output   ") << outname << std::string(61-11-outname.size(),' ') << cyan("|") << std::endl;
+        std::cout << cyan("| verbose  ") << (verbose  ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
+        std::cout << cyan("| optimize ") << (optimize ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
+        std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
+    }
 };
 
 int main(int argc, char **argv) {
@@ -36,6 +47,8 @@ int main(int argc, char **argv) {
             fout_arg("o","output","name of output file", false,"","filename");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
+        // optimization mode
+        TCLAP::SwitchArg opt_arg("O","optimize","turn optimizations on", cmd, false);
 
         cmd.add(fin_arg);
         cmd.add(fout_arg);
@@ -46,6 +59,7 @@ int main(int argc, char **argv) {
         options.has_output = options.outputname.size()>0;
         options.filename = fin_arg.getValue();
         options.verbose = verbose_arg.getValue();
+        options.optimize = opt_arg.getValue();
     }
     // catch any exceptions in command line handling
     catch(TCLAP::ArgException &e) {
@@ -62,6 +76,10 @@ int main(int argc, char **argv) {
         std::cout << red("error: ") << white(argv[1])
                   << " invalid or empty file" << std::endl;
         return 1;
+    }
+
+    if(options.verbose) {
+        options.print();
     }
 
     std::cout << yellow("compiling ") << white(options.filename) << std::endl;
@@ -122,12 +140,12 @@ int main(int argc, char **argv) {
 
     if(options.has_output) {
         std::ofstream fout(options.outputname);
-        fout << CPrinter(m).text();
+        fout << CPrinter(m, options.optimize).text();
         fout.close();
     }
     else {
         std::cout << cyan("--------------------------------------") << std::endl;
-        std::cout << CPrinter(m).text();
+        std::cout << CPrinter(m, options.optimize).text();
         std::cout << cyan("--------------------------------------") << std::endl;
     }
 

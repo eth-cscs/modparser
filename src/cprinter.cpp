@@ -1,6 +1,10 @@
 #include "cprinter.hpp"
 #include "lexer.h"
 
+/******************************************************************************
+                              helper methods
+******************************************************************************/
+
 ionKind ion_kind_from_name(std::string field) {
     if(field.substr(0,4) == "ion_") {
         field = field.substr(4);
@@ -29,6 +33,215 @@ std::string ion_store(ionKind k) {
             return "";
     }
 }
+
+/******************************************************************************
+                              TextBuffer
+******************************************************************************/
+TextBuffer& TextBuffer::add_gutter() {
+    text_ << gutter_;
+    return *this;
+}
+void TextBuffer::add_line(std::string const& line) {
+    text_ << gutter_ << line << std::endl;
+}
+void TextBuffer::add_line() {
+    text_ << std::endl;
+}
+void TextBuffer::end_line(std::string const& line) {
+    text_ << line << std::endl;
+}
+void TextBuffer::end_line() {
+    text_ << std::endl;
+}
+
+std::string TextBuffer::str() const {
+    return text_.str();
+}
+
+void TextBuffer::set_gutter(int width) {
+    indent_ = width;
+    gutter_ = std::string(indent_, ' ');
+}
+
+void TextBuffer::increase_indentation() {
+    indent_ += indentation_width_;
+    if(indent_<0) {
+        indent_=0;
+    }
+    gutter_ = std::string(indent_, ' ');
+}
+void TextBuffer::decrease_indentation() {
+    indent_ -= indentation_width_;
+    if(indent_<0) {
+        indent_=0;
+    }
+    gutter_ = std::string(indent_, ' ');
+}
+std::stringstream& TextBuffer::text() {
+    return text_;
+}
+
+/******************************************************************************
+                              CPrinter driver
+******************************************************************************/
+
+CPrinter::CPrinter(Module &m, bool o) {
+    optimize_ = o;
+
+    // make a list of vector types, both parameters and assigned
+    // and a list of all scalar types
+    std::vector<VariableExpression*> scalar_variables;
+    std::vector<VariableExpression*> array_variables;
+    for(auto sym: m.symbols()) {
+        if(sym.second.kind==k_symbol_variable) {
+            auto var = sym.second.expression->is_variable();
+            if(var->is_range()) {
+                array_variables.push_back(var);
+            }
+            else {
+                scalar_variables.push_back(var);
+            }
+        }
+    }
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    text_ << "#pragma once\n\n";
+    text_ << "#include <cmath>\n\n";
+    text_ << "#include <indexedview.h>\n";
+    text_ << "#include <matrix.h>\n";
+    text_ << "#include <mechanism.hpp>\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    std::string class_name = "Mechanism_" + m.name();
+
+    text_ << "class " + class_name + " : public Mechanism {\n";
+    text_ << "public:\n\n";
+    text_ << "    using value_type  = Mechanism::value_type;\n";
+    text_ << "    using size_type   = Mechanism::size_type;\n";
+    text_ << "    using vector_type = Mechanism::vector_type;\n";
+    text_ << "    using view_type   = Mechanism::view_type;\n";
+    text_ << "    using index_type  = Mechanism::index_type;\n";
+    text_ << "    using indexed_view= Mechanism::indexed_view;\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    for(auto& ion: m.neuron_block().ions) {
+        auto tname = "Ion" + ion.name;
+        text_ << "    struct " + tname + " {\n";
+        for(auto& field : ion.read) {
+            text_ << "        view_type " + field + ";\n";
+        }
+        for(auto& field : ion.write) {
+            text_ << "        view_type " + field + ";\n";
+        }
+        text_ << "        index_type index;\n";
+        text_ << "    };\n";
+        text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
+    }
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+    int num_vars = array_variables.size();
+    text_ << "    " + class_name + "(\n";
+    text_ << "        Matrix &matrix,\n";
+    text_ << "        index_type const& node_indices)\n";
+    text_ << "    :   Mechanism(matrix, node_indices)\n";
+    //text_ << "    :   matrix_(matrix), node_indices_(node_indices)\n";
+    text_ << "    {\n";
+    text_ << "        size_type num_fields = " << num_vars << ";\n";
+    text_ << "        size_type n = size();\n";
+    text_ << "        data_ = vector_type(n * num_fields);\n";
+    text_ << "        data_(all) = std::numeric_limits<value_type>::quiet_NaN();\n";
+    for(int i=0; i<num_vars; ++i) {
+        char namestr[128];
+        sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
+        text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
+    }
+    for(auto const& var : array_variables) {
+        double val = var->value();
+        // only non-NaN fields need to be initialized, because data_
+        // is NaN by default
+        if(val == val) {
+            text_ << "        " << var->name() << "(all) = " << val << ";\n";
+        }
+    }
+
+    text_ << "        INIT_PROFILE\n";
+    text_ << "    }\n\n";
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    text_ << "    size_type memory() const override {\n";
+    text_ << "        return node_indices_.size()*sizeof(value_type)*" << num_vars << ";\n";
+    text_ << "    }\n\n";
+
+    text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
+    text_ << "        t = t_;\n";
+    text_ << "        dt = dt_;\n";
+    text_ << "    }\n\n";
+
+    text_ << "    std::string name() const override {\n";
+    text_ << "        return \"" << m.name() << "\";\n";
+    text_ << "    }\n\n";
+
+    std::string kind_str = m.kind() == k_module_density
+                            ? "mechanismKind::density"
+                            : "mechanismKind::point_process";
+    text_ << "    mechanismKind kind() const override {\n";
+    text_ << "        return " << kind_str << ";\n";
+    text_ << "    }\n\n";
+
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    auto v = new CPrinterVisitor(&m, optimize_);
+    v->increase_indentation();
+    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    for(auto const &var : m.symbols()) {
+        if(   var.second.kind==k_symbol_procedure
+           && proctest(var.second.expression->is_procedure()->kind()))
+        {
+            var.second.expression->accept(v);
+        }
+    }
+    text_ << v->text();
+
+    //////////////////////////////////////////////
+    //////////////////////////////////////////////
+
+    //text_ << "private:\n\n";
+    text_ << "    vector_type data_;\n\n";
+    for(auto var: array_variables) {
+        text_ << "    view_type " << var->name() << ";\n";
+    }
+    for(auto var: scalar_variables) {
+        double val = var->value();
+        // test the default value for NaN
+        // useful for error propogation from bad initial conditions
+        if(val==val) {
+            text_ << "    value_type " << var->name() << " = " << val << ";\n";
+        }
+        else {
+            text_ << "    value_type " << var->name()
+              << " = std::numeric_limits<value_type>::quiet_NaN();\n";
+        }
+    }
+
+    //text_ << "    Matrix &matrix_;\n";
+    //text_ << "    index_type const& node_indices_;\n";
+
+    text_ << "\n    DATA_PROFILE\n";
+    text_ << "};\n\n";
+}
+
+
+/******************************************************************************
+                              CPrinterVisitor
+******************************************************************************/
 
 void CPrinterVisitor::visit(Expression *e) {
     std::cout << "CPrinterVisitor :: error printing : " << e->to_string() << std::endl;
@@ -219,12 +432,28 @@ void CPrinterVisitor::visit(APIMethod *e) {
         }
     }
 
-    // ------------- add loop for API call ------------- //
-    text_.add_line("int n = node_indices_.size();");
+    // ------------- get loop dimensions ------------- //
+    text_.add_line("int n_ = node_indices_.size();");
+
+    // hand off printing of loops to optimized or unoptimized backend
+    if(optimize_) {
+        print_APIMethod_optimized(e);
+    }
+    else {
+        print_APIMethod_unoptimized(e);
+    }
+}
+
+void CPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
+    // ------------- get mechanism properties ------------- //
+    bool is_density = module_->kind() == k_module_density;
 
     text_.add_line("START_PROFILE");
-    text_.add_line("#pragma ivdep");
-    text_.add_line("for(int i_=0; i_<n; ++i_) {");
+    // there can not be more than 1 instance of a density chanel per grid point,
+    // so we can assert that aliasing will not occur
+    if(is_density) text_.add_line("#pragma ivdep");
+
+    text_.add_line("for(int i_=0; i_<n_; ++i_) {");
     text_.increase_indentation();
 
     // insert loads from external state here
@@ -237,6 +466,89 @@ void CPrinterVisitor::visit(APIMethod *e) {
     }
 
     e->body()->accept(this);
+
+    // insert stores here
+    for(auto &out : e->outputs()) {
+        text_.add_gutter();
+        out.external.expression->accept(this);
+        text_ << (out.op==tok_plus ? " += " : " -= ");
+        out.local.expression->accept(this);
+        text_.end_line(";");
+    }
+
+    text_.decrease_indentation();
+    text_.add_line("}");
+
+    text_.add_line("STOP_PROFILE");
+
+    // ------------- close up ------------- //
+    decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+    return;
+}
+
+void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
+    // ------------- get mechanism properties ------------- //
+    bool is_point_process = module_->kind() == k_module_point;
+    bool has_outputs = e->outputs().size();
+    //bool is_density = module_->kind() == k_module_density;
+
+    text_.add_line("START_PROFILE");
+    // assert that memory accesses are not aliased because we will
+    // use ghost arrays to ensure that write-back of point processes does
+    // not lead to race conditions
+    text_.add_line("#pragma ivdep");
+
+    text_.add_line("for(int i_=0; i_<n_; ++i_) {");
+    text_.increase_indentation();
+
+    // :: analyse outputs, to determine if they depend on any
+    //    ghost fields.
+    /*
+    for(auto &out : e->outputs()) {
+        auto rhs = out.local;
+        if(rhs.kind == k_symbol_ghost) {
+            std::cout << rhs.expression->to_string()
+                      << green(" is") + " a ghost field in " << module_->name()
+                      << "::" << e->name() << std::endl;
+        }
+        else {
+            std::cout << rhs.expression->to_string()
+                      << red(" is not") + " a ghost field in " << module_->name()
+                      << "::" << e->name() << std::endl;
+        }
+    }
+    */
+        std::cout << e->to_string()
+                  << red(" is not") + " a ghost field in " << module_->name()
+                  << "::" << e->name() << std::endl;
+
+    // insert loads from external state here
+    for(auto &in : e->inputs()) {
+        text_.add_gutter();
+        in.local.expression->accept(this);
+        text_ << " = ";
+        in.external.expression->accept(this);
+        text_.end_line(";");
+    }
+
+    e->body()->accept(this);
+
+    // create an additional loop for updating matrix and ion
+    // channels if this is a point process, in order to avoid
+    // race conditions when two mechanism instances on the same
+    // point write back to the same matrix/ion channel field
+    //
+    // only perform for point processes, for now
+    if(has_outputs && is_point_process)
+    {
+        text_.decrease_indentation();
+        text_.add_line("}");
+
+        text_.add_line("for(int i_=0; i_<n_; ++i_) {");
+        text_.increase_indentation();
+    }
 
     // insert stores here
     for(auto &out : e->outputs()) {
@@ -335,148 +647,5 @@ void CPrinterVisitor::visit(BinaryExpression *e) {
 
     // reset parent precedence
     parent_op_ = pop;
-}
-
-CPrinter::CPrinter(Module &m) {
-    // make a list of vector types, both parameters and assigned
-    // and a list of all scalar types
-    std::vector<VariableExpression*> scalar_variables;
-    std::vector<VariableExpression*> array_variables;
-    for(auto sym: m.symbols()) {
-        if(sym.second.kind==k_symbol_variable) {
-            auto var = sym.second.expression->is_variable();
-            if(var->is_range()) {
-                array_variables.push_back(var);
-            }
-            else {
-                scalar_variables.push_back(var);
-            }
-        }
-    }
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-    text_ << "#pragma once\n\n";
-    text_ << "#include <cmath>\n\n";
-    text_ << "#include <indexedview.h>\n";
-    text_ << "#include <matrix.h>\n";
-    text_ << "#include <mechanism.hpp>\n\n";
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-    std::string class_name = "Mechanism_" + m.name();
-
-    text_ << "class " + class_name + " : public Mechanism {\n";
-    text_ << "public:\n\n";
-    text_ << "    using value_type  = Mechanism::value_type;\n";
-    text_ << "    using size_type   = Mechanism::size_type;\n";
-    text_ << "    using vector_type = Mechanism::vector_type;\n";
-    text_ << "    using view_type   = Mechanism::view_type;\n";
-    text_ << "    using index_type  = Mechanism::index_type;\n";
-    text_ << "    using indexed_view= Mechanism::indexed_view;\n\n";
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-    for(auto& ion: m.neuron_block().ions) {
-        auto tname = "Ion" + ion.name;
-        text_ << "    struct " + tname + " {\n";
-        for(auto& field : ion.read) {
-            text_ << "        view_type " + field + ";\n";
-        }
-        for(auto& field : ion.write) {
-            text_ << "        view_type " + field + ";\n";
-        }
-        text_ << "        index_type index;\n";
-        text_ << "    };\n";
-        text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
-    }
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-    text_ << "    " + class_name + "(\n";
-    text_ << "        Matrix &matrix,\n";
-    text_ << "        index_type const& node_indices)\n";
-    text_ << "    :   Mechanism(matrix, node_indices)\n";
-    //text_ << "    :   matrix_(matrix), node_indices_(node_indices)\n";
-    text_ << "    {\n";
-    int num_vars = array_variables.size();
-    text_ << "        size_type num_fields = " << num_vars << ";\n";
-    text_ << "        size_type n = size();\n";
-    text_ << "        data_ = vector_type(n * num_fields);\n";
-    text_ << "        data_(all) = std::numeric_limits<value_type>::quiet_NaN();\n";
-    for(int i=0; i<num_vars; ++i) {
-        char namestr[128];
-        sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
-        text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
-    }
-    for(auto const& var : array_variables) {
-        double val = var->value();
-        // only non-NaN fields need to be initialized, because data_
-        // is NaN by default
-        if(val == val) {
-            text_ << "        " << var->name() << "(all) = " << val << ";\n";
-        }
-    }
-
-    text_ << "       INIT_PROFILE\n";
-    text_ << "    }\n\n";
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-
-    text_ << "    size_type memory() const {\n";
-    text_ << "        return node_indices_.size()*sizeof(value_type)*" << num_vars << ";\n";
-    text_ << "    }\n\n";
-
-    text_ << "    void set_params(value_type t_, value_type dt_) {\n";
-    text_ << "        t = t_;\n";
-    text_ << "        dt = dt_;\n";
-    text_ << "    }\n\n";
-
-    text_ << "    std::string name() const {\n";
-    text_ << "        return \"" << m.name() << "\";\n";
-    text_ << "    }\n\n";
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-
-    auto v = new CPrinterVisitor();
-    v->increase_indentation();
-    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
-    for(auto const &var : m.symbols()) {
-        if(   var.second.kind==k_symbol_procedure
-           && proctest(var.second.expression->is_procedure()->kind()))
-        {
-            var.second.expression->accept(v);
-        }
-    }
-    text_ << v->text();
-
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-
-    //text_ << "private:\n\n";
-    text_ << "    vector_type data_;\n\n";
-    for(auto var: array_variables) {
-        text_ << "    view_type " << var->name() << ";\n";
-    }
-    for(auto var: scalar_variables) {
-        double val = var->value();
-        // test the default value for NaN
-        // useful for error propogation from bad initial conditions
-        if(val==val) {
-            text_ << "    value_type " << var->name() << " = " << val << ";\n";
-        }
-        else {
-            text_ << "    value_type " << var->name()
-              << " = std::numeric_limits<value_type>::quiet_NaN();\n";
-        }
-    }
-
-    //text_ << "    Matrix &matrix_;\n";
-    //text_ << "    index_type const& node_indices_;\n";
-
-    text_ << "\n    DATA_PROFILE\n";
-    text_ << "};\n\n";
 }
 

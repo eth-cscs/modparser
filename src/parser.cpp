@@ -233,6 +233,10 @@ void Parser::parse_neuron_block() {
             case tok_point_process :
                 neuron_block.kind = (token_.type==tok_suffix) ? k_module_density
                                                               : k_module_point;
+
+                // set the modul kind
+                module_->kind(neuron_block.kind);
+
                 get_token(); // consume SUFFIX / POINT_PROCESS
                 // assert that a valid name for the Neuron has been specified
                 if(token_.type != tok_identifier) {

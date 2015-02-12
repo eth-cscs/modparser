@@ -60,11 +60,18 @@ public :
     LStat status() const {
         return status_;
     }
+    moduleKind kind() const {
+        return kind_;
+    }
+    void kind(moduleKind k) {
+        kind_ = k;
+    }
 
     // perform semantic analysis
     void add_variables_to_symbols();
     bool semantic();
 private :
+    moduleKind kind_;
     std::string title_;
     std::string fname_;
     std::vector<char> buffer_; // character buffer loaded from file

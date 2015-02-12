@@ -422,7 +422,7 @@ bool Module::semantic() {
             }
         }
         if(update_current) {
-            block.push_back(Parser("g_ = current_").parse_line_expression());
+            block.push_back(Parser("g_ = conductance_").parse_line_expression());
         }
         ConstantFolderVisitor* v = new ConstantFolderVisitor();
         for(auto e : block) {
@@ -441,8 +441,8 @@ bool Module::semantic() {
         proc_current->semantic(symbols_);
 
         auto scp = proc_current->scope();
-        scp->add_local_symbol("current_",     id("current_"), k_symbol_local);
-        scp->add_local_symbol("conductance_", id("conductance_"), k_symbol_local);
+        scp->add_local_symbol("current_",     id("current_"),     k_symbol_ghost);
+        scp->add_local_symbol("conductance_", id("conductance_"), k_symbol_ghost);
 
         // now set up the input/output tables with full semantic information
         for(auto &var: outputs) {

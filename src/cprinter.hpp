@@ -7,7 +7,7 @@
 
 class CPrinter {
 public:
-    CPrinter(Module &module);
+    CPrinter(Module &module, bool o=false);
 
     std::string text() const {
         return text_.str();
@@ -15,53 +15,24 @@ public:
 
 private:
     std::stringstream text_;
+    bool optimize_ = false;
 };
 
 class TextBuffer {
 public:
-    TextBuffer& add_gutter() {
-        text_ << gutter_;
-        return *this;
-    }
-    void add_line(std::string const& line) {
-        text_ << gutter_ << line << std::endl;
-    }
-    void add_line() {
-        text_ << std::endl;
-    }
-    void end_line(std::string const& line) {
-        text_ << line << std::endl;
-    }
-    void end_line() {
-        text_ << std::endl;
-    }
+    TextBuffer& add_gutter();
+    void add_line(std::string const& line);
+    void add_line();
+    void end_line(std::string const& line);
+    void end_line();
 
-    std::string str() const {
-        return text_.str();
-    }
+    std::string str() const;
 
-    void set_gutter(int width) {
-        indent_ = width;
-        gutter_ = std::string(indent_, ' ');
-    }
+    void set_gutter(int width);
 
-    void increase_indentation() {
-        indent_ += indentation_width_;
-        if(indent_<0) {
-            indent_=0;
-        }
-        gutter_ = std::string(indent_, ' ');
-    }
-    void decrease_indentation() {
-        indent_ -= indentation_width_;
-        if(indent_<0) {
-            indent_=0;
-        }
-        gutter_ = std::string(indent_, ' ');
-    }
-    std::stringstream &text() {
-        return text_;
-    }
+    void increase_indentation();
+    void decrease_indentation();
+    std::stringstream &text();
 
 private:
 
@@ -81,6 +52,10 @@ TextBuffer& operator<< (TextBuffer& buffer, T const& v) {
 class CPrinterVisitor : public Visitor {
 public:
     CPrinterVisitor() {}
+    CPrinterVisitor(Module *m, bool o=false)
+    :   module_(m),
+        optimize_(o)
+    { }
 
     void visit(Expression *e)           override;
     void visit(UnaryExpression *e)      override;
@@ -115,7 +90,12 @@ public:
     }
 private:
 
+    void print_APIMethod_optimized(APIMethod* e);
+    void print_APIMethod_unoptimized(APIMethod* e);
+
+    Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;
     TextBuffer text_;
+    bool optimize_ = false;
 };
 
