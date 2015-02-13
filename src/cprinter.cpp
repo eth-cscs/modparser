@@ -520,9 +520,6 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
         }
     }
     */
-        std::cout << e->to_string()
-                  << red(" is not") + " a ghost field in " << module_->name()
-                  << "::" << e->name() << std::endl;
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {

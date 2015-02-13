@@ -70,6 +70,7 @@ public :
     // perform semantic analysis
     void add_variables_to_symbols();
     bool semantic();
+    bool optimize();
 private :
     moduleKind kind_;
     std::string title_;

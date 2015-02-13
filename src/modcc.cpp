@@ -10,7 +10,6 @@
 #include "parser.h"
 #include "util.h"
 
-//#define WITH_PROFILING
 //#define VERBOSE
 
 struct Options {
@@ -82,54 +81,39 @@ int main(int argc, char **argv) {
         options.print();
     }
 
+    ////////////////////////////////////////////////////////////
+    // parsing
+    ////////////////////////////////////////////////////////////
+    if(options.verbose) std::cout << green("[") + "parsing" + green("]") << std::endl;
+
     // initialize the parser
     Parser p(m, false);
 
     // parse
-    if(options.verbose) std::cout << green("[") + "parsing" + green("]") << std::endl;
     p.parse();
     if(p.status() == k_compiler_error) return 1;
 
+    ////////////////////////////////////////////////////////////
     // semantic analysis
+    ////////////////////////////////////////////////////////////
     if(options.verbose) std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
     if( m.semantic() == false ) {
         std::cout << m.error_string() << std::endl;
     }
-
-    #ifdef VERBOSE
-    std::cout << "====== symbols ======" << std::endl;
-    for(auto const &var : m.symbols()) {
-        std::cout << var.second.expression->to_string() << std::endl;
-    }
-    #endif
-
     if(m.status() == k_compiler_error) return 1;
 
-    #ifdef WITH_PROFILING
-    {
-        const int N = 10;
-        using clock = std::chrono::high_resolution_clock;
-        using duration = std::chrono::duration<double>;
-
-        auto start = clock::now();
-        for(int i=0; i<N; ++i) {
-            Module m(options.filename.c_str());
-            Parser p(m);
-            if(p.status() != k_compiler_happy) {
-                std::cout << "error: unable to parse file" << std::endl;
-                return 1;
-            }
-            m.semantic();
-        }
-        auto last = clock::now();
-        auto time_span = duration(last - start);
-
-        std::cout << "compilation takes an average of " << time_span.count()/N*1000. << " ms";
-        std::cout << std::endl;
+    ////////////////////////////////////////////////////////////
+    // optimize
+    ////////////////////////////////////////////////////////////
+    if(options.optimize) {
+        if(options.verbose) std::cout << green("[") + "optimize" + green("]") << std::endl;
+        m.optimize();
+        if(m.status() == k_compiler_error) return 1;
     }
-    #endif
 
+    ////////////////////////////////////////////////////////////
     // generate output
+    ////////////////////////////////////////////////////////////
     if(options.verbose) {
         std::cout << green("[") + "code generation"
                   << green("]") << std::endl;
@@ -146,5 +130,8 @@ int main(int argc, char **argv) {
         std::cout << cyan("--------------------------------------") << std::endl;
     }
 
+    if(options.verbose) {
+        std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
+    }
     return 0;
 }

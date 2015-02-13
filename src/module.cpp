@@ -693,3 +693,18 @@ void Module::add_variables_to_symbols() {
     }
 }
 
+bool Module::optimize() {
+    // how to structure the optimizer
+    // loop over APIMethods
+    //      - apply optimization to each in turn
+
+    std::vector<std::string> methods = {"nrn_current", "nrn_state", "nrn_init", "nrn_jacob"};
+    for(auto name : methods) {
+        auto method = symbols_[name].expression->is_api_method();
+
+        std::cout << yellow("optimizing ") + white(method->name()) << std::endl;
+    }
+
+    return true;
+}
+
