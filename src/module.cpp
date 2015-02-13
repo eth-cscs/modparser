@@ -350,6 +350,9 @@ bool Module::semantic() {
                 // TODO: ensure that we can define a local variable with
                 // expression==nullptr, because that makes sense in situations
                 // like this, where we inject a symbol
+                // Actually, no, that is a bad idea, because we may still
+                // require additional symbol information when visiting a
+                // symbol in a visitor, e.g. via Symbol::expression->scope()
                 scp->add_local_symbol("a_",  id("a_"), k_symbol_local);
                 scp->add_local_symbol("ba_", id("ba_"), k_symbol_local);
             }
@@ -421,9 +424,9 @@ bool Module::semantic() {
                 update_current = true;
             }
         }
-        if(update_current) {
-            block.push_back(Parser("g_ = conductance_").parse_line_expression());
-        }
+        //if(update_current) {
+        //    block.push_back(Parser("g_ = conductance_").parse_line_expression());
+        //}
         ConstantFolderVisitor* v = new ConstantFolderVisitor();
         for(auto e : block) {
             e->accept(v);
@@ -441,8 +444,8 @@ bool Module::semantic() {
         proc_current->semantic(symbols_);
 
         auto scp = proc_current->scope();
-        scp->add_local_symbol("current_",     id("current_"),     k_symbol_ghost);
-        scp->add_local_symbol("conductance_", id("conductance_"), k_symbol_ghost);
+        scp->add_local_symbol("current_",     id("current_"),     k_symbol_local);
+        scp->add_local_symbol("conductance_", id("conductance_"), k_symbol_local);
 
         // now set up the input/output tables with full semantic information
         for(auto &var: outputs) {
@@ -451,6 +454,7 @@ bool Module::semantic() {
         // only output contribution to RHS if there is one to make
         if(update_current) {
             proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["vec_rhs"]});
+            proc_current->outputs().push_back({tok_plus, scp->find("conductance_"), symbols_["vec_d"]});
             if(outputs.size()>0) {
                 // only need input ionic values if external ion chennel dependency
                 // assume that all input ion variables are used
@@ -481,7 +485,24 @@ bool Module::semantic() {
     proc_jacob->semantic(symbols_);
 
     // set output update for vec_d
-    proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_d"]});
+    // remove, because we want to fuse this with nrn_current
+    //proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_d"]});
+
+
+    // apply semantic analysis to the entries in the output and input indexes
+    for(auto &s : symbols_) {
+        if(auto method = s.second.expression->is_api_method()) {
+            auto scope = method->scope();
+            for(auto &in: method->inputs()) {
+                in.local.expression->semantic(scope);
+                in.external.expression->semantic(scope);
+            }
+            for(auto &out: method->outputs()) {
+                out.local.expression->semantic(scope);
+                out.external.expression->semantic(scope);
+            }
+        }
+    }
 
     return status() == k_compiler_happy;
 }
@@ -698,11 +719,97 @@ bool Module::optimize() {
     // loop over APIMethods
     //      - apply optimization to each in turn
 
-    std::vector<std::string> methods = {"nrn_current", "nrn_state", "nrn_init", "nrn_jacob"};
-    for(auto name : methods) {
+    /*
+    for(auto name : {"nrn_current", "nrn_state", "nrn_init", "nrn_jacob"}) {
         auto method = symbols_[name].expression->is_api_method();
 
-        std::cout << yellow("optimizing ") + white(method->name()) << std::endl;
+        //std::cout << yellow("optimizing ") + white(method->name()) << std::endl;
+
+        std::cout << red("BEFORE") << std::endl;
+        std::cout << method->to_string() << std::endl;
+
+        std::cout << red("AFTER") << std::endl;
+        std::cout << method->to_string() << std::endl;
+    }
+    */
+
+    auto folder = new ConstantFolderVisitor();
+    for(auto &symbol : symbols_) {
+        auto kind = symbol.second.kind;
+        BlockExpression* body;
+        if(kind == k_symbol_procedure) {
+            // we are only interested in true procedurs and APIMethods
+            auto proc = symbol.second.expression->is_procedure();
+            auto pkind = proc->kind();
+            if(pkind == k_proc_normal || pkind == k_proc_api )
+                body = symbol.second.expression->is_procedure()->body();
+            else
+                continue;
+        }
+        // for now don't look at functions
+        //else if(kind == k_symbol_function) {
+        //    body = symbol.second.expression->is_function()->body();
+        //}
+        else {
+            continue;
+        }
+        //std::cout << red("------------") << std::endl;
+        //std::cout << red("BEFORE  ") << symbol.second.expression->is_procedure()->name() << std::endl;
+        //std::cout << body->to_string() << std::endl;
+
+        /////////////////////////////////////////////////////////////////////
+        // loop over folding and propogation steps until there are no changes
+        /////////////////////////////////////////////////////////////////////
+
+        // perform constant folding
+        for(auto line : *body) {
+            line->accept(folder);
+        }
+
+        // preform expression simplification
+        // i.e. removing zeros/refactoring reciprocals/etc
+
+        // perform constant propogation
+
+        /////////////////////////////////////////////////////////////////////
+        // remove dead local variables
+        /////////////////////////////////////////////////////////////////////
+
+
+        /////////////////////////////////////////////////////////////////////
+        // remove dead local variables
+        /////////////////////////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////////////////////////
+        // tag ghost fields in APIMethods
+        /////////////////////////////////////////////////////////////////////
+        if(kind == k_symbol_procedure) {
+            auto proc = symbol.second.expression->is_api_method();
+            if(proc && this->kind()==k_module_point) {
+                //std::cout << "marking ghost fields in " << yellow(proc->name()) << std::endl;
+
+                //if (local is local variable)
+                for(auto &out: proc->outputs()) {
+                    // by definition the output has to be an indexed variable
+                    if(out.local.kind == k_symbol_local) {
+                        // this is bad: the Symbol in out.local does not match the one in scope_->locals()
+                        // can we make MemOp store a shared pointer to the scope, and a pair of names used
+                        // to index the local and external fields?
+                        out.local.kind = k_symbol_ghost;
+                        // TODO: make name() a member of the expression base class
+                        std::string const& name = out.local.expression->is_identifier()->name();
+                        proc->scope()->locals()[name].kind = k_symbol_ghost;
+                    }
+
+                    // note: this should also be implemented for the case of an array writing
+                    // out, which is the case for nrn_jacob where g_ -> ...
+                    // Instead, we should do away with nrn_jacob entirely, instead making the rhs
+                    // update part of current, and performing a memcpy if required
+                }
+                //std::cout << proc->to_string() << std::endl;;
+            }
+        }
+
     }
 
     return true;

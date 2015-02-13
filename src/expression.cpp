@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cstring>
 
 #include "expression.h"
@@ -302,6 +301,52 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
     symbol_ = global_symbols.find(name_)->second;
+}
+
+/*******************************************************************************
+  APIMethod
+*******************************************************************************/
+
+std::string APIMethod::to_string() const {
+    auto namestr = [] (Expression* e) -> std::string {
+        if(auto id = e->is_identifier())
+            return yellow(id->name());
+        if(auto id = e->is_variable())
+            return yellow(id->name());
+        if(auto id = e->is_indexed_variable())
+            return yellow(id->name());
+        return "";
+    };
+    std::string str = colorize("API method", kBlue) + " " + colorize(name_, kYellow) + "\n";
+
+    str += colorize("  loads ", kBlue) + " : ";
+    for(auto in : in_) {
+        str += namestr(in.local.expression) + " <- ";
+        str += namestr(in.external.expression);
+        str += ", ";
+    }
+    str += "\n";
+
+    str += colorize("  stores", kBlue) + " : ";
+    for(auto out : out_) {
+        str += namestr(out.local.expression) + " -> ";
+        str += namestr(out.external.expression);
+        str += ", ";
+    }
+    str += "\n";
+
+    str += colorize("  locals", kBlue) + " : ";
+    for(auto var : scope_->locals()) {
+        str += namestr(var.second.expression);
+        if(var.second.kind == k_symbol_ghost) str += green("(ghost)");
+        str += ", ";
+    }
+    str += "\n";
+
+    str += "  "+colorize("body  ", kBlue)+" : ";
+    str += body_->to_string();
+
+    return str;
 }
 
 /*******************************************************************************
@@ -673,11 +718,6 @@ void PowBinaryExpression::accept(Visitor *v) {
 void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
-/*
-void APIMethod::accept(Visitor *v) {
-    v->visit(this);
-}
-*/
 
 Expression* unary_expression( TOK op,
                               Expression* e) {

@@ -27,5 +27,3 @@ struct MemOp {
         assert(op==tok_plus || op==tok_minus || op==tok_eq);
     }
 };
-
-

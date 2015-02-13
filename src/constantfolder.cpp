@@ -136,7 +136,6 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
                 assert(false);
         }
     }
-
 }
 
 void ConstantFolderVisitor::visit(CallExpression *e) {

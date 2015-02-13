@@ -20,6 +20,9 @@ private:
 
 class TextBuffer {
 public:
+    TextBuffer() {
+        text_.precision(std::numeric_limits<double>::max_digits10);
+    }
     TextBuffer& add_gutter();
     void add_line(std::string const& line);
     void add_line();
@@ -55,7 +58,7 @@ public:
     CPrinterVisitor(Module *m, bool o=false)
     :   module_(m),
         optimize_(o)
-    { }
+    {}
 
     void visit(Expression *e)           override;
     void visit(UnaryExpression *e)      override;

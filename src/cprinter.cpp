@@ -231,9 +231,6 @@ CPrinter::CPrinter(Module &m, bool o) {
         }
     }
 
-    //text_ << "    Matrix &matrix_;\n";
-    //text_ << "    index_type const& node_indices_;\n";
-
     text_ << "\n    DATA_PROFILE\n";
     text_ << "};\n\n";
 }
@@ -252,7 +249,7 @@ void CPrinterVisitor::visit(LocalExpression *e) {
 }
 
 void CPrinterVisitor::visit(NumberExpression *e) {
-    text_ << e->value();
+    text_ << " " << e->value();
 }
 
 void CPrinterVisitor::visit(IdentifierExpression *e) {
@@ -260,7 +257,12 @@ void CPrinterVisitor::visit(IdentifierExpression *e) {
         var->accept(this);
     }
     else {
-        text_ << e->name();
+        std::string const& name = e->name();
+        text_ << name;
+        auto k = e->scope()->locals()[name].kind;
+        if(k==k_symbol_ghost) {
+            text_ << "[j_]";
+        }
     }
 }
 
@@ -316,12 +318,6 @@ void CPrinterVisitor::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
-        /*
-        for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local)
-                text_ << "value_type " << var.first << " = 0.;\n";
-        }
-        */
         std::vector<std::string> names;
         for(auto var : e->scope()->locals()) {
             if(var.second.kind == k_symbol_local)
@@ -446,12 +442,15 @@ void CPrinterVisitor::visit(APIMethod *e) {
 
 void CPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    bool is_density = module_->kind() == k_module_density;
+    //bool is_density = module_->kind() == k_module_density;
 
     text_.add_line("START_PROFILE");
     // there can not be more than 1 instance of a density chanel per grid point,
-    // so we can assert that aliasing will not occur
-    if(is_density) text_.add_line("#pragma ivdep");
+    // so we can assert that aliasing will not occur for 
+    // if this is a point process, then we were redirected here as there
+    // is no aliased output
+    //if(is_density || optimize_) text_.add_line("#pragma ivdep");
+    if(optimize_) text_.add_line("#pragma ivdep");
 
     text_.add_line("for(int i_=0; i_<n_; ++i_) {");
     text_.increase_indentation();
@@ -491,35 +490,46 @@ void CPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
 void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
     bool is_point_process = module_->kind() == k_module_point;
-    bool has_outputs = e->outputs().size();
-    //bool is_density = module_->kind() == k_module_density;
 
+    // :: analyse outputs, to determine if they depend on any
+    //    ghost fields.
+    std::vector<MemOp*> aliased_variables;
+    if(is_point_process) {
+        for(auto &out : e->outputs()) {
+            if(out.local.kind == k_symbol_ghost) {
+                aliased_variables.push_back(&out);
+            }
+        }
+    }
+    bool aliased_output = aliased_variables.size()>0;
+
+    // only proceed with optimized output if required
+    if(!aliased_output) {
+        print_APIMethod_unoptimized(e);
+        return;
+    }
+
+    // ------------- block loop ------------- //
+
+    text_.add_line("constexpr int BSIZE = 64;");
+    text_.add_line("int NB = n_/BSIZE;");
+    for(auto out: aliased_variables) {
+        text_.add_line("value_type " + out->local.expression->is_identifier()->name() + "[BSIZE];");
+    }
     text_.add_line("START_PROFILE");
+
+    text_.add_line("for(int b_=0; b_<NB; ++b_) {");
+    text_.increase_indentation();
+    text_.add_line("int BSTART = BSIZE*b_;");
+    text_.add_line("int i_ = BSTART;");
+
+
     // assert that memory accesses are not aliased because we will
     // use ghost arrays to ensure that write-back of point processes does
     // not lead to race conditions
     text_.add_line("#pragma ivdep");
-
-    text_.add_line("for(int i_=0; i_<n_; ++i_) {");
+    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
     text_.increase_indentation();
-
-    // :: analyse outputs, to determine if they depend on any
-    //    ghost fields.
-    /*
-    for(auto &out : e->outputs()) {
-        auto rhs = out.local;
-        if(rhs.kind == k_symbol_ghost) {
-            std::cout << rhs.expression->to_string()
-                      << green(" is") + " a ghost field in " << module_->name()
-                      << "::" << e->name() << std::endl;
-        }
-        else {
-            std::cout << rhs.expression->to_string()
-                      << red(" is not") + " a ghost field in " << module_->name()
-                      << "::" << e->name() << std::endl;
-        }
-    }
-    */
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {
@@ -532,20 +542,12 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
 
     e->body()->accept(this);
 
-    // create an additional loop for updating matrix and ion
-    // channels if this is a point process, in order to avoid
-    // race conditions when two mechanism instances on the same
-    // point write back to the same matrix/ion channel field
-    //
-    // only perform for point processes, for now
-    if(has_outputs && is_point_process)
-    {
-        text_.decrease_indentation();
-        text_.add_line("}");
+    text_.decrease_indentation();
+    text_.add_line("}"); // end inner compute loop
 
-        text_.add_line("for(int i_=0; i_<n_; ++i_) {");
-        text_.increase_indentation();
-    }
+    text_.add_line("i_ = BSTART;");
+    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
+    text_.increase_indentation();
 
     // insert stores here
     for(auto &out : e->outputs()) {
@@ -557,7 +559,46 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
     }
 
     text_.decrease_indentation();
-    text_.add_line("}");
+    text_.add_line("}"); // end inner write loop
+    text_.decrease_indentation();
+    text_.add_line("}"); // end outer block loop
+
+    // ------------- block tail loop ------------- //
+
+    text_.add_line("int j_ = 0;");
+    text_.add_line("#pragma ivdep");
+    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
+    text_.increase_indentation();
+
+    // insert loads from external state here
+    for(auto &in : e->inputs()) {
+        text_.add_gutter();
+        in.local.expression->accept(this);
+        text_ << " = ";
+        in.external.expression->accept(this);
+        text_.end_line(";");
+    }
+
+    e->body()->accept(this);
+
+    text_.decrease_indentation();
+    text_.add_line("}"); // end inner compute loop
+    text_.add_line("j_ = 0;");
+    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
+    text_.increase_indentation();
+
+    // insert stores here
+    for(auto &out : e->outputs()) {
+        text_.add_gutter();
+        out.external.expression->accept(this);
+        text_ << (out.op==tok_plus ? " += " : " -= ");
+        out.local.expression->accept(this);
+        text_.end_line(";");
+    }
+
+    text_.decrease_indentation();
+    text_.add_line("}"); // end block tail loop
+
 
     text_.add_line("STOP_PROFILE");
 

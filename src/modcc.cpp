@@ -130,8 +130,8 @@ int main(int argc, char **argv) {
         std::cout << cyan("--------------------------------------") << std::endl;
     }
 
-    if(options.verbose) {
+    //if(options.verbose) {
         std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
-    }
+    //}
     return 0;
 }

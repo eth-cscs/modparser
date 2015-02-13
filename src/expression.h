@@ -675,6 +675,7 @@ public:
     std::vector<MemOp>& outputs() {
         return out_;
     }
+    std::string to_string() const override;
 
 protected:
     /// lists the fields that have to be read in from an
