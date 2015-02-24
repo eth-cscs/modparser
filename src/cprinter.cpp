@@ -146,9 +146,8 @@ CPrinter::CPrinter(Module &m, bool o) {
     int num_vars = array_variables.size();
     text_ << "    " + class_name + "(\n";
     text_ << "        Matrix &matrix,\n";
-    text_ << "        index_type const& node_indices)\n";
+    text_ << "        index_view node_indices)\n";
     text_ << "    :   Mechanism(matrix, node_indices)\n";
-    //text_ << "    :   matrix_(matrix), node_indices_(node_indices)\n";
     text_ << "    {\n";
     text_ << "        size_type num_fields = " << num_vars << ";\n";
     text_ << "        size_type n = size();\n";
