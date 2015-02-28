@@ -139,19 +139,24 @@ int main(int argc, char **argv) {
                   << green("]") << std::endl;
     }
 
+    std::string text;
+    switch(options.target) {
+        case targetKind::cpu :
+            text = CPrinter(m, options.optimize).text();
+            break;
+        case targetKind::gpu :
+            text = CUDAPrinter(m, options.optimize).text();
+            break;
+    }
+
     if(options.has_output) {
         std::ofstream fout(options.outputname);
-        fout << CPrinter(m, options.optimize).text();
+        fout << text;
         fout.close();
     }
     else {
         std::cout << cyan("--------------------------------------") << std::endl;
-        if(options.target == targetKind::cpu) {
-            std::cout << CPrinter(m, options.optimize).text();
-        }
-        else {
-            std::cout << CUDAPrinter(m, options.optimize).text();
-        }
+        std::cout << text;
         std::cout << cyan("--------------------------------------") << std::endl;
     }
 

@@ -80,13 +80,75 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "#include <mechanism.hpp>\n";
     text_ << "#include <target.hpp>\n\n";
 
-    // TODO generate the parameter pack
+    ////////////////////////////////////////////////////////////
+    // generate the parameter pack
+    ////////////////////////////////////////////////////////////
+    std::vector<std::string> param_pack;
+    text_ << "template <typename T, typename T>\n";
+    text_ << "struct " << m.name() << "_ParamPack {\n";
+    text_ << "  // array parameters\n";
+    for(auto const &var: array_variables) {
+        text_ << "  T* " << var->name() << ";\n";
+        param_pack.push_back(var->name() + ".data()");
+    }
+    text_ << "\n  // scalar parameters\n";
+    for(auto const &var: scalar_variables) {
+        text_ << "  T " << var->name() << ";\n";
+        param_pack.push_back(var->name());
+    }
+    text_ << "\n  // ion channel dependencies\n";
+    for(auto& ion: m.neuron_block().ions) {
+        auto tname = "ion_" + ion.name;
+        for(auto& field : ion.read) {
+            text_ << "  T* ion_" + field + "_;\n";
+            param_pack.push_back(tname + "." + field + ".data()");
+        }
+        for(auto& field : ion.write) {
+            text_ << "  T* ion_" + field + "_;\n";
+            param_pack.push_back(tname + "." + field + ".data()");
+        }
+        text_ << "  I* ion_" + ion.name + "_idx_;\n";
+        param_pack.push_back(tname + ".index.data()");
+    }
 
-    // TODO generate the kernels
+    text_ << "\n  // matrix\n";
+    text_ << "  vec_rhs;\n";
+    text_ << "  vec_d;\n";
+    text_ << "  vec_v;\n";
+    param_pack.push_back("matrix_.vec_rhs().data()");
+    param_pack.push_back("matrix_.vec_d().data()");
+    param_pack.push_back("matrix_.vec_v().data()");
 
+    text_ << "\n  // node index information\n";
+    text_ << "  I* ni;\n";
+    text_ << "  unsigned long n;\n";
+    text_ << "};\n\n";
+    param_pack.push_back("node_indices_.data()");
+    param_pack.push_back("node_indices_.size()");
+
+    ////////////////////////////////////////////////////////
+    // write the CUDA kernels
+    ////////////////////////////////////////////////////////
     text_ << "namespace impl {\n";
     text_ << "namespace " + m.name() + " {\n";
-    text_ << "      // TODO ... implement kerenls\n";
+
+    {
+        auto v = new CUDAPrinterVisitor(&m, optimize_);
+        v->increase_indentation();
+        // print stubs that call API method kernels that are defined in the
+        // imp::name namespace
+        auto proctest = [] (procedureKind k) {return k == k_proc_normal;};
+        for(auto const &var : m.symbols()) {
+            if(   var.second.kind==k_symbol_procedure
+            && proctest(var.second.expression->is_procedure()->kind()))
+            {
+                var.second.expression->accept(v);
+            }
+        }
+        v->decrease_indentation();
+        text_ << v->text();
+    }
+
     text_ << "} // namespace " + m.name() + "\n";
     text_ << "} // namespace impl\n";
 
@@ -106,6 +168,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "    using index_view  = typename index_type::view_type;\n";
     text_ << "    using indexed_view= typename base::indexed_view;\n\n";
     text_ << "    using matrix_type = typename base::matrix_type;\n\n";
+    text_ << "    using param_pack_type = " << m.name() << "_ParamPack<T,I>;\n\n";
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -164,6 +227,11 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
     text_ << "        t = t_;\n";
     text_ << "        dt = dt_;\n";
+    text_ << "        param_pack_ = " << m.name() << "_ParamPack{\n";
+    for(auto &str: param_pack) {
+        text_ << "          " << str << ",\n";
+    }
+    text_ << "        };\n";
     text_ << "    }\n\n";
 
     text_ << "    std::string name() const override {\n";
@@ -183,7 +251,9 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
 
     auto v = new CUDAPrinterVisitor(&m, optimize_);
     v->increase_indentation();
-    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    // print stubs that call API method kernels that are defined in the
+    // imp::name namespace
+    auto proctest = [] (procedureKind k) {return k == k_proc_api;};
     for(auto const &var : m.symbols()) {
         if(   var.second.kind==k_symbol_procedure
            && proctest(var.second.expression->is_procedure()->kind()))
@@ -209,16 +279,18 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
             text_ << "    value_type " << var->name() << " = " << val << ";\n";
         }
         else {
+            // the cuda compiler has a bug that doesn't allow initialization of
+            // class members with std::numer_limites<>. So simply set to zero.
             text_ << "    value_type " << var->name()
-              << " = std::numeric_limits<value_type>::quiet_NaN();\n";
+              << " = value_type{0};\n";
         }
     }
 
     text_ << "    using base::matrix_;\n";
     text_ << "    using base::node_indices_;\n\n";
-
-    text_ << "\n    DATA_PROFILE\n";
-    text_ << "};\n\n";
+    text_ << "    param_pack_type param_pack_;\n\n";
+    text_ << "    DATA_PROFILE\n";
+    text_ << "};\n";
 }
 
 
@@ -379,7 +451,7 @@ void CUDAPrinterVisitor::visit(APIMethod *e) {
     text_.add_line();
 
     text_.add_line("START_PROFILE");
-    text_.add_gutter() << "impl::"
+    text_.add_gutter() << "//impl::"
                        << module_->name()
                        << "::current_kernel<T,I>"
                        << "<<<dim_grid, dim_block>>>(param_pack_);";
