@@ -83,3 +83,31 @@ static std::ostream& operator<< (std::ostream& os, linkageKind l) {
     return os << to_string(l);
 }
 
+static ionKind ion_kind_from_name(std::string field) {
+    if(field.substr(0,4) == "ion_") {
+        field = field.substr(4);
+    }
+    if(field=="ica" || field=="eca" || field=="cai" || field=="cao") {
+        return k_ion_Ca;
+    }
+    if(field=="ik" || field=="ek" || field=="ki" || field=="ko") {
+        return k_ion_K;
+    }
+    if(field=="ina" || field=="ena" || field=="nai" || field=="nao") {
+        return k_ion_Na;
+    }
+    return k_ion_none;
+}
+
+static std::string ion_store(ionKind k) {
+    switch(k) {
+        case k_ion_Ca:
+            return "ion_ca";
+        case k_ion_Na:
+            return "ion_na";
+        case k_ion_K:
+            return "ion_k";
+        default:
+            return "";
+    }
+}

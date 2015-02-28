@@ -1,6 +1,8 @@
 set(BASE_SOURCES
     variablerenamer.cpp
+    textbuffer.cpp
     cprinter.cpp
+    cudaprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp

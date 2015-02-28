@@ -5,6 +5,7 @@
 #include <tclap/include/CmdLine.h>
 
 #include "cprinter.hpp"
+#include "cudaprinter.hpp"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
@@ -12,12 +13,15 @@
 
 //#define VERBOSE
 
+enum class targetKind {cpu, gpu};
+
 struct Options {
     std::string filename;
     std::string outputname;
     bool has_output = false;
     bool verbose = true;
     bool optimize = false;
+    targetKind target = targetKind::cpu;
 
     void print() {
         std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
@@ -26,6 +30,7 @@ struct Options {
         std::cout << cyan("| output   ") << outname << std::string(61-11-outname.size(),' ') << cyan("|") << std::endl;
         std::cout << cyan("| verbose  ") << (verbose  ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("| optimize ") << (optimize ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
+        std::cout << cyan("| target   ") << (target==targetKind::cpu? "cpu" : "gpu") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
     }
 };
@@ -43,7 +48,10 @@ int main(int argc, char **argv) {
             fin_arg("input_file", "the name of the .mod file to compile", true, "", "filename");
         // output filename
         TCLAP::ValueArg<std::string>
-            fout_arg("o","output","name of output file", false,"","filename");
+            fout_arg("o","output","name of output file", false,"","filname");
+        // output filename
+        TCLAP::ValueArg<std::string>
+            target_arg("t","target","backend target={cpu,gpu}", true,"cpu","string");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
         // optimization mode
@@ -51,6 +59,7 @@ int main(int argc, char **argv) {
 
         cmd.add(fin_arg);
         cmd.add(fout_arg);
+        cmd.add(target_arg);
 
         cmd.parse(argc, argv);
 
@@ -59,6 +68,17 @@ int main(int argc, char **argv) {
         options.filename = fin_arg.getValue();
         options.verbose = verbose_arg.getValue();
         options.optimize = opt_arg.getValue();
+        auto targstr = target_arg.getValue();
+        if(targstr == "cpu") {
+            options.target = targetKind::cpu;
+        }
+        else if(targstr == "gpu") {
+            options.target = targetKind::gpu;
+        }
+        else {
+            std::cerr << red("error") << " target must be one in {cpu, gpu}" << std::endl;
+            return 1;
+        }
     }
     // catch any exceptions in command line handling
     catch(TCLAP::ArgException &e) {
@@ -126,12 +146,15 @@ int main(int argc, char **argv) {
     }
     else {
         std::cout << cyan("--------------------------------------") << std::endl;
-        std::cout << CPrinter(m, options.optimize).text();
+        if(options.target == targetKind::cpu) {
+            std::cout << CPrinter(m, options.optimize).text();
+        }
+        else {
+            std::cout << CUDAPrinter(m, options.optimize).text();
+        }
         std::cout << cyan("--------------------------------------") << std::endl;
     }
 
-    //if(options.verbose) {
-        std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
-    //}
+    std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
     return 0;
 }

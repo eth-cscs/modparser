@@ -6,9 +6,9 @@
 #include "textbuffer.hpp"
 #include "visitor.h"
 
-class CPrinter {
+class CUDAPrinter {
 public:
-    CPrinter(Module &module, bool o=false);
+    CUDAPrinter(Module &module, bool o=false);
 
     std::string text() const {
         return text_.str();
@@ -19,10 +19,10 @@ private:
     bool optimize_ = false;
 };
 
-class CPrinterVisitor : public Visitor {
+class CUDAPrinterVisitor : public Visitor {
 public:
-    CPrinterVisitor() {}
-    CPrinterVisitor(Module *m, bool o=false)
+    CUDAPrinterVisitor() {}
+    CUDAPrinterVisitor(Module *m, bool o=false)
     :   module_(m),
         optimize_(o)
     {}
