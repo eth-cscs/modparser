@@ -6,26 +6,10 @@
 #include "textbuffer.hpp"
 #include "visitor.h"
 
-class CUDAPrinter {
+class CUDAPrinter : public Visitor {
 public:
-    CUDAPrinter(Module &module, bool o=false);
-
-    std::string text() const {
-        return text_.str();
-    }
-
-private:
-    std::stringstream text_;
-    bool optimize_ = false;
-};
-
-class CUDAPrinterVisitor : public Visitor {
-public:
-    CUDAPrinterVisitor() {}
-    CUDAPrinterVisitor(Module *m, bool o=false)
-    :   module_(m),
-        optimize_(o)
-    {}
+    CUDAPrinter() {}
+    CUDAPrinter(Module &m, bool o=false);
 
     void visit(Expression *e)           override;
     void visit(UnaryExpression *e)      override;
@@ -60,8 +44,9 @@ public:
     }
 private:
 
-    void print_APIMethod_optimized(APIMethod* e);
-    void print_APIMethod_unoptimized(APIMethod* e);
+    void print_APIMethod_body(APIMethod* e);
+    void print_procedure_prototype(ProcedureExpression *e);
+    std::string index_string(Expression *e);
 
     Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;

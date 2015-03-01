@@ -2,59 +2,12 @@
 #include "lexer.h"
 
 /******************************************************************************
-                              TextBuffer
-******************************************************************************/
-TextBuffer& TextBuffer::add_gutter() {
-    text_ << gutter_;
-    return *this;
-}
-void TextBuffer::add_line(std::string const& line) {
-    text_ << gutter_ << line << std::endl;
-}
-void TextBuffer::add_line() {
-    text_ << std::endl;
-}
-void TextBuffer::end_line(std::string const& line) {
-    text_ << line << std::endl;
-}
-void TextBuffer::end_line() {
-    text_ << std::endl;
-}
-
-std::string TextBuffer::str() const {
-    return text_.str();
-}
-
-void TextBuffer::set_gutter(int width) {
-    indent_ = width;
-    gutter_ = std::string(indent_, ' ');
-}
-
-void TextBuffer::increase_indentation() {
-    indent_ += indentation_width_;
-    if(indent_<0) {
-        indent_=0;
-    }
-    gutter_ = std::string(indent_, ' ');
-}
-void TextBuffer::decrease_indentation() {
-    indent_ -= indentation_width_;
-    if(indent_<0) {
-        indent_=0;
-    }
-    gutter_ = std::string(indent_, ' ');
-}
-std::stringstream& TextBuffer::text() {
-    return text_;
-}
-
-/******************************************************************************
-                              CUDAPrinter driver
 ******************************************************************************/
 
-CUDAPrinter::CUDAPrinter(Module &m, bool o) {
-    optimize_ = o;
-
+CUDAPrinter::CUDAPrinter(Module &m, bool o)
+    :   module_(&m),
+        optimize_(o)
+{
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types
     std::vector<VariableExpression*> scalar_variables;
@@ -72,6 +25,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     }
 
     //////////////////////////////////////////////
+    // header files
     //////////////////////////////////////////////
     text_ << "#pragma once\n\n";
     text_ << "#include <cmath>\n";
@@ -84,7 +38,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     // generate the parameter pack
     ////////////////////////////////////////////////////////////
     std::vector<std::string> param_pack;
-    text_ << "template <typename T, typename T>\n";
+    text_ << "template <typename T, typename I>\n";
     text_ << "struct " << m.name() << "_ParamPack {\n";
     text_ << "  // array parameters\n";
     for(auto const &var: array_variables) {
@@ -100,11 +54,11 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     for(auto& ion: m.neuron_block().ions) {
         auto tname = "ion_" + ion.name;
         for(auto& field : ion.read) {
-            text_ << "  T* ion_" + field + "_;\n";
+            text_ << "  T* ion_" + field + ";\n";
             param_pack.push_back(tname + "." + field + ".data()");
         }
         for(auto& field : ion.write) {
-            text_ << "  T* ion_" + field + "_;\n";
+            text_ << "  T* ion_" + field + ";\n";
             param_pack.push_back(tname + "." + field + ".data()");
         }
         text_ << "  I* ion_" + ion.name + "_idx_;\n";
@@ -112,9 +66,9 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     }
 
     text_ << "\n  // matrix\n";
-    text_ << "  vec_rhs;\n";
-    text_ << "  vec_d;\n";
-    text_ << "  vec_v;\n";
+    text_ << "  T* vec_rhs;\n";
+    text_ << "  T* vec_d;\n";
+    text_ << "  T* vec_v;\n";
     param_pack.push_back("matrix_.vec_rhs().data()");
     param_pack.push_back("matrix_.vec_d().data()");
     param_pack.push_back("matrix_.vec_v().data()");
@@ -129,28 +83,38 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     ////////////////////////////////////////////////////////
     // write the CUDA kernels
     ////////////////////////////////////////////////////////
-    text_ << "namespace impl {\n";
-    text_ << "namespace " + m.name() + " {\n";
-
+    text_.add_line("namespace impl {");
+    text_.add_line("namespace " + m.name() + " {");
+    text_.add_line();
     {
-        auto v = new CUDAPrinterVisitor(&m, optimize_);
-        v->increase_indentation();
+        increase_indentation();
+        // forward declarations of procedures
+        for(auto const &var : m.symbols()) {
+            if(   var.second.kind==k_symbol_procedure
+            && var.second.expression->is_procedure()->kind() == k_proc_normal)
+            {
+                print_procedure_prototype(var.second.expression->is_procedure());
+                text_.end_line(";");
+                text_.add_line();
+            }
+        }
+
         // print stubs that call API method kernels that are defined in the
         // imp::name namespace
-        auto proctest = [] (procedureKind k) {return k == k_proc_normal;};
+        auto proctest = [] (procedureKind k) {return k == k_proc_normal
+                                                  || k == k_proc_api;   };
         for(auto const &var : m.symbols()) {
             if(   var.second.kind==k_symbol_procedure
             && proctest(var.second.expression->is_procedure()->kind()))
             {
-                var.second.expression->accept(v);
+                var.second.expression->accept(this);
             }
         }
-        v->decrease_indentation();
-        text_ << v->text();
+        decrease_indentation();
     }
-
-    text_ << "} // namespace " + m.name() + "\n";
-    text_ << "} // namespace impl\n";
+    text_.add_line("} // namespace " + m.name());
+    text_.add_line("} // namespace impl");
+    text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -159,7 +123,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "template<typename T, typename I>\n";
     text_ << "class " + class_name + " : public Mechanism<T, I, targetKind::gpu> {\n";
     text_ << "public:\n\n";
-    text_ << "    using base = Mechanism<T, I, targetKind::cpu>;\n";
+    text_ << "    using base = Mechanism<T, I, targetKind::gpu>;\n";
     text_ << "    using value_type  = typename base::value_type;\n";
     text_ << "    using size_type   = typename base::size_type;\n";
     text_ << "    using vector_type = typename base::vector_type;\n";
@@ -227,7 +191,8 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
     text_ << "        t = t_;\n";
     text_ << "        dt = dt_;\n";
-    text_ << "        param_pack_ = " << m.name() << "_ParamPack{\n";
+    text_ << "        param_pack_ = param_pack_type{\n";
+    //for(auto i=0; i<param_pack.size(); ++i)
     for(auto &str: param_pack) {
         text_ << "          " << str << ",\n";
     }
@@ -249,19 +214,25 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    auto v = new CUDAPrinterVisitor(&m, optimize_);
-    v->increase_indentation();
-    // print stubs that call API method kernels that are defined in the
-    // imp::name namespace
     auto proctest = [] (procedureKind k) {return k == k_proc_api;};
     for(auto const &var : m.symbols()) {
         if(   var.second.kind==k_symbol_procedure
-           && proctest(var.second.expression->is_procedure()->kind()))
+        && proctest(var.second.expression->is_procedure()->kind()))
         {
-            var.second.expression->accept(v);
+            auto proc = var.second.expression->is_api_method();
+            auto name = proc->name();
+            text_ << "  void " << name << "() {\n";
+            text_ << "    auto n = size();\n";
+            text_ << "    auto thread_dim = 192;\n";
+            text_ << "    dim3 dim_block(thread_dim);\n";
+            text_ << "    dim3 dim_grid(n/dim_block.x + (n%dim_block.x ? 1 : 0) );\n\n";
+            text_ << "    START_PROFILE\n";
+            text_ << "    impl::" << m.name() << "::" << name << "<T,I>"
+                    << "<<<dim_grid, dim_block>>>(param_pack_);\n";
+            text_ << "    STOP_PROFILE\n";
+            text_ << "  }\n";
         }
     }
-    text_ << v->text();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
@@ -293,43 +264,65 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o) {
     text_ << "};\n";
 }
 
-
-/******************************************************************************
-                              CUDAPrinterVisitor
-******************************************************************************/
-
-void CUDAPrinterVisitor::visit(Expression *e) {
-    std::cout << "CUDAPrinterVisitor :: error printing : " << e->to_string() << std::endl;
+void CUDAPrinter::visit(Expression *e) {
+    std::cout << "CUDAPrinter :: error printing : " << e->to_string() << std::endl;
     assert(false);
 }
 
-void CUDAPrinterVisitor::visit(LocalExpression *e) {
+void CUDAPrinter::visit(LocalExpression *e) {
 }
 
-void CUDAPrinterVisitor::visit(NumberExpression *e) {
+void CUDAPrinter::visit(NumberExpression *e) {
     text_ << " " << e->value();
 }
 
-void CUDAPrinterVisitor::visit(IdentifierExpression *e) {
+void CUDAPrinter::visit(IdentifierExpression *e) {
     if(auto var = e->variable()) {
         var->accept(this);
     }
-}
-
-void CUDAPrinterVisitor::visit(VariableExpression *e) {
-    text_ << "params." << e->name();
-    if(e->is_range()) {
-        text_ << "[tid_]";
+    else {
+        text_ << e->name();
     }
 }
 
-void CUDAPrinterVisitor::visit(IndexedVariable *e) {
-    // here we have to do some more specific tests
-    // is it an ion or matrix?
-    text_ << "params." << e->name() << "[gid_]";
+void CUDAPrinter::visit(VariableExpression *e) {
+    text_ << "params_." << e->name();
+    if(e->is_range()) {
+        text_ << "[" << index_string(e) << "]";
+    }
 }
 
-void CUDAPrinterVisitor::visit(UnaryExpression *e) {
+std::string CUDAPrinter::index_string(Expression *e) {
+    if(e->is_variable()) {
+        return "tid_";
+    }
+    else if(auto var = e->is_indexed_variable()) {
+        switch(var->ion_channel()) {
+            case k_ion_none :
+                return "gid_";
+            case k_ion_Ca   :
+                return "caid_";
+            case k_ion_Na   :
+                return "naid_";
+            case k_ion_K    :
+                return "kid_";
+            // a nonspecific ion current should never be indexed: it is
+            // local to a mechanism
+            case k_ion_nonspecific:
+                break;
+        }
+    }
+
+    // never call with anything other than variable or indexed variable
+    assert(false);
+    return "error";
+}
+
+void CUDAPrinter::visit(IndexedVariable *e) {
+    text_ << "params_." << e->name() << "[" << index_string(e) << "]";
+}
+
+void CUDAPrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
         case tok_minus :
             // place a space in front of minus sign to avoid invalid
@@ -366,21 +359,15 @@ void CUDAPrinterVisitor::visit(UnaryExpression *e) {
     }
 }
 
-void CUDAPrinterVisitor::visit(BlockExpression *e) {
+void CUDAPrinter::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local)
-                names.push_back(var.first);
-        }
-        if(names.size()>0) {
-            text_.add_gutter() << "T " << names[0];
-            for(auto it=names.begin()+1; it!=names.end(); ++it) {
-                    text_ <<  "(0), " << *it;
+            if(var.second.kind == k_symbol_local) {
+                text_.add_line("auto " + var.first + " = T{0};");
             }
-            text_.end_line("(0);");
         }
     }
 
@@ -394,7 +381,7 @@ void CUDAPrinterVisitor::visit(BlockExpression *e) {
     }
 }
 
-void CUDAPrinterVisitor::visit(IfExpression *e) {
+void CUDAPrinter::visit(IfExpression *e) {
     // for now we remove the brackets around the condition because
     // the binary expression printer adds them, and we want to work
     // around the -Wparentheses-equality warning
@@ -408,20 +395,27 @@ void CUDAPrinterVisitor::visit(IfExpression *e) {
     text_ << "}";
 }
 
-void CUDAPrinterVisitor::visit(ProcedureExpression *e) {
-    // ------------- print prototype ------------- //
+void CUDAPrinter::print_procedure_prototype(ProcedureExpression *e) {
     text_.add_gutter() << "template <typename T, typename I>\n";
     text_.add_line("__device__");
     text_.add_gutter() << "void " << e->name()
-                       << "(ParamPack_" << module_->name() << "<T,I> const& params_,"
+                       << "(" << module_->name() << "_ParamPack<T,I> const& params_,"
                        << "const int tid_";
     for(auto arg : e->args()) {
         text_ << ", T " << arg->is_argument()->name();
     }
-    text_.end_line(") {");
+    text_ << ")";
+}
 
-    assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
+void CUDAPrinter::visit(ProcedureExpression *e) {
+    // error: semantic analysis has not been performed
+    assert(e->scope()!=nullptr);
 
+    // ------------- print prototype ------------- //
+    print_procedure_prototype(e);
+    text_.end_line(" {");
+
+    // ------------- print body ------------- //
     increase_indentation();
 
     e->body()->accept(this);
@@ -433,82 +427,38 @@ void CUDAPrinterVisitor::visit(ProcedureExpression *e) {
     return;
 }
 
-void CUDAPrinterVisitor::visit(APIMethod *e) {
+void CUDAPrinter::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
-    text_.add_gutter() << "void " << e->name() << "() {";
-    text_.end_line();
+    text_.add_gutter() << "template <typename T, typename I>\n";
+    text_.add_line(       "__global__");
+    text_.add_gutter() << "void " << e->name()
+                       << "(" << module_->name() << "_ParamPack<T,I> params_) {";
+    text_.add_line();
 
     assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
-
-    text_.add_line("{");
     increase_indentation();
 
-    // print the CUDA set up headers
-    text_.add_line("auto n = size();");
-    text_.add_line("auto thread_dim = 192;");
-    text_.add_line("dim3 dim_block(thread_dim);");
-    text_.add_line("dim3 dim_grid(n/dim_block.x + (n%dim_block.x ? 1 : 0) );");
+    text_.add_line("auto tid_ = threadIdx.x + blockDim.x*blockIdx.x;");
+    text_.add_line("auto const grid_step_ = blockDim.x * gridDim.x;");
+    text_.add_line("auto const n_ = params_.n;");
     text_.add_line();
+    text_.add_line("while(tid_<n_) {");
+    increase_indentation();
 
-    text_.add_line("START_PROFILE");
-    text_.add_gutter() << "//impl::"
-                       << module_->name()
-                       << "::current_kernel<T,I>"
-                       << "<<<dim_grid, dim_block>>>(param_pack_);";
-    text_.add_line();
-    text_.add_line("STOP_PROFILE");
+    text_.add_line("auto gid_ = params_.ni[tid_];");
+
+    print_APIMethod_body(e);
+
+    text_.add_line("tid_ += grid_step_;");
+
+    decrease_indentation();
+    text_.add_line("}");
+
     decrease_indentation();
     text_.add_line("}\n");
 }
 
-void CUDAPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
-    // ------------- get mechanism properties ------------- //
-    //bool is_density = module_->kind() == k_module_density;
-
-    text_.add_line("START_PROFILE");
-    // there can not be more than 1 instance of a density chanel per grid point,
-    // so we can assert that aliasing will not occur for 
-    // if this is a point process, then we were redirected here as there
-    // is no aliased output
-    //if(is_density || optimize_) text_.add_line("#pragma ivdep");
-    if(optimize_) text_.add_line("#pragma ivdep");
-
-    text_.add_line("for(int i_=0; i_<n_; ++i_) {");
-    text_.increase_indentation();
-
-    // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local.expression->accept(this);
-        text_ << " = ";
-        in.external.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    e->body()->accept(this);
-
-    // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    text_.decrease_indentation();
-    text_.add_line("}");
-
-    text_.add_line("STOP_PROFILE");
-
-    // ------------- close up ------------- //
-    decrease_indentation();
-    text_.add_line("}");
-    text_.add_line();
-    return;
-}
-
-void CUDAPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
+void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
     bool is_point_process = module_->kind() == k_module_point;
 
@@ -522,37 +472,30 @@ void CUDAPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
             }
         }
     }
-    bool aliased_output = aliased_variables.size()>0;
 
-    // only proceed with optimized output if required
-    if(!aliased_output) {
-        print_APIMethod_unoptimized(e);
-        return;
+    // declare local variables
+    for(auto &var: aliased_variables) {
+        auto const& name = var->local.expression->is_identifier()->name();
+        text_.add_line("auto " + name + " = T{0};");
     }
 
-    // ------------- block loop ------------- //
-
-    text_.add_line("constexpr int BSIZE = 64;");
-    text_.add_line("int NB = n_/BSIZE;");
-    for(auto out: aliased_variables) {
-        text_.add_line("value_type " + out->local.expression->is_identifier()->name() + "[BSIZE];");
+    // load indexes of ion channels
+    auto uses_k  = false;
+    auto uses_na = false;
+    auto uses_ca = false;
+    for(auto &in : e->inputs()) {
+        auto ch = in.external.expression->is_indexed_variable()->ion_channel();
+        if(!uses_k   && (uses_k  = (ch == k_ion_K)) )
+            text_.add_line("auto kid_  = params_.ion_k_idx_[tid_];");
+        if(!uses_ca  && (uses_ca = (ch == k_ion_Ca)) )
+            text_.add_line("auto caid_ = params_.ion_ca_idx_[tid_];");
+        if(!uses_na  && (uses_na = (ch == k_ion_Na)) )
+            text_.add_line("auto naid_ = params_.ion_na_idx_[tid_];");
     }
-    text_.add_line("START_PROFILE");
 
-    text_.add_line("for(int b_=0; b_<NB; ++b_) {");
-    text_.increase_indentation();
-    text_.add_line("int BSTART = BSIZE*b_;");
-    text_.add_line("int i_ = BSTART;");
+    text_.add_line();
 
-
-    // assert that memory accesses are not aliased because we will
-    // use ghost arrays to ensure that write-back of point processes does
-    // not lead to race conditions
-    text_.add_line("#pragma ivdep");
-    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // insert loads from external state here
+    // insert loads from external state
     for(auto &in : e->inputs()) {
         text_.add_gutter();
         in.local.expression->accept(this);
@@ -561,77 +504,40 @@ void CUDAPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
         text_.end_line(";");
     }
 
-    e->body()->accept(this);
-
-    text_.decrease_indentation();
-    text_.add_line("}"); // end inner compute loop
-
-    text_.add_line("i_ = BSTART;");
-    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    text_.decrease_indentation();
-    text_.add_line("}"); // end inner write loop
-    text_.decrease_indentation();
-    text_.add_line("}"); // end outer block loop
-
-    // ------------- block tail loop ------------- //
-
-    text_.add_line("int j_ = 0;");
-    text_.add_line("#pragma ivdep");
-    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local.expression->accept(this);
-        text_ << " = ";
-        in.external.expression->accept(this);
-        text_.end_line(";");
-    }
+    text_.add_line();
 
     e->body()->accept(this);
 
-    text_.decrease_indentation();
-    text_.add_line("}"); // end inner compute loop
-    text_.add_line("j_ = 0;");
-    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
-    text_.increase_indentation();
-
     // insert stores here
+    // take care to use atomic operations for the updates for point processes, where
+    // more than one thread may try add/subtract to the same memory location
     for(auto &out : e->outputs()) {
         text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
+        if(!is_point_process) {
+            out.external.expression->accept(this);
+            text_ << (out.op==tok_plus ? " += " : " -= ");
+            out.local.expression->accept(this);
+        }
+        else {
+            auto ext = out.external.expression->is_indexed_variable();
+            // for now we assume that only matrix variables are updated in this manner
+            assert(ext->ion_channel() == k_ion_none);
+
+            text_ << (out.op==tok_plus ? "atomicAdd" : "atomicSub") << "(&";
+            ext->accept(this);
+            text_ << ", ";
+            out.local.expression->accept(this);
+            text_ << ")";
+        }
         text_.end_line(";");
     }
 
-    text_.decrease_indentation();
-    text_.add_line("}"); // end block tail loop
-
-
-    text_.add_line("STOP_PROFILE");
-
-    // ------------- close up ------------- //
-    decrease_indentation();
-    text_.add_line("}");
     text_.add_line();
     return;
 }
 
-void CUDAPrinterVisitor::visit(CallExpression *e) {
-    text_ << e->name() << "(i_";
+void CUDAPrinter::visit(CallExpression *e) {
+    text_ << e->name() << "<T,I>(params_, tid_";
     for(auto& arg: e->args()) {
         text_ << ", ";
         arg->accept(this);
@@ -639,13 +545,13 @@ void CUDAPrinterVisitor::visit(CallExpression *e) {
     text_ << ")";
 }
 
-void CUDAPrinterVisitor::visit(AssignmentExpression *e) {
+void CUDAPrinter::visit(AssignmentExpression *e) {
     e->lhs()->accept(this);
     text_ << " = ";
     e->rhs()->accept(this);
 }
 
-void CUDAPrinterVisitor::visit(PowBinaryExpression *e) {
+void CUDAPrinter::visit(PowBinaryExpression *e) {
     text_ << "std::pow(";
     e->lhs()->accept(this);
     text_ << ", ";
@@ -653,7 +559,7 @@ void CUDAPrinterVisitor::visit(PowBinaryExpression *e) {
     text_ << ")";
 }
 
-void CUDAPrinterVisitor::visit(BinaryExpression *e) {
+void CUDAPrinter::visit(BinaryExpression *e) {
     auto pop = parent_op_;
     bool use_brackets = Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op());
     parent_op_ = e->op();

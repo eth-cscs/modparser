@@ -478,6 +478,8 @@ bool Module::semantic() {
     // nrn_jacob : add conductance g to diagonal VEC_D
     //..........................................................
     //..........................................................
+    // remove, because we fold the rhs update into nrn_current
+    /*
     auto proc_jacob =
         new APIMethod(
             Location(), "nrn_jacob", {}, new BlockExpression(Location(), {}, false) );
@@ -487,6 +489,7 @@ bool Module::semantic() {
     // set output update for vec_d
     // remove, because we want to fuse this with nrn_current
     //proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_d"]});
+    */
 
 
     // apply semantic analysis to the entries in the output and input indexes
