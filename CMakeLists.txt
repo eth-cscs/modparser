@@ -14,28 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# turn on papi for runtime tests (off by default)
-set( TESTS_USE_PAPI "OFF" CACHE BOOL "use PAPI instrumentation for runtime tests" )
-if( "${TESTS_USE_PAPI}" STREQUAL "ON" )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPROFILING_PAPI -fopenmp")
-
-    set( PAPI_WRAP_PATH ${CMAKE_SOURCE_DIR}/external/papi-wrap )
-    set( PAPI_PATH "$ENV{PAPI_ROOT}" CACHE STRING "Path to papi library" )
-    set( PAPI_LIB_PATH ${PAPI_PATH}/lib )
-    include_directories(${PAPI_PATH}/include)
-    link_directories   (${PAPI_PATH}/lib)
-    include_directories(${PAPI_WRAP_PATH})
-    link_directories   (${PAPI_WRAP_PATH}/lib)
-endif()
-
-set( OPTIMIZATION_INFO "OFF" CACHE BOOL "get optimization reports from compiler" )
-if( "${OPTIMIZATION_INFO}" STREQUAL "ON" )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopt-info")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopt-info-vec-all")
-endif()
-
 include_directories(${CMAKE_SOURCE_DIR}/external)
-include_directories(${CMAKE_SOURCE_DIR}/tests/runtime)
 include_directories(${CMAKE_SOURCE_DIR}/tests/gtest)
 
 add_subdirectory(src)
