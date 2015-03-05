@@ -40,4 +40,4 @@ If no ouput file is specified, as above, the generated code is written to stdout
 
 ```
 ./bin/modcc tests/modfiles/KdShu2007.mod  -t gpu -o KdShu.h
-``
+```
