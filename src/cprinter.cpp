@@ -62,6 +62,8 @@ CPrinter::CPrinter(Module &m, bool o) {
             text_ << "        view_type " + field + ";\n";
         }
         text_ << "        index_type index;\n";
+        text_ << "        std::size_t memory() const { return sizeof(size_type)*index.size(); }\n";
+        text_ << "        std::size_t size() const { return index.size(); }\n";
         text_ << "    };\n";
         text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
     }
@@ -100,8 +102,13 @@ CPrinter::CPrinter(Module &m, bool o) {
 
     text_ << "    using base::size;\n\n";
 
-    text_ << "    size_type memory() const override {\n";
-    text_ << "        return node_indices_.size()*sizeof(value_type)*" << num_vars << ";\n";
+    text_ << "    std::size_t memory() const override {\n";
+    text_ << "        auto s = std::size_t{0};\n";
+    text_ << "        s += data_.size()*sizeof(value_type);\n";
+    for(auto& ion: m.neuron_block().ions) {
+        text_ << "        s += ion_" + ion.name + ".memory();\n";
+    }
+    text_ << "        return s;\n";
     text_ << "    }\n\n";
 
     text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
@@ -460,6 +467,11 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
     text_.increase_indentation();
 
+    // initialize ghost fields to zero
+    for(auto out: aliased_variables) {
+        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
+    }
+
     // insert loads from external state here
     for(auto &in : e->inputs()) {
         text_.add_gutter();
@@ -498,6 +510,12 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("#pragma ivdep");
     text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
     text_.increase_indentation();
+
+    // initialize ghost fields to zero
+    for(auto out: aliased_variables) {
+        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
+    }
+
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {

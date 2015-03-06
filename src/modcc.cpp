@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
             fout_arg("o","output","name of output file", false,"","filname");
         // output filename
         TCLAP::ValueArg<std::string>
-            target_arg("t","target","backend target={cpu,gpu}", true,"cpu","string");
+            target_arg("t","target","backend target={cpu,gpu}", true,"cpu","cpu/gpu");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
         // optimization mode

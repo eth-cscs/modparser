@@ -146,6 +146,8 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
             text_ << "        view_type " + field + ";\n";
         }
         text_ << "        index_type index;\n";
+        text_ << "        std::size_t memory() const { return sizeof(size_type)*index.size(); }\n";
+        text_ << "        std::size_t size() const { return index.size(); }\n";
         text_ << "    };\n";
         text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
     }
@@ -184,8 +186,13 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
 
     text_ << "    using base::size;\n\n";
 
-    text_ << "    size_type memory() const override {\n";
-    text_ << "        return node_indices_.size()*sizeof(value_type)*" << num_vars << ";\n";
+    text_ << "    std::size_t memory() const override {\n";
+    text_ << "        auto s = std::size_t{0};\n";
+    text_ << "        s += data_.size()*sizeof(value_type);\n";
+    for(auto& ion: m.neuron_block().ions) {
+        text_ << "        s += ion_" + ion.name + ".memory();\n";
+    }
+    text_ << "        return s;\n";
     text_ << "    }\n\n";
 
     text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
