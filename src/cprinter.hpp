@@ -6,26 +6,10 @@
 #include "textbuffer.hpp"
 #include "visitor.h"
 
-class CPrinter {
+class CPrinter : public Visitor {
 public:
-    CPrinter(Module &module, bool o=false);
-
-    std::string text() const {
-        return text_.str();
-    }
-
-private:
-    std::stringstream text_;
-    bool optimize_ = false;
-};
-
-class CPrinterVisitor : public Visitor {
-public:
-    CPrinterVisitor() {}
-    CPrinterVisitor(Module *m, bool o=false)
-    :   module_(m),
-        optimize_(o)
-    {}
+    CPrinter() {}
+    CPrinter(Module &m, bool o=false);
 
     void visit(Expression *e)           override;
     void visit(UnaryExpression *e)      override;

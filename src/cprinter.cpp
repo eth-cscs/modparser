@@ -5,9 +5,10 @@
                               CPrinter driver
 ******************************************************************************/
 
-CPrinter::CPrinter(Module &m, bool o) {
-    optimize_ = o;
-
+CPrinter::CPrinter(Module &m, bool o)
+    :   module_(&m),
+        optimize_(o)
+{
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types
     std::vector<VariableExpression*> scalar_variables;
@@ -131,22 +132,19 @@ CPrinter::CPrinter(Module &m, bool o) {
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    auto v = new CPrinterVisitor(&m, optimize_);
-    v->increase_indentation();
+    increase_indentation();
     auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
     for(auto const &var : m.symbols()) {
         if(   var.second.kind==k_symbol_procedure
            && proctest(var.second.expression->is_procedure()->kind()))
         {
-            var.second.expression->accept(v);
+            var.second.expression->accept(this);
         }
     }
-    text_ << v->text();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    //text_ << "private:\n\n";
     text_ << "    vector_type data_;\n\n";
     for(auto var: array_variables) {
         text_ << "    view_type " << var->name() << ";\n";
@@ -173,22 +171,22 @@ CPrinter::CPrinter(Module &m, bool o) {
 
 
 /******************************************************************************
-                              CPrinterVisitor
+                              CPrinter
 ******************************************************************************/
 
-void CPrinterVisitor::visit(Expression *e) {
-    std::cout << "CPrinterVisitor :: error printing : " << e->to_string() << std::endl;
+void CPrinter::visit(Expression *e) {
+    std::cout << "CPrinter :: error printing : " << e->to_string() << std::endl;
     assert(false);
 }
 
-void CPrinterVisitor::visit(LocalExpression *e) {
+void CPrinter::visit(LocalExpression *e) {
 }
 
-void CPrinterVisitor::visit(NumberExpression *e) {
+void CPrinter::visit(NumberExpression *e) {
     text_ << " " << e->value();
 }
 
-void CPrinterVisitor::visit(IdentifierExpression *e) {
+void CPrinter::visit(IdentifierExpression *e) {
     if(auto var = e->variable()) {
         var->accept(this);
     }
@@ -202,18 +200,18 @@ void CPrinterVisitor::visit(IdentifierExpression *e) {
     }
 }
 
-void CPrinterVisitor::visit(VariableExpression *e) {
+void CPrinter::visit(VariableExpression *e) {
     text_ << e->name();
     if(e->is_range()) {
         text_ << "[i_]";
     }
 }
 
-void CPrinterVisitor::visit(IndexedVariable *e) {
+void CPrinter::visit(IndexedVariable *e) {
     text_ << e->name() << "[i_]";
 }
 
-void CPrinterVisitor::visit(UnaryExpression *e) {
+void CPrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
         case tok_minus :
             // place a space in front of minus sign to avoid invalid
@@ -250,7 +248,7 @@ void CPrinterVisitor::visit(UnaryExpression *e) {
     }
 }
 
-void CPrinterVisitor::visit(BlockExpression *e) {
+void CPrinter::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
@@ -278,7 +276,7 @@ void CPrinterVisitor::visit(BlockExpression *e) {
     }
 }
 
-void CPrinterVisitor::visit(IfExpression *e) {
+void CPrinter::visit(IfExpression *e) {
     // for now we remove the brackets around the condition because
     // the binary expression printer adds them, and we want to work
     // around the -Wparentheses-equality warning
@@ -292,7 +290,7 @@ void CPrinterVisitor::visit(IfExpression *e) {
     text_ << "}";
 }
 
-void CPrinterVisitor::visit(ProcedureExpression *e) {
+void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_.add_gutter() << "void " << e->name() << "(const int i_";
@@ -314,7 +312,7 @@ void CPrinterVisitor::visit(ProcedureExpression *e) {
     return;
 }
 
-void CPrinterVisitor::visit(APIMethod *e) {
+void CPrinter::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
     text_.add_gutter() << "void " << e->name() << "() {";
     text_.end_line();
@@ -376,7 +374,7 @@ void CPrinterVisitor::visit(APIMethod *e) {
     }
 }
 
-void CPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
+void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
     //bool is_density = module_->kind() == k_module_density;
 
@@ -423,7 +421,7 @@ void CPrinterVisitor::print_APIMethod_unoptimized(APIMethod* e) {
     return;
 }
 
-void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
+void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
     bool is_point_process = module_->kind() == k_module_point;
 
@@ -556,7 +554,7 @@ void CPrinterVisitor::print_APIMethod_optimized(APIMethod* e) {
     return;
 }
 
-void CPrinterVisitor::visit(CallExpression *e) {
+void CPrinter::visit(CallExpression *e) {
     text_ << e->name() << "(i_";
     for(auto& arg: e->args()) {
         text_ << ", ";
@@ -565,13 +563,13 @@ void CPrinterVisitor::visit(CallExpression *e) {
     text_ << ")";
 }
 
-void CPrinterVisitor::visit(AssignmentExpression *e) {
+void CPrinter::visit(AssignmentExpression *e) {
     e->lhs()->accept(this);
     text_ << " = ";
     e->rhs()->accept(this);
 }
 
-void CPrinterVisitor::visit(PowBinaryExpression *e) {
+void CPrinter::visit(PowBinaryExpression *e) {
     text_ << "std::pow(";
     e->lhs()->accept(this);
     text_ << ", ";
@@ -579,7 +577,7 @@ void CPrinterVisitor::visit(PowBinaryExpression *e) {
     text_ << ")";
 }
 
-void CPrinterVisitor::visit(BinaryExpression *e) {
+void CPrinter::visit(BinaryExpression *e) {
     auto pop = parent_op_;
     bool use_brackets = Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op());
     parent_op_ = e->op();
