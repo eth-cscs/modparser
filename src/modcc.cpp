@@ -6,6 +6,7 @@
 
 #include "cprinter.hpp"
 #include "cudaprinter.hpp"
+#include "cymeprinter.hpp"
 #include "lexer.h"
 #include "module.h"
 #include "parser.h"
@@ -13,7 +14,7 @@
 
 //#define VERBOSE
 
-enum class targetKind {cpu, gpu};
+enum class targetKind {cpu, gpu, cyme};
 
 struct Options {
     std::string filename;
@@ -30,7 +31,7 @@ struct Options {
         std::cout << cyan("| output   ") << outname << std::string(61-11-outname.size(),' ') << cyan("|") << std::endl;
         std::cout << cyan("| verbose  ") << (verbose  ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("| optimize ") << (optimize ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
-        std::cout << cyan("| target   ") << (target==targetKind::cpu? "cpu" : "gpu") << std::string(61-11-3,' ') << cyan("|") << std::endl;
+        std::cout << cyan("| target   ") << (target==targetKind::cpu? "cpu" : target==targetKind::cyme ? "cym" : "gpu") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
     }
 };
@@ -51,7 +52,7 @@ int main(int argc, char **argv) {
             fout_arg("o","output","name of output file", false,"","filname");
         // output filename
         TCLAP::ValueArg<std::string>
-            target_arg("t","target","backend target={cpu,gpu}", true,"cpu","cpu/gpu");
+            target_arg("t","target","backend target={cpu,gpu,cyme}", true,"cpu","cpu/gpu/cyme");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
         // optimization mode
@@ -75,8 +76,11 @@ int main(int argc, char **argv) {
         else if(targstr == "gpu") {
             options.target = targetKind::gpu;
         }
+        else if(targstr == "cyme") {
+            options.target = targetKind::cyme;
+        }
         else {
-            std::cerr << red("error") << " target must be one in {cpu, gpu}" << std::endl;
+            std::cerr << red("error") << " target must be one in {cpu, gpu, cyme}" << std::endl;
             return 1;
         }
     }
@@ -141,10 +145,13 @@ int main(int argc, char **argv) {
 
     std::string text;
     switch(options.target) {
-        case targetKind::cpu :
+        case targetKind::cpu  :
             text = CPrinter(m, options.optimize).text();
             break;
-        case targetKind::gpu :
+        case targetKind::cyme :
+            text = CymePrinter(m, options.optimize).text();
+            break;
+        case targetKind::gpu  :
             text = CUDAPrinter(m, options.optimize).text();
             break;
     }

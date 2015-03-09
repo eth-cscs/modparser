@@ -3,6 +3,7 @@ set(BASE_SOURCES
     textbuffer.cpp
     cprinter.cpp
     cudaprinter.cpp
+    cymeprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp
