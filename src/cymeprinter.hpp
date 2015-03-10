@@ -44,12 +44,13 @@ public:
     }
 private:
 
-    void print_APIMethod_optimized(APIMethod* e);
-    void print_APIMethod_unoptimized(APIMethod* e);
+    void print_APIMethod(APIMethod* e);
 
     Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;
     TextBuffer text_;
     bool optimize_ = false;
+    bool on_lhs_ = false;
+    bool on_load_store_ = false;
 };
 

@@ -80,9 +80,9 @@ CymePrinter::CymePrinter(Module &m, bool o)
     text_ << "        auto num_fields = " << num_vars << ";\n";
     text_ << "        auto n = size();\n";
     text_ << "        constexpr auto alignment = vector_type::coordinator_type::alignment();\n";
-    text_ << "        const padding = memory::impl::get_padding<value_type>(alignment, n);\n";
-    text_ << "        const n_alloc = n + padding;\n";
-    text_ << "        const total_size = num_fields * n_alloc;\n";
+    text_ << "        auto const padding = memory::impl::get_padding<value_type>(alignment, n);\n";
+    text_ << "        auto const n_alloc = n + padding;\n";
+    text_ << "        auto const total_size = num_fields * n_alloc;\n";
     text_ << "        data_ = vector_type(total_size);\n";
     text_ << "        data_(memory::all) = std::numeric_limits<value_type>::quiet_NaN();\n";
     for(int i=0; i<num_vars; ++i) {
@@ -197,9 +197,8 @@ void CymePrinter::visit(IdentifierExpression *e) {
     else {
         std::string const& name = e->name();
         text_ << name;
-        auto k = e->scope()->locals()[name].kind;
-        if(k==k_symbol_ghost) {
-            text_ << "[j_]";
+        if(on_load_store_) {
+            text_ << "(j_)";
         }
     }
 }
@@ -207,12 +206,18 @@ void CymePrinter::visit(IdentifierExpression *e) {
 void CymePrinter::visit(VariableExpression *e) {
     text_ << e->name();
     if(e->is_range()) {
-        text_ << "[i_]";
+        if(on_load_store_) {
+            text_ << "[k_]";
+        }
+        else {
+            text_ << (on_lhs_ ? ".wvec(i_)" : ".rvec(i_)");
+        }
     }
 }
 
 void CymePrinter::visit(IndexedVariable *e) {
-    text_ << e->name() << "[i_]";
+    // don't checnk on_load_store_, because only can be accessed as a scalar
+    text_ << e->name() << "[k_]";
 }
 
 void CymePrinter::visit(UnaryExpression *e) {
@@ -262,11 +267,11 @@ void CymePrinter::visit(BlockExpression *e) {
                 names.push_back(var.first);
         }
         if(names.size()>0) {
-            text_.add_gutter() << "value_type " << names[0];
+            text_.add_gutter() << "cyme::vector_value<value_type> " << names[0];
             for(auto it=names.begin()+1; it!=names.end(); ++it) {
-                    text_ <<  "(0), " << *it;
+                    text_ <<  "{0}, " << *it;
             }
-            text_.end_line("(0);");
+            text_.end_line("{0};");
         }
     }
 
@@ -299,7 +304,7 @@ void CymePrinter::visit(ProcedureExpression *e) {
     //set_gutter(0);
     text_.add_gutter() << "void " << e->name() << "(const int i_";
     for(auto arg : e->args()) {
-        text_ << ", value_type " << arg->is_argument()->name();
+        text_ << ", cyme::vector_value<value_type> " << arg->is_argument()->name();
     }
     text_.end_line(") {");
 
@@ -346,9 +351,9 @@ void CymePrinter::visit(APIMethod *e) {
             assert(false);
         }
     }
-    for(auto &in : e->outputs()) {
+    for(auto &out : e->outputs()) {
         auto const& name =
-            in.external.expression->is_indexed_variable()->name();
+            out.external.expression->is_indexed_variable()->name();
         text_.add_gutter() << "indexed_view " + name;
         if(name.substr(0,3) == "vec") {
             text_ << "(matrix_." + name + "(), node_indices_);\n";
@@ -367,188 +372,75 @@ void CymePrinter::visit(APIMethod *e) {
     }
 
     // ------------- get loop dimensions ------------- //
-    text_.add_line("int n_ = node_indices_.size();");
+    text_.add_line();
+    text_.add_line("auto n_          = node_indices_.size();");
+    text_.add_line("auto nsteps_     = n_ / cyme::vec_width<value_type>();");
+    text_.add_line("auto nremainder_ = n_ % cyme::vec_width<value_type>();");
+    text_.add_line();
 
-    // hand off printing of loops to optimized or unoptimized backend
-    if(optimize_) {
-        print_APIMethod_optimized(e);
-    }
-    else {
-        print_APIMethod_unoptimized(e);
-    }
+    print_APIMethod(e);
 }
 
-void CymePrinter::print_APIMethod_unoptimized(APIMethod* e) {
+void CymePrinter::print_APIMethod(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    //bool is_density = module_->kind() == k_module_density;
+    bool is_density = module_->kind() == k_module_density;
 
     text_.add_line("START_PROFILE");
+
     // there can not be more than 1 instance of a density chanel per grid point,
     // so we can assert that aliasing will not occur for 
     // if this is a point process, then we were redirected here as there
     // is no aliased output
-    //if(is_density || optimize_) text_.add_line("#pragma ivdep");
-    if(optimize_) text_.add_line("#pragma ivdep");
 
-    text_.add_line("for(int i_=0; i_<n_; ++i_) {");
+    text_.add_line("for(auto i_=0; i_<nsteps_; ++i_) {");
     text_.increase_indentation();
 
     // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local.expression->accept(this);
-        text_ << " = ";
-        in.external.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    e->body()->accept(this);
-
-    // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    text_.decrease_indentation();
-    text_.add_line("}");
-
-    text_.add_line("STOP_PROFILE");
-
-    // ------------- close up ------------- //
-    decrease_indentation();
-    text_.add_line("}");
-    text_.add_line();
-    return;
-}
-
-void CymePrinter::print_APIMethod_optimized(APIMethod* e) {
-    // ------------- get mechanism properties ------------- //
-    bool is_point_process = module_->kind() == k_module_point;
-
-    // :: analyse outputs, to determine if they depend on any
-    //    ghost fields.
-    std::vector<MemOp*> aliased_variables;
-    if(is_point_process) {
-        for(auto &out : e->outputs()) {
-            if(out.local.kind == k_symbol_ghost) {
-                aliased_variables.push_back(&out);
-            }
+    if(e->outputs().size()) {
+        text_.add_line("for(auto j_=0; j_<cyme::vec_width<value_type>(); ++j_) {");
+        text_.increase_indentation();
+        text_.add_line("auto k_ = j_ + cyme::vec_width<value_type>()*i_;");
+        on_load_store_ = true;
+        for(auto &in : e->inputs()) {
+            text_.add_gutter();
+            on_lhs_ = true;
+            in.local.expression->accept(this);
+            on_lhs_ = false;
+            text_ << " = ";
+            in.external.expression->accept(this);
+            text_.end_line(";");
         }
-    }
-    bool aliased_output = aliased_variables.size()>0;
-
-    // only proceed with optimized output if required
-    if(!aliased_output) {
-        print_APIMethod_unoptimized(e);
-        return;
-    }
-
-    // ------------- block loop ------------- //
-
-    text_.add_line("constexpr int BSIZE = 64;");
-    text_.add_line("int NB = n_/BSIZE;");
-    for(auto out: aliased_variables) {
-        text_.add_line("value_type " + out->local.expression->is_identifier()->name() + "[BSIZE];");
-    }
-    text_.add_line("START_PROFILE");
-
-    text_.add_line("for(int b_=0; b_<NB; ++b_) {");
-    text_.increase_indentation();
-    text_.add_line("int BSTART = BSIZE*b_;");
-    text_.add_line("int i_ = BSTART;");
-
-
-    // assert that memory accesses are not aliased because we will
-    // use ghost arrays to ensure that write-back of point processes does
-    // not lead to race conditions
-    text_.add_line("#pragma ivdep");
-    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // initialize ghost fields to zero
-    for(auto out: aliased_variables) {
-        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
-    }
-
-    // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local.expression->accept(this);
-        text_ << " = ";
-        in.external.expression->accept(this);
-        text_.end_line(";");
+        on_load_store_ = false;
+        text_.decrease_indentation();
+        text_.add_line("}");
+        text_.add_line();
     }
 
     e->body()->accept(this);
 
-    text_.decrease_indentation();
-    text_.add_line("}"); // end inner compute loop
-
-    text_.add_line("i_ = BSTART;");
-    text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
-    text_.increase_indentation();
-
     // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
-        text_.end_line(";");
+    if(e->outputs().size()) {
+        text_.add_line();
+        text_.add_line("for(auto j_=0; j_<cyme::vec_width<value_type>(); ++j_) {");
+        text_.increase_indentation();
+        text_.add_line("auto k_ = j_ + cyme::vec_width<value_type>()*i_;");
+        on_load_store_ = true;
+        for(auto &out : e->outputs()) {
+            text_.add_gutter();
+            on_lhs_ = false;
+            out.external.expression->accept(this);
+            on_lhs_ = true;
+            text_ << (out.op==tok_plus ? " += " : " -= ");
+            out.local.expression->accept(this);
+            text_.end_line(";");
+        }
+        on_load_store_ = false;
+        text_.decrease_indentation();
+        text_.add_line("}");
     }
 
     text_.decrease_indentation();
-    text_.add_line("}"); // end inner write loop
-    text_.decrease_indentation();
-    text_.add_line("}"); // end outer block loop
-
-    // ------------- block tail loop ------------- //
-
-    text_.add_line("int j_ = 0;");
-    text_.add_line("#pragma ivdep");
-    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // initialize ghost fields to zero
-    for(auto out: aliased_variables) {
-        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
-    }
-
-
-    // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local.expression->accept(this);
-        text_ << " = ";
-        in.external.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    e->body()->accept(this);
-
-    text_.decrease_indentation();
-    text_.add_line("}"); // end inner compute loop
-    text_.add_line("j_ = 0;");
-    text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
-    text_.increase_indentation();
-
-    // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external.expression->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
-        text_.end_line(";");
-    }
-
-    text_.decrease_indentation();
-    text_.add_line("}"); // end block tail loop
-
-
+    text_.add_line("}");
     text_.add_line("STOP_PROFILE");
 
     // ------------- close up ------------- //
@@ -568,7 +460,9 @@ void CymePrinter::visit(CallExpression *e) {
 }
 
 void CymePrinter::visit(AssignmentExpression *e) {
+    on_lhs_ = true;
     e->lhs()->accept(this);
+    on_lhs_ = false;
     text_ << " = ";
     e->rhs()->accept(this);
 }
