@@ -198,7 +198,10 @@ void CymePrinter::visit(IdentifierExpression *e) {
         std::string const& name = e->name();
         text_ << name;
         if(on_load_store_) {
-            text_ << "(j_)";
+            text_ << "[j_]";
+        }
+        else if (!on_lhs_) {
+            text_ << "()";
         }
     }
 }
@@ -263,7 +266,7 @@ void CymePrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local)
+            if(var.second.kind == k_symbol_local || var.second.kind == k_symbol_ghost)
                 names.push_back(var.first);
         }
         if(names.size()>0) {
