@@ -5,8 +5,8 @@
 ******************************************************************************/
 
 CUDAPrinter::CUDAPrinter(Module &m, bool o)
-    :   module_(&m),
-        optimize_(o)
+    :   module_(&m)//,
+        //optimize_(o)
 {
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types

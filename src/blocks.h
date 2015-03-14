@@ -73,7 +73,7 @@ struct Id {
     }
 
     std::string const& name() const {
-        return token.name;
+        return token.spelling;
     }
 };
 

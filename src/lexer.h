@@ -94,25 +94,24 @@ struct Location {
 //  TOK indicating type of token
 //  information about its location
 struct Token {
-    // the name string contains the text of the token
-    // the string is context sensitive:
-    // name should really have been called 'spelling'
-    //   type = tok_number     : name = "3.1415"  (e.g.)
-    //   type = tok_plus       : name = "+"       (always)
-    //   type = tok_if         : name = "if"      (always)
-    //   type = tok_identifier : name = "foo_bar" (e.g.)
-    std::string name;
+    // the spelling string contains the text of the token as it was written
+    // in the input file
+    //   type = tok_number     : spelling = "3.1415"  (e.g.)
+    //   type = tok_identifier : spelling = "foo_bar" (e.g.)
+    //   type = tok_plus       : spelling = "+"       (always)
+    //   type = tok_if         : spelling = "if"      (always)
+    std::string spelling;
     TOK type;
     Location location;
 
-    Token(TOK tok, std::string const& nam, Location loc=Location(0,0))
-    :   name(nam),
+    Token(TOK tok, std::string const& sp, Location loc=Location(0,0))
+    :   spelling(sp),
         type(tok),
         location(loc)
     {}
 
     Token()
-    :   name(""),
+    :   spelling(""),
         type(tok_reserved),
         location(Location())
     {};

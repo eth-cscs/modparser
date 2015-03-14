@@ -284,7 +284,7 @@ public:
     ArgumentExpression(Location loc, Token const& tok)
     :   Expression(loc),
         token_(tok),
-        name_(tok.name)
+        name_(tok.spelling)
     {}
 
     std::string to_string() const override;

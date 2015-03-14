@@ -113,13 +113,13 @@ Expression* LocalExpression::clone() const {
 }
 
 bool LocalExpression::add_variable(Token tok) {
-    if(vars_.find(tok.name)!=vars_.end()) {
+    if(vars_.find(tok.spelling)!=vars_.end()) {
         error_ = true;
-        error_string_ = "the variable '" + yellow(tok.name) + "' is defined more than once";
+        error_string_ = "the variable '" + yellow(tok.spelling) + "' is defined more than once";
         return false;
     }
 
-    vars_[tok.name] = tok;
+    vars_[tok.spelling] = tok;
     return true;
 }
 
@@ -159,7 +159,7 @@ void ArgumentExpression::semantic(std::shared_ptr<Scope> scp) {
     Symbol s = scope_->find(name_);
 
     if(s.expression==nullptr || (s.expression && s.kind==k_symbol_variable)) {
-        scope_-> add_local_symbol(name_, this, k_symbol_argument);
+        scope_->add_local_symbol(name_, this, k_symbol_argument);
     }
     else {
         error_ = true;
@@ -176,7 +176,7 @@ std::string VariableExpression::to_string() const {
     char name[17];
     snprintf(name, 17, "%-10s", name_.c_str());
     std::string
-        s = colorize("variable",kBlue) + " " + colorize(name, kYellow) + "("
+        s = blue("variable") + " " + yellow(name) + "("
           + colorize("write", is_writeable() ? kGreen : kRed) + ", "
           + colorize("read", is_readable() ? kGreen : kRed)   + ", "
           + (is_range() ? "range" : "scalar")                 + ", "
@@ -209,7 +209,7 @@ std::string IndexedVariable::to_string() const {
 *******************************************************************************/
 
 std::string CallExpression::to_string() const {
-    std::string str = colorize("call", kBlue) + " " + colorize(name_, kYellow) + " (";
+    std::string str = blue("call") + " " + yellow(name_) + " (";
     for(auto arg : args_)
         str += arg->to_string() + ", ";
     str += ")";
@@ -228,13 +228,13 @@ void CallExpression::semantic(std::shared_ptr<Scope> scp) {
         error_ = true;
         error_string_ = 
             pprintf("there is no function or procedure named '%' ",
-                    colorize(name_, kYellow));
+                    yellow(name_));
     }
     if(s.kind==k_symbol_local || s.kind==k_symbol_variable) {
         error_ = true;
         error_string_ = 
             pprintf("the symbol '%' refers to a variable, but it is being called like a function",
-                    colorize(name_, kYellow));
+                    yellow(name_));
     }
 
     // save the symbol
@@ -266,12 +266,12 @@ Expression* CallExpression::clone() const {
 *******************************************************************************/
 
 std::string ProcedureExpression::to_string() const {
-    std::string str = colorize("procedure", kBlue) + " " + colorize(name_, kYellow) + "\n";
-    str += colorize("  special",kBlue) + " : " + ::to_string(kind_) + "\n";
-    str += colorize("  args",kBlue) + "    : ";
+    std::string str = blue("procedure") + " " + yellow(name_) + "\n";
+    str += blue("  special") + " : " + ::to_string(kind_) + "\n";
+    str += blue("  args") + "    : ";
     for(auto arg : args_)
         str += arg->to_string() + " ";
-    str += "\n  "+colorize("body", kBlue)+" :";
+    str += "\n  "+blue("body")+" :";
     str += body_->to_string();
 
     return str;
@@ -317,9 +317,9 @@ std::string APIMethod::to_string() const {
             return yellow(id->name());
         return "";
     };
-    std::string str = colorize("API method", kBlue) + " " + colorize(name_, kYellow) + "\n";
+    std::string str = blue("API method") + " " + yellow(name_) + "\n";
 
-    str += colorize("  loads ", kBlue) + " : ";
+    str += blue("  loads ") + " : ";
     for(auto in : in_) {
         str += namestr(in.local.expression) + " <- ";
         str += namestr(in.external.expression);
@@ -327,7 +327,7 @@ std::string APIMethod::to_string() const {
     }
     str += "\n";
 
-    str += colorize("  stores", kBlue) + " : ";
+    str += blue("  stores") + " : ";
     for(auto out : out_) {
         str += namestr(out.local.expression) + " -> ";
         str += namestr(out.external.expression);
@@ -335,7 +335,7 @@ std::string APIMethod::to_string() const {
     }
     str += "\n";
 
-    str += colorize("  locals", kBlue) + " : ";
+    str += blue("  locals") + " : ";
     for(auto var : scope_->locals()) {
         str += namestr(var.second.expression);
         if(var.second.kind == k_symbol_ghost) str += green("(ghost)");
@@ -343,7 +343,7 @@ std::string APIMethod::to_string() const {
     }
     str += "\n";
 
-    str += "  "+colorize("body  ", kBlue)+" : ";
+    str += "  "+blue("body  ")+" : ";
     str += body_->to_string();
 
     return str;
@@ -401,11 +401,11 @@ void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
 *******************************************************************************/
 
 std::string FunctionExpression::to_string() const {
-    std::string str = colorize("function", kBlue) + " " + colorize(name_, kYellow) + "\n";
-    str += colorize("  args",kBlue) + " : ";
+    std::string str = blue("function") + " " + yellow(name_) + "\n";
+    str += blue("  args") + " : ";
     for(auto arg : args_)
         str += arg->to_string() + " ";
-    str += "\n  "+colorize("body", kBlue)+" :";
+    str += "\n  "+blue("body")+" :";
     str += body_->to_string();
 
     return str;

@@ -16,7 +16,7 @@ bool Parser::expect(TOK tok, const char* str) {
     error(
         strlen(str)>0 ?
             str
-        :   std::string("unexpected token ")+yellow(token_.name));
+        :   std::string("unexpected token ")+yellow(token_.spelling));
 
     return false;
 }
@@ -29,7 +29,7 @@ bool Parser::expect(TOK tok, std::string const& str) {
     error(
         str.size()>0 ?
             str
-        :   std::string("unexpected token ")+yellow(token_.name));
+        :   std::string("unexpected token ")+yellow(token_.spelling));
 
     return false;
 }
@@ -121,7 +121,7 @@ bool Parser::parse() {
                 module_->functions().push_back(e);
                 break;
             default :
-                error(pprintf("expected block type, found '%'", token_.name));
+                error(pprintf("expected block type, found '%'", token_.spelling));
                 break;
         }
         if(status() == k_compiler_error) {
@@ -162,15 +162,15 @@ std::vector<Token> Parser::comma_separated_identifiers() {
             tokens.push_back(token_);
         }
         else if(is_keyword(token_)) {
-            error(pprintf("found keyword '%', expected a variable name", token_.name));
+            error(pprintf("found keyword '%', expected a variable name", token_.spelling));
             return tokens;
         }
         else if(token_.type == tok_number) {
-            error(pprintf("found number '%', expected a variable name", token_.name));
+            error(pprintf("found number '%', expected a variable name", token_.spelling));
             return tokens;
         }
         else {
-            error(pprintf("found '%', expected a variable name", token_.name));
+            error(pprintf("found '%', expected a variable name", token_.spelling));
             return tokens;
         }
 
@@ -211,7 +211,7 @@ void Parser::parse_neuron_block() {
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
         error(pprintf("NEURON block must start with a curly brace {, found '%'",
-                      token_.name));
+                      token_.spelling));
         return;
     }
 
@@ -240,10 +240,10 @@ void Parser::parse_neuron_block() {
                 get_token(); // consume SUFFIX / POINT_PROCESS
                 // assert that a valid name for the Neuron has been specified
                 if(token_.type != tok_identifier) {
-                    error(pprintf("invalid name for SUFFIX, found '%'", token_.name));
+                    error(pprintf("invalid name for SUFFIX, found '%'", token_.spelling));
                     return;
                 }
-                neuron_block.name = token_.name;
+                neuron_block.name = token_.spelling;
 
                 get_token(); // consume the name
                 break;
@@ -285,16 +285,16 @@ void Parser::parse_neuron_block() {
                     // check this is an identifier token
                     if(token_.type != tok_identifier) {
                         error(pprintf("invalid name for an ion chanel '%'",
-                                      token_.name));
+                                      token_.spelling));
                         return;
                     }
                     // check that the ion type is valid (insist on lower case?)
-                    if(!(token_.name == "k" || token_.name == "ca" || token_.name == "na")) {
+                    if(!(token_.spelling == "k" || token_.spelling == "ca" || token_.spelling == "na")) {
                         error(pprintf("invalid ion type % must be on eof 'k' 'ca' or 'na'",
-                                      yellow(token_.name)));
+                                      yellow(token_.spelling)));
                         return;
                     }
-                    ion.name = token_.name;
+                    ion.name = token_.spelling;
                     get_token(); // consume the ion name
 
                     // this loop ensures that we don't gobble any tokens past
@@ -309,7 +309,7 @@ void Parser::parse_neuron_block() {
                             return;
                         }
                         for(auto const &id : identifiers) {
-                            target.push_back(id.name);
+                            target.push_back(id.spelling);
                         }
                     }
                     //std::cout << red("ion ") << ion << std::endl;
@@ -340,7 +340,7 @@ void Parser::parse_neuron_block() {
             // the parser encountered an invalid symbol
             default :
                 error(pprintf("there was an invalid statement '%' in NEURON block",
-                              token_.name));
+                              token_.spelling));
                 return;
         }
     }
@@ -361,7 +361,7 @@ void Parser::parse_state_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("STATE block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("STATE block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
@@ -371,10 +371,10 @@ void Parser::parse_state_block() {
     get_token();
     while(token_.type!=tok_rbrace) {
         if(token_.type != tok_identifier) {
-            error(pprintf("'%' is not a valid name for a state variable", token_.name));
+            error(pprintf("'%' is not a valid name for a state variable", token_.spelling));
             return;
         }
-        state_block.state_variables.push_back(token_.name);
+        state_block.state_variables.push_back(token_.spelling);
         get_token();
     }
 
@@ -393,7 +393,7 @@ void Parser::parse_units_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("UNITS block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("UNITS block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
@@ -406,7 +406,7 @@ void Parser::parse_units_block() {
 
         // consume the '=' sign
         if( token_.type!=tok_eq ) {
-            error(pprintf("expected '=', found '%'", token_.name));
+            error(pprintf("expected '=', found '%'", token_.spelling));
             return;
         }
 
@@ -442,7 +442,7 @@ void Parser::parse_parameter_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("PARAMETER block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("PARAMETER block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
@@ -470,7 +470,7 @@ void Parser::parse_parameter_block() {
             if(token_.type != tok_number) {
                 goto parm_error;
             }
-            parm.value += token_.name; // store value as a string
+            parm.value += token_.spelling; // store value as a string
             get_token();
         }
 
@@ -499,7 +499,7 @@ void Parser::parse_parameter_block() {
 parm_error:
     // only write error message if one hasn't already been logged by the lexer
     if(status_==k_compiler_happy) {
-        error(pprintf("PARAMETER block unexpected symbol '%'", token_.name));
+        error(pprintf("PARAMETER block unexpected symbol '%'", token_.spelling));
     }
     return;
 }
@@ -511,7 +511,7 @@ void Parser::parse_assigned_block() {
 
     // assert that the block starts with a curly brace
     if(token_.type != tok_lbrace) {
-        error(pprintf("ASSIGNED block must start with a curly brace {, found '%'", token_.name));
+        error(pprintf("ASSIGNED block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
@@ -562,7 +562,7 @@ void Parser::parse_assigned_block() {
 ass_error:
     // only write error message if one hasn't already been logged by the lexer
     if(status_==k_compiler_happy) {
-        error(pprintf("ASSIGNED block unexpected symbol '%'", token_.name));
+        error(pprintf("ASSIGNED block unexpected symbol '%'", token_.spelling));
     }
     return;
 }
@@ -607,7 +607,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
         // we assume that the current token_ is still pointing at
         // the keyword, i.e. INITIAL or BREAKPOINT
         identifier.type = tok_identifier;
-        identifier.name = name;
+        identifier.spelling = name;
     }
 
     // load the parenthesis
@@ -617,7 +617,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     // return a prototype with an empty argument list if not found
     if( token_.type != tok_lparen ) {
         return new PrototypeExpression( identifier.location,
-                                        identifier.name,
+                                        identifier.spelling,
                                         {});
     }
 
@@ -627,7 +627,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
         // check identifier
         if(token_.type != tok_identifier) {
             error(  "expected a valid identifier, found '"
-                  + yellow(token_.name) + "'");
+                  + yellow(token_.spelling) + "'");
             return nullptr;
         }
 
@@ -638,7 +638,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
         // look for a comma
         if(!(token_.type == tok_comma || token_.type==tok_rparen)) {
             error(  "expected a comma or closing parenthesis, found '"
-                  + yellow(token_.name) + "'");
+                  + yellow(token_.spelling) + "'");
             return nullptr;
         }
 
@@ -660,7 +660,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     }
 
     return new PrototypeExpression( identifier.location,
-                                    identifier.name,
+                                    identifier.spelling,
                                     arg_expressions);
 }
 
@@ -674,7 +674,7 @@ void Parser::parse_title() {
           && status_==k_compiler_happy)
     {
         get_token();
-        title += token_.name;
+        title += token_.spelling;
         tok = peek();
     }
 
@@ -786,7 +786,7 @@ Expression *Parser::parse_statement() {
             // only used for INITIAL block in NET_RECEIVE
             return parse_initial();
         default:
-            error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.name));
+            error(pprintf("unexpected token type % '%'", token_string(token_.type), token_.spelling));
             return nullptr;
     }
     return nullptr;
@@ -796,7 +796,7 @@ Expression *Parser::parse_identifier() {
     assert(token_.type==tok_identifier);
 
     // save name and location of the identifier
-    Expression* id = new IdentifierExpression(token_.location, token_.name);
+    Expression* id = new IdentifierExpression(token_.location, token_.spelling);
 
     // consume identifier
     get_token();
@@ -842,7 +842,7 @@ Expression *Parser::parse_call() {
     }
     get_token(); // consume ')'
 
-    return new CallExpression(idtoken.location, idtoken.name, args);
+    return new CallExpression(idtoken.location, idtoken.spelling, args);
 }
 
 // parse a full line expression, i.e. one of
@@ -870,12 +870,12 @@ Expression *Parser::parse_line_expression() {
         if(location_.line == line && token_.type != tok_eof) {
             error(pprintf(
                 "expected a new line after call expression, found '%'",
-                yellow(token_.name)));
+                yellow(token_.spelling)));
             return nullptr;
         }
         return lhs  ;
     } else if(next.type == tok_prime) {
-        lhs = new DerivativeExpression(location_, token_.name);
+        lhs = new DerivativeExpression(location_, token_.spelling);
         // consume both name and derivative operator
         get_token();
         get_token();
@@ -901,7 +901,7 @@ Expression *Parser::parse_line_expression() {
     } else if(line == location_.line && token_.type != tok_eof){
         error(pprintf("expected an assignment '%' or new line, found '%'",
                       yellow("="),
-                      yellow(token_.name)));
+                      yellow(token_.spelling)));
         return nullptr;
     }
 
@@ -955,7 +955,7 @@ Expression *Parser::parse_unaryop() {
             get_token();        // consume operator (exp, sin, cos or log)
             if(token_.type!=tok_lparen) {
                 error(  "missing parenthesis after call to "
-                      + yellow(op.name) );
+                      + yellow(op.spelling) );
                 return nullptr;
             }
             e = parse_unaryop(); // handle recursive unary
@@ -988,7 +988,7 @@ Expression *Parser::parse_primary() {
             return parse_parenthesis_expression();
         default: // fall through to return nullptr at end of function
             error( pprintf( "unexpected token '%' in expression",
-                            yellow(token_.name) ));
+                            yellow(token_.spelling) ));
     }
 
     return nullptr;
@@ -1013,7 +1013,7 @@ Expression *Parser::parse_parenthesis_expression() {
 Expression* Parser::parse_number() {
     assert(token_.type = tok_number);
 
-    Expression *e = new NumberExpression(token_.location, token_.name);
+    Expression *e = new NumberExpression(token_.location, token_.spelling);
 
     get_token(); // consume the number
 
@@ -1107,7 +1107,7 @@ Expression *Parser::parse_solve() {
 
     if(token_.type != tok_identifier) goto solve_statment_error;
 
-    name = token_.name; // save name of procedure
+    name = token_.spelling; // save name of procedure
     get_token(); // consume the procedure identifier
 
     if(token_.type != tok_method) goto solve_statment_error;

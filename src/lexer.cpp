@@ -8,25 +8,25 @@
 #include "util.h"
 
 // helpers for identifying character types
-inline bool in_range(const char &c, char first, char last) {
+inline bool in_range(char c, char first, char last) {
     return c>=first && c<=last;
 }
-inline bool is_numeric(const char &c) {
+inline bool is_numeric(char c) {
     return in_range(c, '0', '9');
 }
-inline bool is_alpha(const char &c) {
+inline bool is_alpha(char c) {
     return (in_range(c, 'a', 'z') || in_range(c, 'A', 'Z') );
 }
-inline bool is_alphanumeric(const char &c) {
+inline bool is_alphanumeric(char c) {
     return (is_numeric(c) || is_alpha(c) );
 }
-inline bool is_whitespace(const char &c) {
+inline bool is_whitespace(char c) {
     return (c==' ' || c=='\t' || c=='\v' || c=='\f');
 }
-inline bool is_eof(const char &c) {
+inline bool is_eof(char c) {
     return (c==0 || c==EOF);
 }
-inline bool is_operator(const char &c) {
+inline bool is_operator(char c) {
     return (c=='+' || c=='-' || c=='*' || c=='/' || c=='^' || c=='\'');
 }
 
@@ -46,7 +46,7 @@ Token Lexer::parse() {
             // end of file
             case 0      :       // end of string
             case EOF    :       // end of file
-                t.name = "eof";
+                t.spelling = "eof";
                 t.type = tok_eof;
                 return t;
 
@@ -91,7 +91,7 @@ Token Lexer::parse() {
             case '0': case '1' : case '2' : case '3' : case '4':
             case '5': case '6' : case '7' : case '8' : case '9':
             case '.':
-                t.name = number();
+                t.spelling = number();
 
                 // test for error when reading number
                 t.type = (status_==k_compiler_error) ? tok_reserved : tok_number;
@@ -108,29 +108,32 @@ Token Lexer::parse() {
             case 'V': case 'W': case 'X': case 'Y': case 'Z':
             case '_':
                 // get std::string of the identifier
-                t.name = identifier();
-                t.type = (status_==k_compiler_error) ? tok_reserved : get_identifier_type(t.name);
+                t.spelling = identifier();
+                t.type
+                    = status_==k_compiler_error
+                    ? tok_reserved
+                    : get_identifier_type(t.spelling);
                 return t;
             case '(':
                 t.type = tok_lparen;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case ')':
                 t.type = tok_rparen;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '{':
                 t.type = tok_lbrace;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '}':
                 t.type = tok_rbrace;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '=': {
-                t.name += character();
+                t.spelling += character();
                 if(*current_=='=') {
-                    t.name += character();
+                    t.spelling += character();
                     t.type=tok_EQ;
                 }
                 else {
@@ -139,9 +142,9 @@ Token Lexer::parse() {
                 return t;
             }
             case '!': {
-                t.name += character();
+                t.spelling += character();
                 if(*current_=='=') {
-                    t.name += character();
+                    t.spelling += character();
                     t.type=tok_ne;
                 }
                 else {
@@ -151,29 +154,29 @@ Token Lexer::parse() {
             }
             case '+':
                 t.type = tok_plus;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '-':
                 t.type = tok_minus;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '/':
                 t.type = tok_divide;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '*':
                 t.type = tok_times;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case '^':
                 t.type = tok_pow;
-                t.name += character();
+                t.spelling += character();
                 return t;
             // comparison binary operators
             case '<': {
-                t.name += character();
+                t.spelling += character();
                 if(*current_=='=') {
-                    t.name += character();
+                    t.spelling += character();
                     t.type = tok_lte;
                 }
                 else {
@@ -182,9 +185,9 @@ Token Lexer::parse() {
                 return t;
             }
             case '>': {
-                t.name += character();
+                t.spelling += character();
                 if(*current_=='=') {
-                    t.name += character();
+                    t.spelling += character();
                     t.type = tok_gte;
                 }
                 else {
@@ -194,16 +197,16 @@ Token Lexer::parse() {
             }
             case '\'':
                 t.type = tok_prime;
-                t.name += character();
+                t.spelling += character();
                 return t;
             case ',':
                 t.type = tok_comma;
-                t.name += character();
+                t.spelling += character();
                 return t;
             default:
                 error_string_ = pprintf("found unexpected character '%' when trying to find next token", *current_);
                 status_ = k_compiler_error;
-                t.name += character();
+                t.spelling += character();
                 t.type = tok_reserved;
                 return t;
         }
@@ -494,6 +497,6 @@ bool is_keyword(Token const& t) {
 }
 
 std::ostream& operator<< (std::ostream& os, Token const& t) {
-    return os << "<<" << token_string(t.type) << ", " << t.name << ", " << t.location << ">>";
+    return os << "<<" << token_string(t.type) << ", " << t.spelling << ", " << t.location << ">>";
 }
 

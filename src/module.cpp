@@ -696,22 +696,28 @@ void Module::add_variables_to_symbols() {
     }
     // then GLOBAL variables
     for(auto const& var : neuron_block().globals) {
-        if(!symbols_[var.name].expression) {
-            error(yellow(var.name) + " is declared as GLOBAL, but has not been declared in the ASSIGNED block", var.location);
+        if(!symbols_[var.spelling].expression) {
+            error( yellow(var.spelling) +
+                   " is declared as GLOBAL, but has not been declared in the" +
+                   " ASSIGNED block",
+                   var.location);
             return;
         }
-        auto id = symbols_[var.name].expression->is_variable();
+        auto id = symbols_[var.spelling].expression->is_variable();
         assert(id); // this shouldn't happen, ever
         id->visibility(k_global_visibility);
     }
 
     // then RANGE variables
     for(auto const& var : neuron_block().ranges) {
-        if(!symbols_[var.name].expression) {
-            error(yellow(var.name) + " is declared as RANGE, but has not been declared in the ASSIGNED or PARAMETER block", var.location);
+        if(!symbols_[var.spelling].expression) {
+            error( yellow(var.spelling) +
+                   " is declared as RANGE, but has not been declared in the" +
+                   " ASSIGNED or PARAMETER block",
+                   var.location);
             return;
         }
-        auto id = symbols_[var.name].expression->is_variable();
+        auto id = symbols_[var.spelling].expression->is_variable();
         assert(id); // this shouldn't happen, ever
         id->range(k_range);
     }

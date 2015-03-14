@@ -17,24 +17,24 @@ TEST(Lexer, identifiers) {
 
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_identifier);
-    EXPECT_EQ(t1.name, "_foo");
+    EXPECT_EQ(t1.spelling, "_foo");
     // odds are _foo will never be a keyword
     EXPECT_EQ(is_keyword(t1), false);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_identifier);
-    EXPECT_EQ(t2.name, "bar");
+    EXPECT_EQ(t2.spelling, "bar");
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_comma);
 
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_identifier);
-    EXPECT_EQ(t4.name, "buzz");
+    EXPECT_EQ(t4.spelling, "buzz");
 
     auto t5 = lexer.parse();
     EXPECT_EQ(t5.type, tok_identifier);
-    EXPECT_EQ(t5.name, "f_zz");
+    EXPECT_EQ(t5.spelling, "f_zz");
 
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok_eof);
@@ -50,24 +50,24 @@ TEST(Lexer, keywords) {
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_neuron);
     EXPECT_EQ(is_keyword(t1), true);
-    EXPECT_EQ(t1.name, "NEURON");
+    EXPECT_EQ(t1.spelling, "NEURON");
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_units);
-    EXPECT_EQ(t2.name, "UNITS");
+    EXPECT_EQ(t2.spelling, "UNITS");
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_solve);
-    EXPECT_EQ(t3.name, "SOLVE");
+    EXPECT_EQ(t3.spelling, "SOLVE");
 
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_else);
-    EXPECT_EQ(t4.name, "else");
+    EXPECT_EQ(t4.spelling, "else");
 
     auto t5 = lexer.parse();
     //EXPECT_EQ(t5.type, tok_title);
     EXPECT_NE(t5.type, tok_identifier);
-    EXPECT_EQ(t5.name, "TITLE");
+    EXPECT_EQ(t5.spelling, "TITLE");
 
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok_eof);
@@ -93,26 +93,26 @@ TEST(Lexer, newline) {
     // get foo
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_identifier);
-    EXPECT_EQ(t1.name, "foo");
+    EXPECT_EQ(t1.spelling, "foo");
     EXPECT_EQ(t1.location.line, 1);
     EXPECT_EQ(t1.location.column, 1);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_identifier);
-    EXPECT_EQ(t2.name, "bar");
+    EXPECT_EQ(t2.spelling, "bar");
     EXPECT_EQ(t2.location.line, 2);
     EXPECT_EQ(t2.location.column, 5);
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_plus);
-    EXPECT_EQ(t3.name, "+");
+    EXPECT_EQ(t3.spelling, "+");
     EXPECT_EQ(t3.location.line, 3);
     EXPECT_EQ(t3.location.column, 2);
 
     // test for carriage return + newline, i.e. \r\n
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_minus);
-    EXPECT_EQ(t4.name, "-");
+    EXPECT_EQ(t4.spelling, "-");
     EXPECT_EQ(t4.location.line, 4);
     EXPECT_EQ(t4.location.column, 1);
 }
@@ -211,7 +211,7 @@ TEST(Lexer, comments) {
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_identifier);
-    EXPECT_EQ(t2.name, "bar");
+    EXPECT_EQ(t2.spelling, "bar");
     EXPECT_EQ(t2.location.line, 2);
 
     auto t3 = lexer.parse();
@@ -226,23 +226,23 @@ TEST(Lexer, numbers) {
 
     auto t1 = lexer.parse();
     EXPECT_EQ(t1.type, tok_number);
-    EXPECT_EQ(std::stod(t1.name), 1.0);
+    EXPECT_EQ(std::stod(t1.spelling), 1.0);
 
     auto t2 = lexer.parse();
     EXPECT_EQ(t2.type, tok_number);
-    EXPECT_EQ(std::stod(t2.name), 0.3);
+    EXPECT_EQ(std::stod(t2.spelling), 0.3);
 
     auto t3 = lexer.parse();
     EXPECT_EQ(t3.type, tok_number);
-    EXPECT_EQ(std::stod(t3.name), 23.0);
+    EXPECT_EQ(std::stod(t3.spelling), 23.0);
 
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok_number);
-    EXPECT_EQ(std::stod(t4.name), 87.99);
+    EXPECT_EQ(std::stod(t4.spelling), 87.99);
 
     auto t5 = lexer.parse();
     EXPECT_EQ(t5.type, tok_number);
-    EXPECT_EQ(std::stod(t5.name), 12.0);
+    EXPECT_EQ(std::stod(t5.spelling), 12.0);
 
     // the lexer does not decide where the - sign goes
     // the parser uses additional contextual information to
@@ -252,7 +252,7 @@ TEST(Lexer, numbers) {
 
     auto t7 = lexer.parse();
     EXPECT_EQ(t7.type, tok_number);
-    EXPECT_EQ(std::stod(t7.name), 3.0);
+    EXPECT_EQ(std::stod(t7.spelling), 3.0);
 
     auto t8 = lexer.parse();
     EXPECT_EQ(t8.type, tok_eof);

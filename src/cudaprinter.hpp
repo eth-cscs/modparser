@@ -51,6 +51,6 @@ private:
     Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;
     TextBuffer text_;
-    bool optimize_ = false;
+    //bool optimize_ = false;
 };
 
