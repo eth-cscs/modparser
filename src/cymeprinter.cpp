@@ -386,7 +386,7 @@ void CymePrinter::visit(APIMethod *e) {
 
 void CymePrinter::print_APIMethod(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    bool is_density = module_->kind() == k_module_density;
+    //bool is_density = module_->kind() == k_module_density;
 
     text_.add_line("START_PROFILE");
 
