@@ -48,6 +48,7 @@ class PowBinaryExpression;
 class ConditionalExpression;
 class SolveExpression;
 
+using expression_ptr = std::unique_ptr<Expression>;
 
 // helper functions for generating unary and binary expressions
 Expression* unary_expression(Location, TOK, Expression*);
