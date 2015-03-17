@@ -6,16 +6,15 @@
 ******************************************************************************/
 
 CymePrinter::CymePrinter(Module &m, bool o)
-    :   module_(&m),
-        optimize_(o)
+    :   module_(&m)
 {
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types
     std::vector<VariableExpression*> scalar_variables;
     std::vector<VariableExpression*> array_variables;
-    for(auto sym: m.symbols()) {
-        if(sym.second.kind==k_symbol_variable) {
-            auto var = sym.second.expression->is_variable();
+    for(auto& sym: module_->symbols()) {
+        if(sym.second->kind()==k_symbol_variable) {
+            auto var = sym.second->is_variable();
             if(var->is_range()) {
                 array_variables.push_back(var);
             }
@@ -36,7 +35,7 @@ CymePrinter::CymePrinter(Module &m, bool o)
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
-    std::string class_name = "Mechanism_" + m.name();
+    std::string class_name = "Mechanism_" + module_->name();
 
     text_ << "template<typename T, typename I>\n";
     text_ << "class " + class_name + " : public Mechanism<T, I, targetKind::cpu> {\n";
@@ -139,10 +138,10 @@ CymePrinter::CymePrinter(Module &m, bool o)
     increase_indentation();
     auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
     for(auto const &var : m.symbols()) {
-        if(   var.second.kind==k_symbol_procedure
-           && proctest(var.second.expression->is_procedure()->kind()))
+        if(   var.second->kind()==k_symbol_procedure
+           && proctest(var.second->is_procedure()->kind()))
         {
-            var.second.expression->accept(this);
+            var.second->accept(this);
         }
     }
 
@@ -183,27 +182,25 @@ void CymePrinter::visit(Expression *e) {
     assert(false);
 }
 
-void CymePrinter::visit(LocalExpression *e) {
+void CymePrinter::visit(LocalDeclaration *e) {
 }
 
 void CymePrinter::visit(NumberExpression *e) {
     text_ << " " << e->value();
 }
 
+void CymePrinter::visit(Symbol *e) {
+    text_ << e->name();
+    if(on_load_store_) {
+        text_ << "[j_]";
+    }
+    else if (!on_lhs_) {
+        text_ << "()";
+    }
+}
+
 void CymePrinter::visit(IdentifierExpression *e) {
-    if(auto var = e->variable()) {
-        var->accept(this);
-    }
-    else {
-        std::string const& name = e->name();
-        text_ << name;
-        if(on_load_store_) {
-            text_ << "[j_]";
-        }
-        else if (!on_lhs_) {
-            text_ << "()";
-        }
-    }
+    e->symbol()->accept(this);
 }
 
 void CymePrinter::visit(VariableExpression *e) {
@@ -219,7 +216,7 @@ void CymePrinter::visit(VariableExpression *e) {
 }
 
 void CymePrinter::visit(IndexedVariable *e) {
-    // don't checnk on_load_store_, because only can be accessed as a scalar
+    // don't check on_load_store_, because only can be accessed as a scalar
     text_ << e->name() << "[k_]";
 }
 
@@ -265,8 +262,8 @@ void CymePrinter::visit(BlockExpression *e) {
     // only if this is the outer block
     if(!e->is_nested()) {
         std::vector<std::string> names;
-        for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local || var.second.kind == k_symbol_ghost)
+        for(auto& var : e->scope()->locals()) {
+            if(var.second->kind() == k_symbol_local || var.second->kind() == k_symbol_ghost)
                 names.push_back(var.first);
         }
         if(names.size()>0) {
@@ -336,7 +333,7 @@ void CymePrinter::visit(APIMethod *e) {
     // create local indexed views
     for(auto &in : e->inputs()) {
         auto const& name =
-            in.external.expression->is_indexed_variable()->name();
+            in.external->is_indexed_variable()->name();
         text_.add_gutter();
         text_ << "const indexed_view " + name;
         if(name.substr(0,3) == "vec") {
@@ -356,7 +353,7 @@ void CymePrinter::visit(APIMethod *e) {
     }
     for(auto &out : e->outputs()) {
         auto const& name =
-            out.external.expression->is_indexed_variable()->name();
+            out.external->is_indexed_variable()->name();
         text_.add_gutter() << "indexed_view " + name;
         if(name.substr(0,3) == "vec") {
             text_ << "(matrix_." + name + "(), node_indices_);\n";
@@ -385,9 +382,6 @@ void CymePrinter::visit(APIMethod *e) {
 }
 
 void CymePrinter::print_APIMethod(APIMethod* e) {
-    // ------------- get mechanism properties ------------- //
-    bool is_density = module_->kind() == k_module_density;
-
     text_.add_line("START_PROFILE");
 
     // there can not be more than 1 instance of a density chanel per grid point,
@@ -407,10 +401,10 @@ void CymePrinter::print_APIMethod(APIMethod* e) {
         for(auto &in : e->inputs()) {
             text_.add_gutter();
             on_lhs_ = true;
-            in.local.expression->accept(this);
+            in.local->accept(this);
             on_lhs_ = false;
             text_ << " = ";
-            in.external.expression->accept(this);
+            in.external->accept(this);
             text_.end_line(";");
         }
         on_load_store_ = false;
@@ -431,10 +425,10 @@ void CymePrinter::print_APIMethod(APIMethod* e) {
         for(auto &out : e->outputs()) {
             text_.add_gutter();
             on_lhs_ = false;
-            out.external.expression->accept(this);
+            out.external->accept(this);
             on_lhs_ = true;
             text_ << (out.op==tok_plus ? " += " : " -= ");
-            out.local.expression->accept(this);
+            out.local->accept(this);
             text_.end_line(";");
         }
         on_load_store_ = false;

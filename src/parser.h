@@ -29,8 +29,8 @@ public:
     Expression* parse_initial();
     Expression* parse_if();
 
-    Expression* parse_procedure();
-    Expression* parse_function();
+    Symbol* parse_procedure();
+    Symbol* parse_function();
 
     std::string const& error_message() {
         return error_string_;

@@ -83,7 +83,6 @@ Parser::Parser(std::string const& buf)
 bool Parser::parse() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
-    Expression *e; // for use when parsing blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -111,14 +110,18 @@ bool Parser::parse() {
             case tok_initial    :
             case tok_derivative :
             case tok_procedure  :
-                e = parse_procedure();
-                if(!e) break;
-                module_->procedures().push_back(e);
+                {
+                auto p = std::unique_ptr<Symbol>(parse_procedure());
+                if(!p) break;
+                module_->procedures().emplace_back(std::move(p));
+                }
                 break;
             case tok_function  :
-                e = parse_function();
-                if(!e) break;
-                module_->functions().push_back(e);
+                {
+                auto f = std::unique_ptr<Symbol>(parse_function());
+                if(!f) break;
+                module_->functions().emplace_back(std::move(f));
+                }
                 break;
             default :
                 error(pprintf("expected block type, found '%'", token_.spelling));
@@ -653,7 +656,7 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     }
     get_token(); // consume closing parenthesis
 
-    // pack the arguments into LocalExpressions
+    // pack the arguments into LocalDeclarations
     std::vector<Expression*> arg_expressions;
     for(auto const& t : arg_tokens) {
         arg_expressions.push_back(new ArgumentExpression(t.location, t));
@@ -688,7 +691,7 @@ void Parser::parse_title() {
 /// parse a procedure
 /// can handle both PROCEDURE and INITIAL blocks
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
-Expression* Parser::parse_procedure() {
+Symbol* Parser::parse_procedure() {
     Expression* p = nullptr;
     procedureKind kind = k_proc_normal;
 
@@ -742,7 +745,7 @@ Expression* Parser::parse_procedure() {
     }
 }
 
-Expression* Parser::parse_function() {
+Symbol* Parser::parse_function() {
     // check for compiler implementation error
     assert(token_.type == tok_function);
 
@@ -881,11 +884,11 @@ Expression *Parser::parse_line_expression() {
         get_token();
         // a derivative statement must be followed by '='
         if(token_.type!=tok_eq) {
-            error("a derivative declaration must have an assignment of the form\n  x' = expression\n  where x is a state variable");
+            error("a derivative declaration must have an assignment of the "\
+                  "form\n  x' = expression\n  where x is a state variable");
             return nullptr;
         }
     } else {
-        //lhs = parse_primary();
         lhs = parse_unaryop();
     }
 
@@ -1031,7 +1034,6 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
         // get precedence of the left operator
         int p_left = binop_precedence(op_left.type);
 
-        //Expression* e = parse_primary();
         Expression* e = parse_unaryop();
         if(!e) return nullptr;
 
@@ -1068,7 +1070,7 @@ Expression *Parser::parse_local() {
     get_token(); // consume LOCAL
 
     // create local expression stub
-    Expression *e = new LocalExpression(loc);
+    Expression *e = new LocalDeclaration(loc);
     if(e==nullptr) return nullptr;
 
     // add symbols

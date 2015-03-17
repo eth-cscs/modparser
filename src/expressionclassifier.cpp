@@ -24,7 +24,7 @@ void ExpressionClassifierVisitor::visit(NumberExpression *e) {
 // identifier expresssion
 void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     // check if symbol of identifier matches the identifier
-    if(symbol == e->symbol()) {
+    if(symbol_ == e->symbol()) {
         found_symbol_ = true;
         coefficient_ = new NumberExpression(Location(), "1");
     }

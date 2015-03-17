@@ -8,15 +8,15 @@ enum expressionClassification {k_expression_const, k_expression_lin, k_expressio
 
 class ExpressionClassifierVisitor : public Visitor {
 public:
-    ExpressionClassifierVisitor(Symbol const& s)
-    : symbol(s)
+    ExpressionClassifierVisitor(Symbol *s)
+    : symbol_(s)
     {
         const_folder_ = new ConstantFolderVisitor();
     }
 
-    void reset(Symbol const& s) {
+    void reset(Symbol* s) {
         reset();
-        symbol = s;
+        symbol_ = s;
     }
 
     void reset() {
@@ -90,7 +90,7 @@ private:
     bool found_symbol_  = false;
     Expression* coefficient_   = nullptr;
     Expression* constant_  = nullptr;
-    Symbol symbol;
+    Symbol* symbol_;
     ConstantFolderVisitor* const_folder_;
 };
 

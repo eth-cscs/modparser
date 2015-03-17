@@ -2,6 +2,10 @@
 
 #include "../src/cprinter.hpp"
 
+using scope_type = Scope<Symbol>;
+using symbol_map = scope_type::symbol_map;
+using symbol_ptr = Scope<Symbol>::symbol_ptr;
+
 TEST(CPrinter, statement) {
     std::vector<const char*> expressions =
     {
@@ -11,15 +15,15 @@ TEST(CPrinter, statement) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto x = new IdentifierExpression(Location(), "x");
-    auto y = new IdentifierExpression(Location(), "y");
-    auto z = new IdentifierExpression(Location(), "z");
-    Scope::symbol_map symbols = {
-        {"x", {k_symbol_variable, x}},
-        {"y", {k_symbol_variable, y}},
-        {"z", {k_symbol_variable, z}}
+    auto x = symbol_ptr{ new VariableExpression(Location(), "x") };
+    auto y = symbol_ptr{ new VariableExpression(Location(), "y") };
+    auto z = symbol_ptr{ new VariableExpression(Location(), "z") };
+    symbol_map symbols = {
+        {"x", std::move(x)},
+        {"y", std::move(y)},
+        {"z", std::move(z)}
     };
-    auto scope = std::make_shared<Scope>(symbols);
+    auto scope = std::make_shared<scope_type>(symbols);
 
     for(auto const& expression : expressions) {
         Expression *e = parse_line_expression(expression);
@@ -52,26 +56,26 @@ TEST(CPrinter, proc) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto minf = new IdentifierExpression(Location(), "minf");
-    auto hinf = new IdentifierExpression(Location(), "hinf");
-    auto mtau = new IdentifierExpression(Location(), "mtau");
-    auto htau = new IdentifierExpression(Location(), "htau");
-    auto v    = new IdentifierExpression(Location(), "v");
+    auto minf = symbol_ptr{ new VariableExpression(Location(), "htau") };
+    auto hinf = symbol_ptr{ new VariableExpression(Location(), "hinf") };
+    auto mtau = symbol_ptr{ new VariableExpression(Location(), "mtau") };
+    auto htau = symbol_ptr{ new VariableExpression(Location(), "htau") };
+    auto v    = symbol_ptr{ new VariableExpression(Location(), "v") };
     for(auto const& expression : expressions) {
-        Expression *e = parse_procedure(expression);
+        auto e = symbol_ptr{parse_procedure(expression)->is_symbol()};
 
         // sanity check the compiler
         EXPECT_NE(e, nullptr);
 
         if( e==nullptr ) continue;
 
-        Scope::symbol_map symbols = {
-            {"minf",   {k_symbol_variable,  minf}},
-            {"hinf",   {k_symbol_variable,  hinf}},
-            {"mtau",   {k_symbol_variable,  mtau}},
-            {"htau",   {k_symbol_variable,  htau}},
-            {"v",      {k_symbol_variable,  v}},
-            {"trates", {k_symbol_procedure, e}},
+        symbol_map symbols = {
+            {"minf",   std::move(minf)},
+            {"hinf",   std::move(hinf)},
+            {"mtau",   std::move(mtau)},
+            {"htau",   std::move(htau)},
+            {"v",      std::move(v)},
+            {"trates", std::move(e)}
         };
 
         e->semantic(symbols);

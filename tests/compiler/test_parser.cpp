@@ -68,7 +68,7 @@ TEST(Parser, net_receive) {
     EXPECT_NE(e, nullptr);
     EXPECT_EQ(p.status(), k_compiler_happy);
 
-    auto nr = e->is_net_receive();
+    auto nr = e->is_symbol()->is_net_receive();
     EXPECT_NE(nr, nullptr);
     if(nr) {
         EXPECT_EQ(nr->args().size(), (unsigned)2);

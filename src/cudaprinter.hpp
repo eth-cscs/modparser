@@ -20,11 +20,12 @@ public:
     void visit(VariableExpression *e)   override;
     void visit(IndexedVariable *e)      override;
 
+    void visit(Symbol *e)               override;
     void visit(IdentifierExpression *e) override;
     void visit(CallExpression *e)       override;
     void visit(ProcedureExpression *e)  override;
     void visit(APIMethod *e)            override;
-    void visit(LocalExpression *e)      override;
+    void visit(LocalDeclaration *e)      override;
     //void visit(FunctionExpression *e)   override;
     void visit(BlockExpression *e)      override;
     void visit(IfExpression *e)         override;
@@ -46,7 +47,7 @@ private:
 
     void print_APIMethod_body(APIMethod* e);
     void print_procedure_prototype(ProcedureExpression *e);
-    std::string index_string(Expression *e);
+    std::string index_string(Symbol *e);
 
     Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;

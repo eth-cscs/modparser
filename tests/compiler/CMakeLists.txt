@@ -4,7 +4,7 @@ set(TEST_SOURCES
     test_module.cpp
     test_optimization.cpp
     test_parser.cpp
-    test_printers.cpp
+    #test_printers.cpp
     test_visitors.cpp
 
     # unit test driver
