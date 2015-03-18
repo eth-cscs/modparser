@@ -50,7 +50,7 @@ void Expression::semantic(std::shared_ptr<scope_type>) {
     error_string_ = "semantic() has not been implemented for this expression";
 }
 
-Expression* Expression::clone() const {
+expression_ptr Expression::clone() const {
     std::cerr << "clone() has not been implemented for " << this->to_string() << std::endl;
     assert(false);
     return nullptr;
@@ -91,18 +91,13 @@ void IdentifierExpression::semantic(std::shared_ptr<scope_type> scp) {
     symbol_ = s;
 }
 
-Expression* IdentifierExpression::clone() const {
-    return new IdentifierExpression(location_, spelling_);
-}
-
-VariableExpression* IdentifierExpression::variable() {
-    // can we just look at symbol_.kind and lookup based on that?
-    return symbol_ ? symbol_->is_variable() : nullptr;
+expression_ptr IdentifierExpression::clone() const {
+    return make_expression<IdentifierExpression>(location_, spelling_);
 }
 
 bool IdentifierExpression::is_lvalue() {
     // check for global variable that is writeable
-    auto var = variable();
+    auto var = symbol_->is_variable();
     if(var) return var->is_writeable();
 
     // else look for local symbol
@@ -115,8 +110,8 @@ bool IdentifierExpression::is_lvalue() {
   NumberExpression
 ********************************************************************************/
 
-Expression* NumberExpression::clone() const {
-    return new NumberExpression(location_, value_);
+expression_ptr NumberExpression::clone() const {
+    return make_expression<NumberExpression>(location_, value_);
 }
 
 /*******************************************************************************
@@ -131,12 +126,12 @@ std::string LocalDeclaration::to_string() const {
     return str;
 }
 
-Expression* LocalDeclaration::clone() const {
+expression_ptr LocalDeclaration::clone() const {
     auto local = new LocalDeclaration(location());
     for(auto &v : vars_) {
         local->add_variable(v.second);
     }
-    return local;
+    return expression_ptr{local};
 }
 
 bool LocalDeclaration::add_variable(Token tok) {
@@ -239,7 +234,7 @@ std::string IndexedVariable::to_string() const {
 
 std::string CallExpression::to_string() const {
     std::string str = blue("call") + " " + yellow(spelling_) + " (";
-    for(auto arg : args_)
+    for(auto& arg : args_)
         str += arg->to_string() + ", ";
     str += ")";
 
@@ -281,14 +276,14 @@ void CallExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
-Expression* CallExpression::clone() const {
+expression_ptr CallExpression::clone() const {
     // clone the arguments
-    std::vector<Expression*> cloned_args;
+    std::vector<expression_ptr> cloned_args;
     for(auto& a: args_) {
-        cloned_args.push_back(a->clone());
+        cloned_args.emplace_back(a->clone());
     }
 
-    return new CallExpression(location_, spelling_, cloned_args);
+    return make_expression<CallExpression>(location_, spelling_, std::move(cloned_args));
 }
 
 /*******************************************************************************
@@ -320,7 +315,8 @@ void ProcedureExpression::semantic(scope_type::symbol_map &global_symbols) {
     }
 
     // this loop could be used to then check the types of statements in the body
-    for(auto& e : *body_) {
+    // TODO : this could be making a mess
+    for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block())
             error("INITIAL block not allowed inside "+::to_string(kind_)+" definition");
     }
@@ -379,7 +375,7 @@ std::string APIMethod::to_string() const {
 
 std::string InitialBlock::to_string() const {
     std::string str = green("[[initial");
-    for(auto ex : body_) {
+    for(auto& ex : body_) {
        str += "\n   " + ex->to_string();
     }
     str += green("\n  ]]");
@@ -398,14 +394,15 @@ void NetReceiveExpression::semantic(scope_type::symbol_map &global_symbols) {
     scope_ = std::make_shared<scope_type>(global_symbols);
 
     // add the argumemts to the list of local variables
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scope_);
     }
 
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    for(auto e : *body_) {
+    // TODO : this could be making a mess
+    for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block()) {
             if(initial_block_) {
                 error("only one INITIAL block is permitted per NET_RECEIVE block");
@@ -426,7 +423,7 @@ void NetReceiveExpression::semantic(scope_type::symbol_map &global_symbols) {
 std::string FunctionExpression::to_string() const {
     std::string str = blue("function") + " " + yellow(name()) + "\n";
     str += blue("  args") + " : ";
-    for(auto arg : args_)
+    for(auto& arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+blue("body")+" :";
     str += body_->to_string();
@@ -442,7 +439,7 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     scope_ = std::make_shared<scope_type>(global_symbols);
 
     // add the argumemts to the list of local variables
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scope_);
     }
 
@@ -458,14 +455,14 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    for(auto e : *body_) {
+    for(auto& e : *(body())) {
         if(e->is_initial_block()) error("INITIAL block not allowed inside FUNCTION definition");
     }
 
     // check that the last expression in the body was an assignment to
     // the return placeholder
     bool last_expr_is_assign = false;
-    auto tail = body_->back()->is_assignment();
+    auto tail = body()->back()->is_assignment();
     if(tail) {
         // we know that the tail is an assignment expression
         auto lhs = tail->lhs()->is_identifier();
@@ -498,11 +495,11 @@ void UnaryExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
-void UnaryExpression::replace_expression(Expression* other) {
-    expression_ = other;
+void UnaryExpression::replace_expression(expression_ptr&& other) {
+    std::swap(expression_, other);
 }
 
-Expression* UnaryExpression::clone() const {
+expression_ptr UnaryExpression::clone() const {
     return unary_expression(location_, op_, expression_->clone());
 }
 
@@ -519,16 +516,16 @@ void BinaryExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
-Expression* BinaryExpression::clone() const {
+expression_ptr BinaryExpression::clone() const {
     return binary_expression(location_, op_, lhs_->clone(), rhs_->clone());
 }
 
-void BinaryExpression::replace_lhs(Expression* other) {
-    lhs_ = other;
+void BinaryExpression::replace_lhs(expression_ptr&& other) {
+    std::swap(lhs_, other);
 }
 
-void BinaryExpression::replace_rhs(Expression* other) {
-    rhs_ = other;
+void BinaryExpression::replace_rhs(expression_ptr&& other) {
+    std::swap(rhs_, other);
 }
 
 std::string BinaryExpression::to_string() const {
@@ -579,10 +576,10 @@ void SolveExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
-Expression* SolveExpression::clone() const {
+expression_ptr SolveExpression::clone() const {
     auto s = new SolveExpression(location_, name_, method_);
     s->procedure(procedure_);
-    return s;
+    return expression_ptr{s};
 }
 /*******************************************************************************
   BlockExpression
@@ -590,7 +587,7 @@ Expression* SolveExpression::clone() const {
 
 std::string BlockExpression::to_string() const {
     std::string str = green("[[");
-    for(auto ex : body_) {
+    for(auto& ex : body_) {
        str += "\n   " + ex->to_string();
     }
     str += green("\n  ]]");
@@ -599,17 +596,17 @@ std::string BlockExpression::to_string() const {
 
 void BlockExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
-    for(auto e : body_) {
+    for(auto& e : body_) {
         e->semantic(scope_);
     }
 }
 
-Expression* BlockExpression::clone() const {
-    std::list<Expression*> body;
-    for(auto e: body_) {
-        body.push_back(e->clone());
+expression_ptr BlockExpression::clone() const {
+    std::list<expression_ptr> body;
+    for(auto& e: body_) {
+        body.emplace_back(e->clone());
     }
-    return new BlockExpression(location_, body, is_nested_);
+    return make_expression<BlockExpression>(location_, std::move(body), is_nested_);
 }
 
 /*******************************************************************************
@@ -745,25 +742,29 @@ void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
 
-Expression* unary_expression( TOK op,
-                              Expression* e) {
-    return unary_expression(op, e);
+expression_ptr unary_expression( TOK op,
+                                 expression_ptr&& e
+                               )
+{
+    return unary_expression(op, std::move(e));
 }
 
-Expression* unary_expression( Location loc,
-                              TOK op,
-                              Expression* e) {
+expression_ptr unary_expression( Location loc,
+                                 TOK op,
+                                 expression_ptr&& e
+                               )
+{
     switch(op) {
         case tok_minus :
-            return new NegUnaryExpression(loc, e);
+            return make_expression<NegUnaryExpression>(loc, std::move(e));
         case tok_exp :
-            return new ExpUnaryExpression(loc, e);
+            return make_expression<ExpUnaryExpression>(loc, std::move(e));
         case tok_cos :
-            return new CosUnaryExpression(loc, e);
+            return make_expression<CosUnaryExpression>(loc, std::move(e));
         case tok_sin :
-            return new SinUnaryExpression(loc, e);
+            return make_expression<SinUnaryExpression>(loc, std::move(e));
         case tok_log :
-            return new LogUnaryExpression(loc, e);
+            return make_expression<LogUnaryExpression>(loc, std::move(e));
        default :
             std::cerr << yellow(token_string(op))
                       << " is not a valid unary operator"
@@ -774,35 +775,39 @@ Expression* unary_expression( Location loc,
     return nullptr;
 }
 
-Expression* binary_expression( TOK op,
-                               Expression* lhs,
-                               Expression* rhs) {
-    return binary_expression(Location(), op, lhs, rhs);
+expression_ptr binary_expression( TOK op,
+                                  expression_ptr&& lhs,
+                                  expression_ptr&& rhs
+                                )
+{
+    return binary_expression(Location(), op, std::move(lhs), std::move(rhs));
 }
 
-Expression* binary_expression( Location loc,
-                               TOK op,
-                               Expression* lhs,
-                               Expression* rhs) {
+expression_ptr binary_expression(Location loc,
+                                 TOK op,
+                                 expression_ptr&& lhs,
+                                 expression_ptr&& rhs
+                                )
+{
     switch(op) {
         case tok_eq     :
-            return new AssignmentExpression(loc, lhs, rhs);
+            return make_expression<AssignmentExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_plus   :
-            return new AddBinaryExpression(loc, lhs, rhs);
+            return make_expression<AddBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_minus  :
-            return new SubBinaryExpression(loc, lhs, rhs);
+            return make_expression<SubBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_times  :
-            return new MulBinaryExpression(loc, lhs, rhs);
+            return make_expression<MulBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_divide :
-            return new DivBinaryExpression(loc, lhs, rhs);
+            return make_expression<DivBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_pow    :
-            return new PowBinaryExpression(loc, lhs, rhs);
+            return make_expression<PowBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_lt     :
         case tok_lte    :
         case tok_gt     :
         case tok_gte    :
         case tok_EQ     :
-            return new ConditionalExpression(loc, op, lhs, rhs);
+            return make_expression<ConditionalExpression>(loc, op, std::move(lhs), std::move(rhs));
         default         :
             std::cerr << yellow(token_string(op))
                       << " is not a valid binary operator"

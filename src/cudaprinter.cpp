@@ -380,7 +380,7 @@ void CUDAPrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto stmt : e->body()) {
+    for(auto& stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -409,7 +409,7 @@ void CUDAPrinter::print_procedure_prototype(ProcedureExpression *e) {
     text_.add_gutter() << "void " << e->name()
                        << "(" << module_->name() << "_ParamPack<T,I> const& params_,"
                        << "const int tid_";
-    for(auto arg : e->args()) {
+    for(auto& arg : e->args()) {
         text_ << ", T " << arg->is_argument()->name();
     }
     text_ << ")";

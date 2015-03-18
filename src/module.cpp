@@ -211,23 +211,26 @@ bool Module::semantic() {
         // clone the initial procedure
         auto initial = symbols_["initial"]->is_procedure();
         auto loc = initial->location();
-        auto proc_init = new APIMethod(
-                            initial->location(),
-                            "nrn_init",
-                            {}, // no arguments
-                            new BlockExpression(loc, {}, false));
+        auto proc_init =
+            new APIMethod(initial->location(),
+                          "nrn_init",
+                          std::vector<expression_ptr>(), // no arguments
+                          make_expression<BlockExpression>(loc,
+                                                           std::list<expression_ptr>(),
+                                                           false)
+                         );
 
         if( symbols_.find("nrn_init")!=symbols_.end() ) {
             error("'nrn_init' clashes with reserved name, please rename it",
                   loc);
             return false;
         }
-        symbols_["nrn_init"] = symbol_ptr{proc_init};
+        symbols_["nrn_init"] = symbol_ptr(proc_init);
 
         // get a reference to the empty body of the init function
         auto& body = proc_init->body()->body();
-        for(auto e : *(initial->body())) {
-            body.push_back(e->clone());
+        for(auto& e : *(initial->body())) {
+            body.emplace_back(e->clone());
         }
         // perform semantic analysis for init
         proc_init->semantic(symbols_);
@@ -245,7 +248,7 @@ bool Module::semantic() {
 
         // helper for making identifiers on the fly
         auto id = [] (std::string const& name) {
-            return new IdentifierExpression(Location(), name);
+            return make_expression<IdentifierExpression>(Location(), name);
         };
         //..........................................................
         //..........................................................
@@ -255,7 +258,7 @@ bool Module::semantic() {
 
         // find the SOLVE statement
         SolveExpression* sexp = nullptr;
-        for(auto e: *(breakpoint->body())) {
+        for(auto& e: *(breakpoint->body())) {
             sexp = e->is_solve_statement();
             if(sexp) break;
         }
@@ -271,7 +274,8 @@ bool Module::semantic() {
                         loc,
                         "nrn_state",
                         {},
-                        new BlockExpression(loc, {}, false)
+                        make_expression<BlockExpression>
+                            (loc, std::list<expression_ptr>(), false)
                     );
 
             // perform semantic analysis for init
@@ -287,7 +291,8 @@ bool Module::semantic() {
                         dblock->location(),
                         "nrn_state",
                         {},
-                        new BlockExpression(loc, {}, false)
+                        make_expression<BlockExpression>
+                            (loc, std::list<expression_ptr>(), false)
                     );
             // check for symbol clash
             if( symbols_.find("nrn_state")!=symbols_.end() ) {
@@ -299,7 +304,7 @@ bool Module::semantic() {
             // get a reference to the empty body of the init function
             bool has_derivaties = false;
             auto& body = proc_state->body()->body();
-            for(auto e : *(dblock->body())) {
+            for(auto& e : *(dblock->body())) {
                 if(auto ass = e->is_assignment()) {
                     auto lhs = ass->lhs();
                     auto rhs = ass->rhs();
@@ -309,10 +314,10 @@ bool Module::semantic() {
                         auto name = deriv->name();
 
                         // create visitor for lineary analysis
-                        auto v = new ExpressionClassifierVisitor(sym);
+                        auto v = make_unique<ExpressionClassifierVisitor>(sym);
 
                         // analyse the rhs
-                        rhs->accept(v);
+                        rhs->accept(v.get());
 
                         // quit if ODE is not linear
                         if( v->classify() != k_expression_lin ) {
@@ -329,18 +334,22 @@ bool Module::semantic() {
                         // we are going to build this update function by
                         //  1. generating statements that define a_=a and ba_=b/a
                         //  2. generating statements that update the solution
-                        auto a = v->linear_coefficient();
-                        auto id_a  = id("a_");
+                        // TODO : pass without cloning?
                         // statement : a_ = a
-                        auto stmt_a  = binary_expression(Location(), tok_eq, id_a, a);
+                        auto stmt_a  =
+                            binary_expression(Location(),
+                                              tok_eq,
+                                              id("a_"),
+                                              v->linear_coefficient()->clone());
 
-                        // define ba
-                        auto b = v->constant_term();
-                        auto id_ba = id("ba_");
                         // expression : b/a
-                        auto expr_ba = binary_expression(Location(), tok_divide, b, id_a);
+                        auto expr_ba =
+                            binary_expression(Location(),
+                                              tok_divide,
+                                              v->constant_term()->clone(),
+                                              id("a_"));
                         // statement  : ba_ = b/a
-                        auto stmt_ba = binary_expression(Location(), tok_eq, id_ba, expr_ba);
+                        auto stmt_ba = binary_expression(Location(), tok_eq, id("ba_"), std::move(expr_ba));
 
                         // the update function
                         auto e_string = name + "  = -ba_ + "
@@ -348,12 +357,12 @@ bool Module::semantic() {
                         auto stmt_update = Parser(e_string).parse_line_expression();
 
                         // add declaration of local variables
-                        body.push_back(Parser("LOCAL a_").parse_local());
-                        body.push_back(Parser("LOCAL ba_").parse_local());
+                        body.emplace_back(Parser("LOCAL a_").parse_local());
+                        body.emplace_back(Parser("LOCAL ba_").parse_local());
                         // add integration statements
-                        body.push_back(stmt_a);
-                        body.push_back(stmt_ba);
-                        body.push_back(stmt_update);
+                        body.emplace_back(std::move(stmt_a));
+                        body.emplace_back(std::move(stmt_ba));
+                        body.emplace_back(std::move(stmt_update));
                         continue;
                     }
                     else {
@@ -376,14 +385,16 @@ bool Module::semantic() {
         // nrn_current : update contributions to currents
         //..........................................................
         //..........................................................
-        std::list<Expression*> block;
+        std::list<expression_ptr> block;
 
         auto is_ion_update = [] (Expression* e) -> VariableExpression* {
             if(auto a = e->is_assignment()) {
                 // semantic analysis has been performed on the original expression
-                if(auto var = a->lhs()->is_identifier()->variable()) {
-                    return var==nullptr ? nullptr
-                                        : (var->is_ion() ? var : nullptr);
+                // which means that the lhs is an identifier, and that it is a variable
+                // because it has to be 
+                if(auto var = a->lhs()->is_identifier()->symbol()->is_variable()) {
+                    return var ? (var->is_ion() ? var : nullptr)
+                               : nullptr;
                 }
             }
             return nullptr;
@@ -392,35 +403,38 @@ bool Module::semantic() {
         // add statements that initialize the reduction variables
         bool update_current = false;
         std::list<std::string> outputs;
-        for(auto e: *(breakpoint->body())) {
+        for(auto& e: *(breakpoint->body())) {
+            // ignore solve statements
             if(e->is_solve_statement()) continue;
 
             // add the expression
-            block.push_back(e->clone());
+            block.emplace_back(e->clone());
 
             // we are updating an ionic current
             // so keep track of current and conductance accumulation
-            if(auto var = is_ion_update(e)) {
+            if(auto var = is_ion_update(e.get())) {
                 auto lhs = e->is_assignment()->lhs()->is_identifier();
                 auto rhs = e->is_assignment()->rhs();
 
                 // analyze the expression for linear terms
-                auto v = new ExpressionClassifierVisitor(symbols_["v"].get());
-                rhs->accept(v);
+                auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
+                rhs->accept(v.get());
 
                 if(v->classify()==k_expression_lin) {
-                    block.push_back(Parser("LOCAL current_").parse_local());
-                    block.push_back(Parser("LOCAL conductance_").parse_local());
+                    block.emplace_back(Parser("LOCAL current_").parse_local());
+                    block.emplace_back(Parser("LOCAL conductance_").parse_local());
 
                     // add current update
                     std::string e_string = "current_ = current_ + " + var->name();
-                    block.push_back(Parser(e_string).parse_line_expression());
+                    block.emplace_back(Parser(e_string).parse_line_expression());
 
-                    auto id_g = id("conductance_");
                     auto g_stmt =
-                        binary_expression(tok_eq, id_g,
-                            binary_expression(tok_plus, id_g, v->linear_coefficient()));
-                    block.push_back(g_stmt);
+                        binary_expression(tok_eq,
+                                          id("conductance_"),
+                                          binary_expression(tok_plus,
+                                                            id("conductance_"),
+                                                            v->linear_coefficient()->clone()));
+                    block.emplace_back(std::move(g_stmt));
                 }
                 else {
                     error("current update functions must be a linear function of v : " + rhs->to_string(),
@@ -439,7 +453,7 @@ bool Module::semantic() {
         //    block.push_back(Parser("g_ = conductance_").parse_line_expression());
         //}
         ConstantFolderVisitor* v = new ConstantFolderVisitor();
-        for(auto e : block) {
+        for(auto& e : block) {
             e->accept(v);
         }
 
@@ -448,7 +462,7 @@ bool Module::semantic() {
                     breakpoint->location(),
                     "nrn_current",
                     {},
-                    new BlockExpression(loc, block, false)
+                    make_expression<BlockExpression>(loc, std::move(block), false)
                 );
 
         symbols_["nrn_current"] = symbol_ptr(proc_current);
@@ -766,7 +780,7 @@ bool Module::optimize() {
         /////////////////////////////////////////////////////////////////////
 
         // perform constant folding
-        for(auto line : *body) {
+        for(auto& line : *body) {
             line->accept(folder);
         }
 

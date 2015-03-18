@@ -2,6 +2,7 @@ set(BASE_SOURCES
     #variablerenamer.cpp
     #inline.cpp
     expression.cpp
+    parser.cpp
     textbuffer.cpp
     cprinter.cpp
     cudaprinter.cpp
@@ -11,7 +12,6 @@ set(BASE_SOURCES
     errorvisitor.cpp
     lexer.cpp
     module.cpp
-    parser.cpp
 )
 
 add_library(compiler ${BASE_SOURCES})

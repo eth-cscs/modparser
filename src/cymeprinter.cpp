@@ -276,7 +276,7 @@ void CymePrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto stmt : e->body()) {
+    for(auto& stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -303,7 +303,7 @@ void CymePrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_.add_gutter() << "void " << e->name() << "(const int i_";
-    for(auto arg : e->args()) {
+    for(auto& arg : e->args()) {
         text_ << ", cyme::vector_value<value_type> " << arg->is_argument()->name();
     }
     text_.end_line(") {");

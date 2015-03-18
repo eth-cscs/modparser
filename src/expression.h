@@ -50,12 +50,23 @@ class SolveExpression;
 class Symbol;
 
 using expression_ptr = std::unique_ptr<Expression>;
+using symbol_ptr = std::unique_ptr<Symbol>;
+
+template <typename T, typename... Args>
+expression_ptr make_expression(Args&&... args) {
+    return expression_ptr(new T(std::forward<Args>(args)...));
+}
+
+template <typename T, typename... Args>
+symbol_ptr make_symbol(Args&&... args) {
+    return symbol_ptr(new T(std::forward<Args>(args)...));
+}
 
 // helper functions for generating unary and binary expressions
-Expression* unary_expression(Location, TOK, Expression*);
-Expression* unary_expression(TOK, Expression*);
-Expression* binary_expression(Location, TOK, Expression*, Expression*);
-Expression* binary_expression(TOK, Expression*, Expression*);
+expression_ptr unary_expression(Location, TOK, expression_ptr&&);
+expression_ptr unary_expression(TOK, expression_ptr&&);
+expression_ptr binary_expression(Location, TOK, expression_ptr&&, expression_ptr&&);
+expression_ptr binary_expression(TOK, expression_ptr&&, expression_ptr&&);
 
 /// specifies special properties of a ProcedureExpression
 enum procedureKind {
@@ -125,7 +136,7 @@ public:
     virtual void semantic(scope_type::symbol_map&) {assert(false);};
 
     // clone an expression
-    virtual Expression* clone() const;
+    virtual expression_ptr clone() const;
 
     // easy lookup of properties
     virtual CallExpression*        is_function_call()     {return nullptr;}
@@ -227,7 +238,7 @@ public:
         return yellow(pprintf("%", spelling_));
     }
 
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     void semantic(std::shared_ptr<scope_type> scp) override;
 
@@ -236,8 +247,6 @@ public:
     void accept(Visitor *v) override;
 
     IdentifierExpression* is_identifier() override {return this;}
-
-    VariableExpression* variable();
 
     bool is_lvalue() override;
 
@@ -298,7 +307,7 @@ public:
 
     // do nothing for number semantic analysis
     void semantic(std::shared_ptr<scope_type> scp) override {};
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     NumberExpression* is_number() override {return this;}
 
@@ -329,7 +338,7 @@ public:
     void semantic(std::shared_ptr<scope_type> scp) override;
     std::vector<Symbol*>& symbols() {return symbols_;}
     std::map<std::string, Token>& variables() {return vars_;}
-    Expression* clone() const override;
+    expression_ptr clone() const override;
     ~LocalDeclaration() {}
     void accept(Visitor *v) override;
 private:
@@ -502,7 +511,7 @@ public:
         return this;
     }
 
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     void semantic(std::shared_ptr<scope_type> scp) override;
     void accept(Visitor *v) override;
@@ -524,16 +533,16 @@ private:
 
 class BlockExpression : public Expression {
 protected:
-    std::list<Expression*> body_;
+    std::list<expression_ptr> body_;
     bool is_nested_ = false;
 
 public:
     BlockExpression(
         Location loc,
-        std::list<Expression*> body,
+        std::list<expression_ptr>&& body,
         bool is_nested)
     :   Expression(loc),
-        body_(body),
+        body_(std::move(body)),
         is_nested_(is_nested)
     {}
 
@@ -541,11 +550,11 @@ public:
         return this;
     }
 
-    std::list<Expression*>& body() {
+    std::list<expression_ptr>& body() {
         return body_;
     }
 
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     // provide iterators for easy iteration over body
     auto begin() -> decltype(body_.begin()) {
@@ -572,21 +581,21 @@ public:
 
 class IfExpression : public Expression {
 public:
-    IfExpression(Location loc, Expression* con, Expression* tb, Expression* fb)
-    :   Expression(loc), condition_(con), true_branch_(tb), false_branch_(fb)
+    IfExpression(Location loc, expression_ptr&& con, expression_ptr&& tb, expression_ptr&& fb)
+    :   Expression(loc), condition_(std::move(con)), true_branch_(std::move(tb)), false_branch_(std::move(fb))
     {}
 
     IfExpression* is_if() override {
         return this;
     }
     Expression* condition() {
-        return condition_;
+        return condition_.get();
     }
     Expression* true_branch() {
-        return true_branch_;
+        return true_branch_.get();
     }
     Expression* false_branch() {
-        return false_branch_;
+        return false_branch_.get();
     }
 
     std::string to_string() const override;
@@ -594,9 +603,9 @@ public:
 
     void accept(Visitor* v) override;
 private:
-    Expression *condition_;
-    Expression *true_branch_;
-    Expression *false_branch_;
+    expression_ptr condition_;
+    expression_ptr true_branch_;
+    expression_ptr false_branch_;
 };
 
 // a proceduce prototype
@@ -605,18 +614,19 @@ public:
     PrototypeExpression(
             Location loc,
             std::string const& name,
-            std::vector<Expression*> const& args)
-    :   Expression(loc), name_(name), args_(args)
+            std::vector<expression_ptr>&& args)
+    :   Expression(loc), name_(name), args_(std::move(args))
     {}
 
     std::string const& name() const {return name_;}
 
-    std::vector<Expression*>&      args()       {return args_;}
-    std::vector<Expression*>const& args() const {return args_;}
+    std::vector<expression_ptr>&      args()       {return args_;}
+    std::vector<expression_ptr>const& args() const {return args_;}
     PrototypeExpression* is_prototype() override {return this;}
 
+    // TODO: printing out the vector of unique pointers is an unsolved problem...
     std::string to_string() const override {
-        return name_ + pprintf("(% args : %)", args_.size(), args_);
+        return name_; //+ pprintf("(% args : %)", args_.size(), args_);
     }
 
     ~PrototypeExpression() {}
@@ -624,25 +634,25 @@ public:
     void accept(Visitor *v) override;
 private:
     std::string name_;
-    std::vector<Expression*> args_;
+    std::vector<expression_ptr> args_;
 };
 
 // marks a call site in the AST
 // is used to mark both function and procedure calls
 class CallExpression : public Expression {
 public:
-    CallExpression(Location loc, std::string spelling, std::vector<Expression*>const &args)
-    :   Expression(loc), spelling_(std::move(spelling)), args_(args)
+    CallExpression(Location loc, std::string spelling, std::vector<expression_ptr>&& args)
+    :   Expression(loc), spelling_(std::move(spelling)), args_(std::move(args))
     {}
 
-    std::vector<Expression*>& args() { return args_; }
-    std::vector<Expression*> const& args() const { return args_; }
+    std::vector<expression_ptr>& args() { return args_; }
+    std::vector<expression_ptr> const& args() const { return args_; }
 
     std::string& name() { return spelling_; }
     std::string const& name() const { return spelling_; }
 
     void semantic(std::shared_ptr<scope_type> scp) override;
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     std::string to_string() const override;
 
@@ -658,27 +668,27 @@ private:
     Symbol* symbol_;
 
     std::string spelling_;
-    std::vector<Expression *> args_;
+    std::vector<expression_ptr> args_;
 };
 
 class ProcedureExpression : public Symbol {
 public:
     ProcedureExpression( Location loc,
                          std::string name,
-                         std::vector<Expression*> const& args,
-                         Expression* body,
+                         std::vector<expression_ptr>&& args,
+                         expression_ptr&& body,
                          procedureKind k=k_proc_normal)
-    :   Symbol(loc, std::move(name), k_symbol_procedure), args_(args), kind_(k)
+    :   Symbol(loc, std::move(name), k_symbol_procedure), args_(std::move(args)), kind_(k)
     {
         assert(body->is_block());
-        body_ = body->is_block();
+        body_ = std::move(body);
     }
 
-    std::vector<Expression*>& args() {
+    std::vector<expression_ptr>& args() {
         return args_;
     }
     BlockExpression* body() {
-        return body_;
+        return body_.get()->is_block();
     }
 
     void semantic(scope_type::symbol_map &scp) override;
@@ -693,8 +703,8 @@ public:
 protected:
     Symbol* symbol_;
 
-    std::vector<Expression *> args_;
-    BlockExpression* body_;
+    std::vector<expression_ptr> args_;
+    expression_ptr body_;
     procedureKind kind_ = k_proc_normal;
 };
 
@@ -704,9 +714,9 @@ public:
 
     APIMethod( Location loc,
                std::string name,
-               std::vector<Expression*> const& args,
-               Expression* body)
-    :   ProcedureExpression(loc, std::move(name), args, body, k_proc_api)
+               std::vector<expression_ptr>&& args,
+               expression_ptr&& body)
+    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), k_proc_api)
     {}
 
     APIMethod* is_api_method() override {return this;}
@@ -739,11 +749,12 @@ class InitialBlock : public BlockExpression {
 public:
     InitialBlock(
         Location loc,
-        std::list<Expression*> body)
-    :   BlockExpression(loc, body, true)
+        std::list<expression_ptr>&& body)
+    :   BlockExpression(loc, std::move(body), true)
     {}
 
     std::string to_string() const;
+
     // currently we use the semantic for a BlockExpression
     // this could be overriden to check for statements
     // specific to initialization of a net_receive block
@@ -758,9 +769,9 @@ class NetReceiveExpression : public ProcedureExpression {
 public:
     NetReceiveExpression( Location loc,
                           std::string name,
-                          std::vector<Expression*> const& args,
-                          Expression* body)
-    :   ProcedureExpression(loc, std::move(name), args, body, k_proc_net_receive)
+                          std::vector<expression_ptr>&& args,
+                          expression_ptr&& body)
+    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), k_proc_net_receive)
     {}
 
     void semantic(scope_type::symbol_map &scp) override;
@@ -771,27 +782,27 @@ public:
     void accept(Visitor *v) override;
     InitialBlock* initial_block() {return initial_block_;}
 protected:
-    InitialBlock*  initial_block_=nullptr;
+    InitialBlock* initial_block_;
 };
 
 class FunctionExpression : public Symbol {
 public:
     FunctionExpression( Location loc,
                         std::string name,
-                        std::vector<Expression*> const& args,
-                        Expression* body)
+                        std::vector<expression_ptr>&& args,
+                        expression_ptr&& body)
     :   Symbol(loc, std::move(name), k_symbol_function),
-        args_(args)
+        args_(std::move(args))
     {
         assert(body->is_block());
-        body_ = body->is_block();
+        body_ = std::move(body);
     }
 
-    std::vector<Expression*>& args() {
+    std::vector<expression_ptr>& args() {
         return args_;
     }
     BlockExpression* body() {
-        return body_;
+        return body_->is_block();
     }
 
     FunctionExpression* is_function() override {return this;}
@@ -802,8 +813,8 @@ public:
 private:
     Symbol* symbol_;
 
-    std::vector<Expression *> args_;
-    BlockExpression* body_;
+    std::vector<expression_ptr> args_;
+    expression_ptr body_;
 };
 
 ////////////////////////////////////////////////////////////
@@ -813,12 +824,12 @@ private:
 /// Unary expression
 class UnaryExpression : public Expression {
 protected:
-    Expression *expression_;
+    expression_ptr expression_;
     TOK op_;
 public:
-    UnaryExpression(Location loc, TOK op, Expression* e)
+    UnaryExpression(Location loc, TOK op, expression_ptr&& e)
     :   Expression(loc),
-        expression_(e),
+        expression_(std::move(e)),
         op_(op)
     {}
 
@@ -826,22 +837,22 @@ public:
         return pprintf("(% %)", green(token_string(op_)), expression_->to_string());
     }
 
-    Expression* clone() const override;
+    expression_ptr clone() const override;
 
     TOK op() const {return op_;}
     UnaryExpression* is_unary() override {return this;};
-    Expression* expression() {return expression_;}
-    const Expression* expression() const {return expression_;}
+    Expression* expression() {return expression_.get();}
+    const Expression* expression() const {return expression_.get();}
     void semantic(std::shared_ptr<scope_type> scp) override;
     void accept(Visitor *v) override;
-    void replace_expression(Expression*);
+    void replace_expression(expression_ptr&& other);
 };
 
 /// negation unary expression, i.e. -x
 class NegUnaryExpression : public UnaryExpression {
 public:
-    NegUnaryExpression(Location loc, Expression* e)
-    :   UnaryExpression(loc, tok_minus, e)
+    NegUnaryExpression(Location loc, expression_ptr e)
+    :   UnaryExpression(loc, tok_minus, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -850,8 +861,8 @@ public:
 /// exponential unary expression, i.e. e^x or exp(x)
 class ExpUnaryExpression : public UnaryExpression {
 public:
-    ExpUnaryExpression(Location loc, Expression* e)
-    :   UnaryExpression(loc, tok_exp, e)
+    ExpUnaryExpression(Location loc, expression_ptr e)
+    :   UnaryExpression(loc, tok_exp, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -860,8 +871,8 @@ public:
 // logarithm unary expression, i.e. log_10(x)
 class LogUnaryExpression : public UnaryExpression {
 public:
-    LogUnaryExpression(Location loc, Expression* e)
-    :   UnaryExpression(loc, tok_log, e)
+    LogUnaryExpression(Location loc, expression_ptr e)
+    :   UnaryExpression(loc, tok_log, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -870,8 +881,8 @@ public:
 // cosine unary expression, i.e. cos(x)
 class CosUnaryExpression : public UnaryExpression {
 public:
-    CosUnaryExpression(Location loc, Expression* e)
-    :   UnaryExpression(loc, tok_cos, e)
+    CosUnaryExpression(Location loc, expression_ptr e)
+    :   UnaryExpression(loc, tok_cos, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -880,8 +891,8 @@ public:
 // sin unary expression, i.e. sin(x)
 class SinUnaryExpression : public UnaryExpression {
 public:
-    SinUnaryExpression(Location loc, Expression* e)
-    :   UnaryExpression(loc, tok_sin, e)
+    SinUnaryExpression(Location loc, expression_ptr e)
+    :   UnaryExpression(loc, tok_sin, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -897,35 +908,35 @@ public:
 /// it are inserted into the AST.
 class BinaryExpression : public Expression {
 protected:
-    Expression *lhs_;
-    Expression *rhs_;
+    expression_ptr lhs_;
+    expression_ptr rhs_;
     TOK op_;
 public:
-    BinaryExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
+    BinaryExpression(Location loc, TOK op, expression_ptr&& lhs, expression_ptr&& rhs)
     :   Expression(loc),
-        lhs_(lhs),
-        rhs_(rhs),
+        lhs_(std::move(lhs)),
+        rhs_(std::move(rhs)),
         op_(op)
     {}
 
     TOK op() const {return op_;}
-    Expression* lhs() {return lhs_;}
-    Expression* rhs() {return rhs_;}
-    const Expression* lhs() const {return lhs_;}
-    const Expression* rhs() const {return rhs_;}
+    Expression* lhs() {return lhs_.get();}
+    Expression* rhs() {return rhs_.get();}
+    const Expression* lhs() const {return lhs_.get();}
+    const Expression* rhs() const {return rhs_.get();}
     BinaryExpression* is_binary() override {return this;}
     void semantic(std::shared_ptr<scope_type> scp) override;
-    Expression* clone() const override;
-    void replace_rhs(Expression* other);
-    void replace_lhs(Expression* other);
+    expression_ptr clone() const override;
+    void replace_rhs(expression_ptr&& other);
+    void replace_lhs(expression_ptr&& other);
     std::string to_string() const;
     void accept(Visitor *v) override;
 };
 
 class AssignmentExpression : public BinaryExpression {
 public:
-    AssignmentExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_eq, lhs, rhs)
+    AssignmentExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_eq, std::move(lhs), std::move(rhs))
     {}
 
     AssignmentExpression* is_assignment() override {return this;}
@@ -937,8 +948,8 @@ public:
 
 class AddBinaryExpression : public BinaryExpression {
 public:
-    AddBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_plus, lhs, rhs)
+    AddBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_plus, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -946,8 +957,8 @@ public:
 
 class SubBinaryExpression : public BinaryExpression {
 public:
-    SubBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_minus, lhs, rhs)
+    SubBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_minus, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -955,8 +966,8 @@ public:
 
 class MulBinaryExpression : public BinaryExpression {
 public:
-    MulBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_times, lhs, rhs)
+    MulBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_times, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -964,8 +975,8 @@ public:
 
 class DivBinaryExpression : public BinaryExpression {
 public:
-    DivBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_divide, lhs, rhs)
+    DivBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_divide, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -973,8 +984,8 @@ public:
 
 class PowBinaryExpression : public BinaryExpression {
 public:
-    PowBinaryExpression(Location loc, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, tok_pow, lhs, rhs)
+    PowBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, tok_pow, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -982,8 +993,8 @@ public:
 
 class ConditionalExpression : public BinaryExpression {
 public:
-    ConditionalExpression(Location loc, TOK op, Expression* lhs, Expression* rhs)
-    :   BinaryExpression(loc, op, lhs, rhs)
+    ConditionalExpression(Location loc, TOK op, expression_ptr&& lhs, expression_ptr&& rhs)
+    :   BinaryExpression(loc, op, std::move(lhs), std::move(rhs))
     {}
 
     ConditionalExpression* is_conditional() override {return this;}

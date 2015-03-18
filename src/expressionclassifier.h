@@ -22,8 +22,8 @@ public:
     void reset() {
         is_linear_    = true;
         found_symbol_ = false;
-        coefficient_  = nullptr;
-        constant_     = nullptr;
+        coefficient_.release();
+        constant_.release();
     }
 
     void visit(Expression *e)           override;
@@ -51,7 +51,7 @@ public:
                 return new NumberExpression(
                         Location(),
                         const_folder_->value);
-            return coefficient_;
+            return coefficient_.get();
         }
         // constant expression
         else if(classify() == k_expression_const) {
@@ -63,16 +63,17 @@ public:
         }
     }
 
+    // TODO : fix these new statements in constant_term() and linear_coefficient
+
     Expression *constant_term() {
         // if is a linear expression with nonzero linear coefficient
         if(classify() == k_expression_lin) {
             //return constant_;
-            return constant_ ? constant_ : new NumberExpression(Location(), 0.);
+            return constant_ ? constant_.get() : new NumberExpression(Location(), 0.);
         }
         // constant expression
         else if(classify() == k_expression_const) {
-            return coefficient_;
-            //return coefficient_ ? coefficient_ : new NumberExpression(Location(), 0.);
+            return coefficient_.get();
         }
         // nonlinear expression
         else {
@@ -88,8 +89,8 @@ private:
     // assume linear until otherwise proven
     bool is_linear_     = true;
     bool found_symbol_  = false;
-    Expression* coefficient_   = nullptr;
-    Expression* constant_  = nullptr;
+    expression_ptr coefficient_;
+    expression_ptr constant_;
     Symbol* symbol_;
     ConstantFolderVisitor* const_folder_;
 };

@@ -26,7 +26,7 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     // check if symbol of identifier matches the identifier
     if(symbol_ == e->symbol()) {
         found_symbol_ = true;
-        coefficient_ = new NumberExpression(Location(), "1");
+        coefficient_.reset(new NumberExpression(Location(), "1"));
     }
     else {
         coefficient_ = e->clone();
@@ -40,7 +40,7 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
         switch(e->op()) {
             // plus or minus don't change linearity
             case tok_minus :
-                coefficient_ = unary_expression(Location(), e->op(), coefficient_);
+                coefficient_ = unary_expression(Location(), e->op(), std::move(coefficient_));
                 return;
             case tok_plus :
                 return;
@@ -61,7 +61,7 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
         }
     }
     else {
-        coefficient_ = e;
+        coefficient_ = e->clone();
     }
 }
 
@@ -71,25 +71,25 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
 void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     bool lhs_contains_symbol = false;
     bool rhs_contains_symbol = false;
-    Expression *lhs_coefficient;
-    Expression *rhs_coefficient;
-    Expression *lhs_constant;
-    Expression *rhs_constant;
+    expression_ptr lhs_coefficient;
+    expression_ptr rhs_coefficient;
+    expression_ptr lhs_constant;
+    expression_ptr rhs_constant;
 
     // check the lhs
     reset();
     e->lhs()->accept(this);
     lhs_contains_symbol = found_symbol_;
-    lhs_coefficient     = coefficient_;
-    lhs_constant        = constant_;
+    lhs_coefficient     = std::move(coefficient_);
+    lhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
 
     // check the rhs
     reset();
     e->rhs()->accept(this);
     rhs_contains_symbol = found_symbol_;
-    rhs_coefficient     = coefficient_;
-    rhs_constant        = constant_;
+    rhs_coefficient     = std::move(coefficient_);
+    rhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
 
     // mark symbol as found if in either lhs or rhs
@@ -108,7 +108,10 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                 case tok_plus :
                 case tok_minus :
                     coefficient_ =
-                        binary_expression(Location(), e->op(), lhs_coefficient, rhs_coefficient);
+                        binary_expression(Location(),
+                                          e->op(),
+                                          std::move(lhs_coefficient),
+                                          std::move(rhs_coefficient));
                     return;
                 // multiplying two expressions that depend on symbol is nonlinear
                 case tok_times :
@@ -134,16 +137,22 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     // determine the linear coefficient
                     if( rhs_coefficient->is_number() &&
                         rhs_coefficient->is_number()->value()==1) {
-                        coefficient_ = lhs_coefficient;
+                        coefficient_ = std::move(lhs_coefficient);
                     }
                     else {
                         coefficient_ =
-                            binary_expression(Location(), tok_times, lhs_coefficient, rhs_coefficient);
+                            binary_expression(Location(),
+                                              tok_times,
+                                              std::move(lhs_coefficient),
+                                              std::move(rhs_coefficient));
                     }
                     // determine the constant
                     if(rhs_constant) {
                         constant_ =
-                            binary_expression( Location(), tok_times, lhs_coefficient, rhs_constant);
+                            binary_expression(Location(),
+                                              tok_times,
+                                              std::move(lhs_coefficient),
+                                              std::move(rhs_constant));
                     } else {
                         constant_ = nullptr;
                     }
@@ -152,33 +161,44 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     // constant term
                     if(lhs_constant && rhs_constant) {
                         constant_ =
-                            binary_expression(Location(), tok_plus, lhs_constant, rhs_constant);
+                            binary_expression(Location(),
+                                              tok_plus,
+                                              std::move(lhs_constant),
+                                              std::move(rhs_constant));
                     }
                     else if(rhs_constant) {
-                        constant_ =
-                            binary_expression(Location(), tok_plus, lhs_coefficient, rhs_constant);
+                        constant_ = binary_expression(Location(),
+                                                      tok_plus,
+                                                      std::move(lhs_coefficient),
+                                                      std::move(rhs_constant));
                     }
                     else {
-                        constant_ = lhs_coefficient;
+                        constant_ = std::move(lhs_coefficient);
                     }
                     // coefficient
-                    coefficient_ = rhs_coefficient;
+                    coefficient_ = std::move(rhs_coefficient);
                     return;
                 case tok_minus :
                     // constant term
                     if(lhs_constant && rhs_constant) {
-                        constant_ =
-                            binary_expression(Location(), tok_minus, lhs_constant, rhs_constant);
+                        constant_ = binary_expression(Location(),
+                                                      tok_minus,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_constant));
                     }
                     else if(rhs_constant) {
-                        constant_ =
-                            binary_expression(Location(), tok_minus, lhs_coefficient, rhs_constant);
+                        constant_ = binary_expression(Location(),
+                                                      tok_minus,
+                                                      std::move(lhs_coefficient),
+                                                      std::move(rhs_constant));
                     }
                     else {
-                        constant_ = lhs_coefficient;
+                        constant_ = std::move(lhs_coefficient);
                     }
                     // coefficient
-                    coefficient_ = unary_expression(Location(), e->op(), rhs_coefficient);
+                    coefficient_ = unary_expression(Location(),
+                                                    e->op(),
+                                                    std::move(rhs_coefficient));
                     return;
                 case tok_pow    :
                 case tok_divide :
@@ -202,57 +222,75 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     // check if the lhs is == 1
                     if( lhs_coefficient->is_number() &&
                         lhs_coefficient->is_number()->value()==1) {
-                        coefficient_ = rhs_coefficient;
+                        coefficient_ = std::move(rhs_coefficient);
                     }
                     else {
                         coefficient_ =
-                            binary_expression( Location(), tok_times, lhs_coefficient, rhs_coefficient);
+                            binary_expression(Location(),
+                                              tok_times,
+                                              std::move(lhs_coefficient),
+                                              std::move(rhs_coefficient));
                     }
                     // constant term
                     if(lhs_constant) {
-                        constant_ =
-                            binary_expression( Location(), tok_times, lhs_constant, rhs_coefficient);
+                        constant_ = binary_expression(Location(),
+                                                      tok_times,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_coefficient));
                     } else {
                         constant_ = nullptr;
                     }
                     return;
                 case tok_plus  :
-                    coefficient_ = lhs_coefficient;
+                    coefficient_ = std::move(lhs_coefficient);
                     // constant term
                     if(lhs_constant && rhs_constant) {
-                        constant_ =
-                            binary_expression( Location(), tok_plus, lhs_constant, rhs_constant);
+                        constant_ = binary_expression(Location(),
+                                                      tok_plus,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_constant));
                     }
                     else if(lhs_constant) {
-                        constant_ =
-                            binary_expression( Location(), tok_plus, lhs_constant, rhs_coefficient);
+                        constant_ = binary_expression(Location(),
+                                                      tok_plus,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_coefficient));
                     }
                     else {
-                        constant_ = rhs_coefficient;
+                        constant_ = std::move(rhs_coefficient);
                     }
                     return;
                 case tok_minus :
-                    coefficient_ = lhs_coefficient;
+                    coefficient_ = std::move(lhs_coefficient);
                     // constant term
                     if(lhs_constant && rhs_constant) {
-                        constant_ =
-                            binary_expression( Location(), tok_minus, lhs_constant, rhs_constant);
+                        constant_ = binary_expression(Location(),
+                                                      tok_minus,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_constant));
                     }
                     else if(lhs_constant) {
-                        constant_ =
-                            binary_expression(Location(), tok_minus, lhs_constant, rhs_coefficient);
+                        constant_ = binary_expression(Location(),
+                                                      tok_minus,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_coefficient));
                     }
                     else {
-                        constant_ =
-                            unary_expression(Location(), tok_minus, rhs_coefficient);
+                        constant_ = unary_expression(Location(),
+                                                     tok_minus,
+                                                     std::move(rhs_coefficient));
                     }
                     return;
                 case tok_divide:
-                    coefficient_ =
-                        binary_expression( Location(), tok_divide, lhs_coefficient, rhs_coefficient);
+                    coefficient_ = binary_expression(Location(),
+                                                     tok_divide,
+                                                     std::move(lhs_coefficient),
+                                                     std::move(rhs_coefficient));
                     if(lhs_constant) {
-                        constant_ =
-                            binary_expression( Location(), tok_divide, lhs_constant, rhs_coefficient);
+                        constant_ = binary_expression(Location(),
+                                                      tok_divide,
+                                                      std::move(lhs_constant),
+                                                      std::move(rhs_coefficient));
                     }
                     return;
                 case tok_pow    :
@@ -271,7 +309,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     // neither lhs or rhs contains symbol
     // continue building the coefficient
     else {
-        coefficient_ = e;
+        coefficient_ = e->clone();
     }
 }
 

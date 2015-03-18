@@ -267,7 +267,7 @@ void CPrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto stmt : e->body()) {
+    for(auto& stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -294,7 +294,7 @@ void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_.add_gutter() << "void " << e->name() << "(const int i_";
-    for(auto arg : e->args()) {
+    for(auto& arg : e->args()) {
         text_ << ", value_type " << arg->is_argument()->name();
     }
     text_.end_line(") {");
@@ -322,7 +322,7 @@ void CPrinter::visit(APIMethod *e) {
     increase_indentation();
 
     // create local indexed views
-    for(auto &in : e->inputs()) {
+    for(auto& in : e->inputs()) {
         auto const& name =
             in.external->is_indexed_variable()->name();
         text_.add_gutter();
