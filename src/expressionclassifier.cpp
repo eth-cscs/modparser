@@ -19,6 +19,7 @@ void ExpressionClassifierVisitor::visit(Expression *e) {
 void ExpressionClassifierVisitor::visit(NumberExpression *e) {
     // save the coefficient as the number
     coefficient_ = e->clone();
+    //std::cout << "leaf      " << e->to_string() << std::endl;
 }
 
 // identifier expresssion
@@ -31,10 +32,12 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     else {
         coefficient_ = e->clone();
     }
+    //std::cout << "leaf      " << e->to_string() << std::endl;
 }
 
 /// unary expresssion
 void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
+    //std::cout << "unary     " << e->to_string() << std::endl;
     e->expression()->accept(this);
     if(found_symbol_) {
         switch(e->op()) {
@@ -69,6 +72,7 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
 // handle all binary expressions with one routine, because the
 // pre-order and in-order code is the same for all cases
 void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
+    //std::cout << "binary    " << e->to_string() << std::endl;
     bool lhs_contains_symbol = false;
     bool rhs_contains_symbol = false;
     expression_ptr lhs_coefficient;
@@ -83,6 +87,8 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     lhs_coefficient     = std::move(coefficient_);
     lhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
+    //if(lhs_coefficient) std::cout << "  lhs coeff : " << lhs_coefficient->to_string() << std::endl;
+    //if(lhs_constant)    std::cout << "  lhs const : " << lhs_constant->to_string() << std::endl;
 
     // check the rhs
     reset();
@@ -91,9 +97,13 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     rhs_coefficient     = std::move(coefficient_);
     rhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
+    //if(rhs_coefficient) std::cout << "  rhs coeff : " << rhs_coefficient->to_string() << std::endl;
+    //if(rhs_constant)    std::cout << "  rhs const : " << rhs_constant->to_string() << std::endl;
 
     // mark symbol as found if in either lhs or rhs
     found_symbol_ = rhs_contains_symbol || lhs_contains_symbol;
+
+    //std::cout << "  " << (found_symbol_ ? "found x" : "not found x") << std::endl;
 
     if( found_symbol_ ) {
         // if both lhs and rhs contain symbol check that the binary operator
@@ -101,6 +111,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // note that we don't have to test for linearity, because we abort early
         // if either lhs or rhs are nonlinear
         if( rhs_contains_symbol && lhs_contains_symbol ) {
+            //std::cout << "  on both sides " << e->to_string() << std::endl;
             // be careful to get the order of operation right for
             // non-computative operators
             switch(e->op()) {
@@ -132,19 +143,22 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // only RHS contains the symbol
         ////////////////////////////////////////////////////////////////////////
         else if(rhs_contains_symbol) {
+            //std::cout << "  on rhs " << e->to_string() << std::endl;
             switch(e->op()) {
                 case tok_times  :
+                    //std::cout << "    times" << std::endl;
                     // determine the linear coefficient
                     if( rhs_coefficient->is_number() &&
                         rhs_coefficient->is_number()->value()==1) {
-                        coefficient_ = std::move(lhs_coefficient);
+                        //std::cout << "    uh oh..." << std::endl;
+                        coefficient_ = lhs_coefficient->clone();
                     }
                     else {
                         coefficient_ =
                             binary_expression(Location(),
                                               tok_times,
-                                              std::move(lhs_coefficient),
-                                              std::move(rhs_coefficient));
+                                              lhs_coefficient->clone(),
+                                              rhs_coefficient->clone());
                     }
                     // determine the constant
                     if(rhs_constant) {
@@ -217,12 +231,13 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // only LHS contains the symbol
         ////////////////////////////////////////////////////////////////////////
         else if(lhs_contains_symbol) {
+            //std::cout << "  on lhs " << e->to_string() << std::endl;
             switch(e->op()) {
                 case tok_times  :
                     // check if the lhs is == 1
                     if( lhs_coefficient->is_number() &&
                         lhs_coefficient->is_number()->value()==1) {
-                        coefficient_ = std::move(rhs_coefficient);
+                        coefficient_ = rhs_coefficient->clone();
                     }
                     else {
                         coefficient_ =
@@ -285,7 +300,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     coefficient_ = binary_expression(Location(),
                                                      tok_divide,
                                                      std::move(lhs_coefficient),
-                                                     std::move(rhs_coefficient));
+                                                     rhs_coefficient->clone());
                     if(lhs_constant) {
                         constant_ = binary_expression(Location(),
                                                       tok_divide,

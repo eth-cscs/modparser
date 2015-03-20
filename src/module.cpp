@@ -452,9 +452,9 @@ bool Module::semantic() {
         //if(update_current) {
         //    block.push_back(Parser("g_ = conductance_").parse_line_expression());
         //}
-        ConstantFolderVisitor* v = new ConstantFolderVisitor();
+        auto v = make_unique<ConstantFolderVisitor>();
         for(auto& e : block) {
-            e->accept(v);
+            e->accept(v.get());
         }
 
         auto proc_current =
@@ -561,8 +561,6 @@ void Module::add_variables_to_symbols() {
 
     // add state variables
     for(auto const &var : state_block()) {
-        // TODO : using an empty Location because the source location is not
-        // recorded when a state block is parsed.
         VariableExpression *id = new VariableExpression(Location(), var);
 
         id->state(true);    // set state to true
@@ -635,21 +633,21 @@ void Module::add_variables_to_symbols() {
     // first the ION channels
     // check for nonspecific current
     if( neuron_block().has_nonspecific_current() ) {
-        auto e = neuron_block().nonspecific_current;
-        auto id = symbols_[e->spelling()]->is_variable();
+        auto const& i = neuron_block().nonspecific_current;
+        auto id = symbols_[i.spelling]->is_variable();
         if(id==nullptr) {
             error( pprintf(
-                    "nonspecific current % must be declared as "
-                    " declared as PARAMETER or ASSIGNED",
-                     yellow(e->name())),
-                    e->location()); // location of definition
+                        "nonspecific current % must be declared as "
+                        " declared as PARAMETER or ASSIGNED",
+                        yellow(i.spelling)),
+                    i.location); // location of definition
         }
         std::string name = id->name();
         if(name[0] != 'i') {
             error( pprintf(
-                    "nonspecific current % does not start with 'i'",
-                     yellow(e->name())),
-                    e->location()); // location of definition
+                       "nonspecific current % does not start with 'i'",
+                       yellow(i.spelling)),
+                   i.location); // location of definition
         }
         id->access(k_readwrite);
         id->visibility(k_global_visibility);
@@ -736,22 +734,7 @@ bool Module::optimize() {
     // how to structure the optimizer
     // loop over APIMethods
     //      - apply optimization to each in turn
-
-    /*
-    for(auto name : {"nrn_current", "nrn_state", "nrn_init", "nrn_jacob"}) {
-        auto method = symbols_[name].expression->is_api_method();
-
-        //std::cout << yellow("optimizing ") + white(method->name()) << std::endl;
-
-        std::cout << red("BEFORE") << std::endl;
-        std::cout << method->to_string() << std::endl;
-
-        std::cout << red("AFTER") << std::endl;
-        std::cout << method->to_string() << std::endl;
-    }
-    */
-
-    auto folder = new ConstantFolderVisitor();
+    auto folder = make_unique<ConstantFolderVisitor>();
     for(auto &symbol : symbols_) {
         auto kind = symbol.second->kind();
         BlockExpression* body;
@@ -771,9 +754,6 @@ bool Module::optimize() {
         else {
             continue;
         }
-        //std::cout << red("------------") << std::endl;
-        //std::cout << red("BEFORE  ") << symbol.second.expression->is_procedure()->name() << std::endl;
-        //std::cout << body->to_string() << std::endl;
 
         /////////////////////////////////////////////////////////////////////
         // loop over folding and propogation steps until there are no changes
@@ -781,18 +761,13 @@ bool Module::optimize() {
 
         // perform constant folding
         for(auto& line : *body) {
-            line->accept(folder);
+            line->accept(folder.get());
         }
 
         // preform expression simplification
         // i.e. removing zeros/refactoring reciprocals/etc
 
         // perform constant propogation
-
-        /////////////////////////////////////////////////////////////////////
-        // remove dead local variables
-        /////////////////////////////////////////////////////////////////////
-
 
         /////////////////////////////////////////////////////////////////////
         // remove dead local variables
@@ -809,10 +784,6 @@ bool Module::optimize() {
                     if(out.local->kind() == k_symbol_local) {
                         out.local->set_kind(k_symbol_ghost);
                     }
-                    // note: this should also be implemented for the case of an array writing
-                    // out, which is the case for nrn_jacob where g_ -> ...
-                    // Instead, we should do away with nrn_jacob entirely, instead making the rhs
-                    // update part of current, and performing a memcpy if required
                 }
             }
         }

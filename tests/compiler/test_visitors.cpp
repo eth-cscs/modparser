@@ -2,7 +2,7 @@
 
 #include "../src/constantfolder.h"
 #include "../src/expressionclassifier.h"
-#include "../src/variablerenamer.h"
+//#include "../src/variablerenamer.h"
 #include "../src/perfvisitor.h"
 
 #include "../src/parser.h"
@@ -14,83 +14,83 @@
 // just visually inspect for the time being
 /*
 TEST(VariableRenamer, line_expressions) {
-    VariableRenamer *visitor = new VariableRenamer("_", "z");
+    auto visitor = make_unique<VariableRenamer>("_", "z");
 
     {
-    Expression *e = parse_line_expression("y = _ + y");
-    e->accept(visitor);
+    auto e = parse_line_expression("y = _ + y");
+    e->accept(visitor.get());
     }
 
     {
-    Expression *e = parse_line_expression("y = foo(_+2, exp(_))");
-    e->accept(visitor);
+    auto e = parse_line_expression("y = foo(_+2, exp(_))");
+    e->accept(visitor.get());
     }
 }
 */
 
 TEST(FlopVisitor, basic) {
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("x+y");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("x+y");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("x-y");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("x-y");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.sub, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("x*y");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("x*y");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.mul, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("x/y");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("x/y");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.div, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("exp(x)");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("exp(x)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.exp, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("log(x)");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("log(x)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.log, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("cos(x)");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("cos(x)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.cos, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("sin(x)");
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("sin(x)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.sin, 1);
     }
 }
 
 TEST(FlopVisitor, compound) {
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("x+y*z/a-b");
-    e->accept(visitor);
+        auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("x+y*z/a-b");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 1);
     EXPECT_EQ(visitor->flops.sub, 1);
     EXPECT_EQ(visitor->flops.mul, 1);
@@ -98,17 +98,17 @@ TEST(FlopVisitor, compound) {
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("exp(x+y+z)");
-    e->accept(visitor);
+        auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("exp(x+y+z)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 2);
     EXPECT_EQ(visitor->flops.exp, 1);
     }
 
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_expression("exp(x+y) + 3/(12 + z)");
-    e->accept(visitor);
+        auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_expression("exp(x+y) + 3/(12 + z)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 3);
     EXPECT_EQ(visitor->flops.div, 1);
     EXPECT_EQ(visitor->flops.exp, 1);
@@ -116,9 +116,9 @@ TEST(FlopVisitor, compound) {
 
     // test asssignment expression
     {
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_line_expression("x = exp(x+y) + 3/(12 + z)");
-    e->accept(visitor);
+        auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_line_expression("x = exp(x+y) + 3/(12 + z)");
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 3);
     EXPECT_EQ(visitor->flops.div, 1);
     EXPECT_EQ(visitor->flops.exp, 1);
@@ -136,9 +136,9 @@ TEST(FlopVisitor, procedure) {
 "    mtau = 0.6\n"
 "    htau = 1500\n"
 "}";
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_procedure(expression);
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_procedure(expression);
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 2);
     EXPECT_EQ(visitor->flops.sub, 4);
     EXPECT_EQ(visitor->flops.mul, 0);
@@ -158,9 +158,9 @@ TEST(FlopVisitor, function) {
 "    hinf=1/(1+exp((v-vhalfh)/kh))\n"
 "    foo = minf + hinf\n"
 "}";
-    FlopVisitor *visitor = new FlopVisitor();
-    Expression *e = parse_function(expression);
-    e->accept(visitor);
+    auto visitor = make_unique<FlopVisitor>();
+    auto e = parse_function(expression);
+    e->accept(visitor.get());
     EXPECT_EQ(visitor->flops.add, 3);
     EXPECT_EQ(visitor->flops.sub, 4);
     EXPECT_EQ(visitor->flops.mul, 0);
@@ -170,7 +170,6 @@ TEST(FlopVisitor, function) {
     }
 }
 
-/*
 TEST(ClassificationVisitor, linear) {
     std::vector<const char*> expressions =
     {
@@ -201,26 +200,27 @@ TEST(ClassificationVisitor, linear) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto x = new IdentifierExpression(Location(), "x");
-    auto y = new IdentifierExpression(Location(), "y");
-    auto z = new IdentifierExpression(Location(), "z");
-    Scope<Symbol>::symbol_map globals = {
-        {"x", {k_symbol_variable, x}},
-        {"y", {k_symbol_variable, y}},
-        {"z", {k_symbol_variable, z}}
-    };
-    auto scope = std::make_shared<Scope>(globals);
+    Scope<Symbol>::symbol_map globals;
+    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    auto x = globals["x"].get();
+
+    auto scope = std::make_shared<Scope<Symbol>>(globals);
 
     for(auto const& expression : expressions) {
-        Expression *e = parse_expression(expression);
+        auto e = parse_expression(expression);
 
         // sanity check the compiler
         EXPECT_NE(e, nullptr);
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
+        auto v = new ExpressionClassifierVisitor(x);
         e->accept(v);
+        //std::cout << "expression " << e->to_string() << std::endl;
+        //std::cout << "linear     " << v->linear_coefficient()->to_string() << std::endl;
+        //std::cout << "constant   " << v->constant_term()->to_string() << std::endl;
         EXPECT_EQ(v->classify(), k_expression_lin);
 
 #ifdef VERBOSE_TEST
@@ -229,6 +229,7 @@ TEST(ClassificationVisitor, linear) {
                   << "\nconst " << v-> constant_term()->to_string()
                   << "\n----"   << std::endl;
 #endif
+        delete v;
     }
 }
 
@@ -243,25 +244,22 @@ TEST(ClassificationVisitor, constant) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto x = new IdentifierExpression(Location(), "x");
-    auto y = new IdentifierExpression(Location(), "y");
-    auto z = new IdentifierExpression(Location(), "z");
-    Scope::symbol_map globals = {
-        {"x", {k_symbol_variable, x}},
-        {"y", {k_symbol_variable, y}},
-        {"z", {k_symbol_variable, z}}
-    };
-    auto scope = std::make_shared<Scope>(globals);
+    Scope<Symbol>::symbol_map globals;
+    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    auto scope = std::make_shared<Scope<Symbol>>(globals);
+    auto x = globals["x"].get();
 
     for(auto const& expression : expressions) {
-        Expression *e = parse_expression(expression);
+        auto e = parse_expression(expression);
 
         // sanity check the compiler
         EXPECT_NE(e, nullptr);
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
+        auto v = new ExpressionClassifierVisitor(x);
         e->accept(v);
         EXPECT_EQ(v->classify(), k_expression_const);
 
@@ -270,6 +268,7 @@ TEST(ClassificationVisitor, constant) {
         if(p.status()==k_compiler_error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
 #endif
+        delete v;
     }
 }
 
@@ -292,19 +291,16 @@ TEST(ClassificationVisitor, nonlinear) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto x = new IdentifierExpression(Location(), "x");
-    auto y = new IdentifierExpression(Location(), "y");
-    auto z = new IdentifierExpression(Location(), "z");
-    Scope::symbol_map globals = {
-        {"x", {k_symbol_variable, x}},
-        {"y", {k_symbol_variable, y}},
-        {"z", {k_symbol_variable, z}}
-    };
-    auto scope = std::make_shared<Scope>(globals);
+    Scope<Symbol>::symbol_map globals;
+    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    auto scope = std::make_shared<Scope<Symbol>>(globals);
+    auto x = globals["x"].get();
 
-    auto v = new ExpressionClassifierVisitor({k_symbol_variable, x});
+    auto v = new ExpressionClassifierVisitor(x);
     for(auto const& expression : expressions) {
-        Expression *e = parse_expression(expression);
+        auto e = parse_expression(expression);
 
         // sanity check the compiler
         EXPECT_NE(e, nullptr);
@@ -321,6 +317,6 @@ TEST(ClassificationVisitor, nonlinear) {
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
 #endif
     }
+    delete v;
 }
-*/
 

@@ -33,9 +33,9 @@ struct NeuronBlock {
     std::vector<IonDep> ions;
     std::vector<Token> ranges;
     std::vector<Token> globals;
-    IdentifierExpression* nonspecific_current = nullptr;
+    Token nonspecific_current;
     bool has_nonspecific_current() const {
-        return nonspecific_current != nullptr;
+        return nonspecific_current.spelling.size()>0;
     }
 };
 

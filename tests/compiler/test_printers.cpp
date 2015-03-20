@@ -15,26 +15,23 @@ TEST(CPrinter, statement) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto x = symbol_ptr{ new VariableExpression(Location(), "x") };
-    auto y = symbol_ptr{ new VariableExpression(Location(), "y") };
-    auto z = symbol_ptr{ new VariableExpression(Location(), "z") };
-    symbol_map symbols = {
-        {"x", std::move(x)},
-        {"y", std::move(y)},
-        {"z", std::move(z)}
-    };
-    auto scope = std::make_shared<scope_type>(symbols);
+    Scope<Symbol>::symbol_map globals;
+    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+
+    auto scope = std::make_shared<Scope<Symbol>>(globals);
 
     for(auto const& expression : expressions) {
-        Expression *e = parse_line_expression(expression);
+        auto e = parse_line_expression(expression);
 
         // sanity check the compiler
         EXPECT_NE(e, nullptr);
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = new CPrinter();
-        e->accept(v);
+        auto v = make_unique<CPrinter>();
+        e->accept(v.get());
 
 #ifdef VERBOSE_TEST
         std::cout << e->to_string() << std::endl;
@@ -56,11 +53,13 @@ TEST(CPrinter, proc) {
     };
 
     // create a scope that contains the symbols used in the tests
-    auto minf = symbol_ptr{ new VariableExpression(Location(), "htau") };
-    auto hinf = symbol_ptr{ new VariableExpression(Location(), "hinf") };
-    auto mtau = symbol_ptr{ new VariableExpression(Location(), "mtau") };
-    auto htau = symbol_ptr{ new VariableExpression(Location(), "htau") };
-    auto v    = symbol_ptr{ new VariableExpression(Location(), "v") };
+    Scope<Symbol>::symbol_map globals;
+    globals["minf"] = make_symbol<VariableExpression>(Location(), "minf");
+    globals["hinf"] = make_symbol<VariableExpression>(Location(), "hinf");
+    globals["mtau"] = make_symbol<VariableExpression>(Location(), "mtau");
+    globals["htau"] = make_symbol<VariableExpression>(Location(), "htau");
+    globals["v"]    = make_symbol<VariableExpression>(Location(), "v");
+
     for(auto const& expression : expressions) {
         auto e = symbol_ptr{parse_procedure(expression)->is_symbol()};
 
@@ -69,18 +68,11 @@ TEST(CPrinter, proc) {
 
         if( e==nullptr ) continue;
 
-        symbol_map symbols = {
-            {"minf",   std::move(minf)},
-            {"hinf",   std::move(hinf)},
-            {"mtau",   std::move(mtau)},
-            {"htau",   std::move(htau)},
-            {"v",      std::move(v)},
-            {"trates", std::move(e)}
-        };
+        globals["trates"] = std::move(e);
 
-        e->semantic(symbols);
-        auto v = new CPrinter();
-        e->accept(v);
+        e->semantic(globals);
+        auto v = make_unique<CPrinter>();
+        e->accept(v.get());
 
 #ifdef VERBOSE_TEST
         std::cout << e->to_string() << std::endl;

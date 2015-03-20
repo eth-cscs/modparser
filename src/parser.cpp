@@ -325,18 +325,20 @@ void Parser::parse_neuron_block() {
                 // Assume that there is one non-specific current per mechanism.
                 // It would be easy to extend this to multiple currents,
                 // however there are no mechanisms in the CoreNeuron repository
-                // that do this, so err on the side of caution.
+                // that do this
                 {
                     get_token(); // consume NONSPECIFIC_CURRENT
 
-                    // get the name of the current
-                    auto id = parse_identifier();
+                    auto tok = token_;
 
+                    // parse the current name and check for errors
+                    auto id = parse_identifier();
                     if(status_==k_compiler_error) {
                         return;
                     }
 
-                    neuron_block.nonspecific_current = id->is_identifier();
+                    // store the token with nonspecific current's name and location
+                    neuron_block.nonspecific_current = tok;
                 }
                 break;
 
