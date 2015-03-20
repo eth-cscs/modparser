@@ -7,11 +7,11 @@
 #include <string>
 #include <vector>
 
-#include "util.hpp"
+#include "error.hpp"
 #include "identifier.hpp"
-#include "lexer.hpp"
 #include "memop.hpp"
 #include "scope.hpp"
+#include "util.hpp"
 
 class Visitor;
 
@@ -133,7 +133,9 @@ public:
 
     // perform semantic analysis
     virtual void semantic(std::shared_ptr<scope_type>);
-    virtual void semantic(scope_type::symbol_map&) {assert(false);};
+    virtual void semantic(scope_type::symbol_map&) {
+        throw compiler_exception("unable to perform semantic analysis for " + this->to_string(), location_);
+    };
 
     // clone an expression
     virtual expression_ptr clone() const;
@@ -254,14 +256,9 @@ public:
 
     std::string const& name() const {
         if(symbol_) return symbol_->name();
-        // TODO throw exception on request of name
-        std::cerr << red("compiler error")
-                  << " attempt to look up name of identifier"
-                  << " for which no symbol_ yet defined"
-                  << location_ << std::endl;
-
-        assert(false);
-        return spelling_;
+        throw compiler_exception(
+            " attempt to look up name of identifier for which no symbol_ yet defined",
+            location_);
     }
 
 protected:
@@ -680,7 +677,12 @@ public:
                          procedureKind k=k_proc_normal)
     :   Symbol(loc, std::move(name), k_symbol_procedure), args_(std::move(args)), kind_(k)
     {
-        assert(body->is_block());
+        if(!body->is_block()) {
+            throw compiler_exception(
+                " attempt to initialize ProcedureExpression with non-block expression, i.e.\n"
+                + body->to_string(),
+                location_);
+        }
         body_ = std::move(body);
     }
 
@@ -794,7 +796,12 @@ public:
     :   Symbol(loc, std::move(name), k_symbol_function),
         args_(std::move(args))
     {
-        assert(body->is_block());
+        if(!body->is_block()) {
+            throw compiler_exception(
+                " attempt to initialize FunctionExpression with non-block expression, i.e.\n"
+                + body->to_string(),
+                location_);
+        }
         body_ = std::move(body);
     }
 

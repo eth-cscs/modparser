@@ -272,10 +272,9 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
 }
 
 void CUDAPrinter::visit(Expression *e) {
-    std::cout << red("error ") << " CUDAPrinter "
-              << "doesn't know how to print the expression : "
-              << std::endl << "  " << e->to_string() << std::endl;
-    assert(false);
+    throw compiler_exception(
+        "CUDAPrinter doesn't know how to print " + e->to_string(),
+        e->location());
 }
 
 void CUDAPrinter::visit(LocalDeclaration *e) {
@@ -318,12 +317,13 @@ std::string CUDAPrinter::index_string(Symbol *s) {
             // local to a mechanism
             case k_ion_nonspecific:
                 break;
+            default :
+                throw compiler_exception(
+                    "CUDAPrinter unknown ion type",
+                    s->location());
         }
     }
-
-    // never call with anything other than variable or indexed variable
-    assert(false);
-    return "error";
+    return "";
 }
 
 void CUDAPrinter::visit(IndexedVariable *e) {
@@ -359,11 +359,9 @@ void CUDAPrinter::visit(UnaryExpression *e) {
             text_ << ")";
             return;
         default :
-            std::cout
-                << red("compiler error: ") << white(pprintf("%", e->location()))
-                << " cprinter : unsupported unary operator "
-                << yellow(token_string(e->op())) << std::endl;
-            assert(false);
+            throw compiler_exception(
+                "CUDAPrinter unsupported unary operator " + yellow(token_string(e->op())),
+                e->location());
     }
 }
 
@@ -417,7 +415,12 @@ void CUDAPrinter::print_procedure_prototype(ProcedureExpression *e) {
 
 void CUDAPrinter::visit(ProcedureExpression *e) {
     // error: semantic analysis has not been performed
-    assert(e->scope()!=nullptr);
+    if(!e->scope()) { // error: semantic analysis has not been performed
+        throw compiler_exception(
+            "CUDAPrinter attempt to print Procedure " + e->name()
+            + " for which semantic analysis has not been performed",
+            e->location());
+    }
 
     // ------------- print prototype ------------- //
     print_procedure_prototype(e);
@@ -443,7 +446,12 @@ void CUDAPrinter::visit(APIMethod *e) {
                        << "(" << module_->name() << "_ParamPack<T,I> params_) {";
     text_.add_line();
 
-    assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
+    if(!e->scope()) { // error: semantic analysis has not been performed
+        throw compiler_exception(
+            "CUDAPrinter attempt to print APIMethod " + e->name()
+            + " for which semantic analysis has not been performed",
+            e->location());
+    }
     increase_indentation();
 
     text_.add_line("auto tid_ = threadIdx.x + blockDim.x*blockIdx.x;");
@@ -529,7 +537,12 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
         else {
             auto ext = out.external->is_indexed_variable();
             // for now we assume that only matrix variables are updated in this manner
-            assert(ext->ion_channel() == k_ion_none);
+            if(ext->ion_channel() != k_ion_none) {
+                throw compiler_exception(
+                    "CUDAPrinter : don't know how to update an ion variable this way",
+                    out.external->location()
+                );
+            }
 
             text_ << (out.op==tok_plus ? "atomicAdd" : "atomicSub") << "(&";
             ext->accept(this);
@@ -607,11 +620,9 @@ void CUDAPrinter::visit(BinaryExpression *e) {
             text_ << "==";
             break;
         default :
-            std::cout
-                << red("compiler error: ") << white(pprintf("%", e->location()))
-                << " cprinter : unsupported binary operator "
-                << yellow(token_string(e->op())) << std::endl;
-            assert(false);
+            throw compiler_exception(
+                "CUDAPrinter unsupported binary operator " + yellow(token_string(e->op())),
+                e->location());
     }
     rhs->accept(this);
     if(use_brackets) {

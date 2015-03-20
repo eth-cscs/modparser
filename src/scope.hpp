@@ -2,7 +2,6 @@
 
 #include "util.hpp"
 
-#include <cassert>
 #include <memory>
 #include <string>
 #include <unordered_map>

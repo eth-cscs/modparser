@@ -721,7 +721,9 @@ symbol_ptr Parser::parse_procedure() {
         default:
             // it is a compiler error if trying to parse_procedure() without
             // having DERIVATIVE, PROCEDURE, INITIAL or BREAKPOINT keyword
-            assert(false);
+            throw compiler_exception(
+                "attempt to parser_procedure() without {DERIVATIVE,PROCEDURE,INITIAL,BREAKPOINT}",
+                location_);
     }
     if(p==nullptr) return nullptr;
 
@@ -744,9 +746,6 @@ symbol_ptr Parser::parse_procedure() {
 }
 
 symbol_ptr Parser::parse_function() {
-    // check for compiler implementation error
-    assert(token_.type == tok_function);
-
     get_token(); // consume FUNCTION token
 
     // check that a valid identifier name was specified by the user
@@ -794,8 +793,6 @@ expression_ptr Parser::parse_statement() {
 }
 
 expression_ptr Parser::parse_identifier() {
-    assert(token_.type==tok_identifier);
-
     // save name and location of the identifier
     auto id = make_expression<IdentifierExpression>(token_.location, token_.spelling);
 
@@ -815,7 +812,11 @@ expression_ptr Parser::parse_call() {
 
     // check for a function call
     // assert this is so
-    assert(token_.type == tok_lparen);
+    if(token_.type != tok_lparen) {
+        throw compiler_exception(
+            "should not be parsing parse_call without trailing '('",
+            location_);
+    }
 
     std::vector<expression_ptr> args;
 
@@ -965,8 +966,6 @@ expression_ptr Parser::parse_unaryop() {
         default     :
             return parse_primary();
     }
-    // not a unary expression, so simply parse primary
-    assert(false); // all cases should be handled by the switch
     return nullptr;
 }
 
@@ -997,7 +996,12 @@ expression_ptr Parser::parse_primary() {
 
 expression_ptr Parser::parse_parenthesis_expression() {
     // never call unless at start of parenthesis
-    assert(token_.type==tok_lparen);
+
+    if(token_.type!=tok_lparen) {
+        throw compiler_exception(
+            "attempt to parse a parenthesis_expression() without opening parenthesis",
+            location_);
+    }
 
     get_token(); // consume '('
 
@@ -1012,8 +1016,6 @@ expression_ptr Parser::parse_parenthesis_expression() {
 }
 
 expression_ptr Parser::parse_number() {
-    assert(token_.type = tok_number);
-
     auto e = make_expression<NumberExpression>(token_.location, token_.spelling);
 
     get_token(); // consume the number
@@ -1053,7 +1055,9 @@ expression_ptr Parser::parse_binop(expression_ptr&& lhs, Token op_left) {
         lhs = binary_expression(op_left.location, op_left.type, std::move(lhs), std::move(e));
         op_left = op;
     }
-    assert(false);
+    throw compiler_exception(
+        "parse_binop() : fell out of recursive parse descent",
+        location_);
     return nullptr;
 }
 
@@ -1062,7 +1066,6 @@ expression_ptr Parser::parse_binop(expression_ptr&& lhs, Token op_left) {
 ///     LOCAL x
 /// where x is a valid identifier name
 expression_ptr Parser::parse_local() {
-    assert(token_.type==tok_local);
     Location loc = location_;
 
     get_token(); // consume LOCAL
@@ -1097,7 +1100,6 @@ expression_ptr Parser::parse_local() {
 /// a SOLVE statement specifies a procedure and a method
 ///     SOLVE procedure METHOD method
 expression_ptr Parser::parse_solve() {
-    assert(token_.type==tok_solve);
     int line = location_.line;
     Location loc = location_; // solve location for expression
     std::string name;
@@ -1136,8 +1138,6 @@ solve_statment_error:
 }
 
 expression_ptr Parser::parse_if() {
-    assert(token_.type==tok_if);
-
     Token if_token = token_;
     get_token(); // consume 'if'
 
@@ -1178,7 +1178,7 @@ expression_ptr Parser::parse_if() {
 // e.g. LOCAL declarations.
 expression_ptr Parser::parse_block(bool is_nested) {
     // blocks have to be enclosed in curly braces {}
-    assert(token_.type==tok_lbrace);
+    expect(tok_lbrace);
 
     get_token(); // consume '{'
 
@@ -1213,7 +1213,7 @@ expression_ptr Parser::parse_block(bool is_nested) {
 
 expression_ptr Parser::parse_initial() {
     // has to start with INITIAL: error in compiler implementaion otherwise
-    assert(token_.type==tok_initial);
+    expect(tok_initial);
 
     // save the location of the first statement as the starting point for the block
     Location block_location = token_.location;

@@ -174,10 +174,9 @@ CPrinter::CPrinter(Module &m, bool o)
 ******************************************************************************/
 
 void CPrinter::visit(Expression *e) {
-    std::cout << red("error ") << " CPrinter "
-              << "doesn't know how to print the expression : "
-              << std::endl << "  " << e->to_string() << std::endl;
-    assert(false);
+    throw compiler_exception(
+        "CPrinter doesn't know how to print " + e->to_string(),
+        e->location());
 }
 
 void CPrinter::visit(LocalDeclaration *e) {
@@ -240,11 +239,9 @@ void CPrinter::visit(UnaryExpression *e) {
             text_ << ")";
             return;
         default :
-            std::cout
-                << red("compiler error: ") << white(pprintf("%", e->location()))
-                << " cprinter : unsupported unary operator "
-                << yellow(token_string(e->op())) << std::endl;
-            assert(false);
+            throw compiler_exception(
+                "CPrinter unsupported unary operator " + yellow(token_string(e->op())),
+                e->location());
     }
 }
 
@@ -299,7 +296,12 @@ void CPrinter::visit(ProcedureExpression *e) {
     }
     text_.end_line(") {");
 
-    assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
+    if(!e->scope()) { // error: semantic analysis has not been performed
+        throw compiler_exception(
+            "CPrinter attempt to print Procedure " + e->name()
+            + " for which semantic analysis has not been performed",
+            e->location());
+    }
 
     increase_indentation();
 
@@ -317,7 +319,12 @@ void CPrinter::visit(APIMethod *e) {
     text_.add_gutter() << "void " << e->name() << "() {";
     text_.end_line();
 
-    assert(e->scope()!=nullptr); // error: semantic analysis has not been performed
+    if(!e->scope()) { // error: semantic analysis has not been performed
+        throw compiler_exception(
+            "CPrinter attempt to print APIMethod " + e->name()
+            + " for which semantic analysis has not been performed",
+            e->location());
+    }
 
     increase_indentation();
 
@@ -335,11 +342,10 @@ void CPrinter::visit(APIMethod *e) {
             text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
         }
         else {
-            std::cout << red("compliler error:")
-                      << " what to do with indexed view `" << name
-                      << "`, which doesn't start with vec_ or ion_?"
-                      << std::endl;;
-            assert(false);
+            throw compiler_exception(
+                "what to do with indexed view `" + name
+                + "`, which doesn't start with vec_ or ion_?",
+                e->location());
         }
     }
     for(auto &in : e->outputs()) {
@@ -354,11 +360,10 @@ void CPrinter::visit(APIMethod *e) {
             text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
         }
         else {
-            std::cout << red("compliler error:")
-                      << " what to do with indexed view `" << name
-                      << "`, which doesn't start with vec_ or ion_?"
-                      << std::endl;;
-            assert(false);
+            throw compiler_exception(
+                "what to do with indexed view `" + name
+                + "`, which doesn't start with vec_ or ion_?",
+                e->location());
         }
     }
 
@@ -617,11 +622,9 @@ void CPrinter::visit(BinaryExpression *e) {
             text_ << "==";
             break;
         default :
-            std::cout
-                << red("compiler error: ") << white(pprintf("%", e->location()))
-                << " cprinter : unsupported binary operator "
-                << yellow(token_string(e->op())) << std::endl;
-            assert(false);
+            throw compiler_exception(
+                "CPrinter unsupported binary operator " + yellow(token_string(e->op())),
+                e->location());
     }
     rhs->accept(this);
     if(use_brackets) {

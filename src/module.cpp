@@ -182,12 +182,12 @@ bool Module::semantic() {
         auto l = p->scope()->find(local);
         auto g = p->scope()->find_global(global);
         if(!l || !g) {
-            std::cerr << red("error ") + "unable to add store operation "
-                      << yellow(local) + " -> " + yellow(global) << " to " << yellow(p->name())
-                      << (l ? "" : " : " + yellow(local)  + " is not a variable")
-                      << (g ? "" : " : " + yellow(global) + " is not a global variable")
-                      <<  std::endl;
-            assert(false);
+            throw compiler_exception(
+                  "unable to add store operation "
+                  + yellow(local) + " -> " + yellow(global) + " to " + yellow(p->name())
+                  + (l ? "" : " : " + yellow(local)  + " is not a variable")
+                  + (g ? "" : " : " + yellow(global) + " is not a global variable"),
+                  p->location());
         }
         p->outputs().push_back({op, l, g});
     };
@@ -197,12 +197,12 @@ bool Module::semantic() {
         auto l = p->scope()->find(local);
         auto g = p->scope()->find_global(global);
         if(!l || !g) {
-            std::cerr << red("error ") + "unable to add load operation "
-                      << yellow(local) + " <- " + yellow(global) << " to " << yellow(p->name())
-                      << (l ? "" : " : " + yellow(local)  + " is not a variable")
-                      << (g ? "" : " : " + yellow(global) + " is not a global variable")
-                      <<  std::endl;
-            assert(false);
+            throw compiler_exception(
+                    "unable to add load operation "
+                    + yellow(local) + " <- " + yellow(global) + " to " + yellow(p->name())
+                    + (l ? "" : " : " + yellow(local)  + " is not a variable")
+                    + (g ? "" : " : " + yellow(global) + " is not a global variable"),
+                    p->location());
         }
         p->inputs().push_back({op, l, g});
     };
@@ -711,7 +711,11 @@ void Module::add_variables_to_symbols() {
             return;
         }
         auto id = symbols_[var.spelling]->is_variable();
-        assert(id); // this shouldn't happen, ever
+        if(!id) {
+            throw compiler_exception(
+                "unable to find symbol '" + var.spelling + "' in symbols",
+                Location());
+        }
         id->visibility(k_global_visibility);
     }
 
@@ -725,7 +729,11 @@ void Module::add_variables_to_symbols() {
             return;
         }
         auto id = symbols_[var.spelling]->is_variable();
-        assert(id); // this shouldn't happen, ever
+        if(!id) {
+            throw compiler_exception(
+                "unable to find symbol '" + var.spelling + "' in symbols",
+                Location());
+        }
         id->range(k_range);
     }
 }

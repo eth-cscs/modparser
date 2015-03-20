@@ -1,6 +1,8 @@
 set(BASE_SOURCES
     #variablerenamer.cpp
     #inline.cpp
+    token.cpp
+    lexer.cpp
     expression.cpp
     parser.cpp
     textbuffer.cpp
@@ -10,7 +12,6 @@ set(BASE_SOURCES
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp
-    lexer.cpp
     module.cpp
 )
 

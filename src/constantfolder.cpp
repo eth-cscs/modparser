@@ -50,11 +50,10 @@ void ConstantFolderVisitor::visit(UnaryExpression *e) {
                 value = std::log(value);
                 return;
             default :
-                std::cout
-                    << red("compiler error: ") << white(pprintf("%", e->location()))
-                    << " attempting constant folding on unsuported binary operator "
-                    << yellow(token_string(e->op())) << std::endl;
-                assert(false);
+                throw compiler_exception(
+                    "attempting constant folding on unsuported unary operator "
+                    + yellow(token_string(e->op())),
+                    e->location());
         }
     }
 }
@@ -127,11 +126,10 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
                 is_number = false;
                 return;
             default         :
-                std::cout
-                    << red("compiler error: ") << white(pprintf("%", e->location()))
-                    << " attempting constant folding on unsuported binary operator "
-                    << yellow(token_string(e->op())) << std::endl;
-                assert(false);
+                throw compiler_exception(
+                    "attempting constant folding on unsuported binary operator "
+                    + yellow(token_string(e->op())),
+                    e->location());
         }
     }
 }

@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cstdio>
 
 #include <iostream>
@@ -280,7 +279,11 @@ std::string Lexer::identifier() {
 
     // assert that current position is at the start of a number
     // note that the first character can't be numeric
-    assert( is_alpha(c) || c=='_' );
+    if( !(is_alpha(c) || c=='_') ) {
+        throw compiler_exception(
+            "Lexer attempting to read number when none is available",
+            location_);
+    }
 
     name += c;
     current_++;
@@ -302,143 +305,6 @@ std::string Lexer::identifier() {
 // scan a single character from the buffer
 char Lexer::character() {
     return *current_++;
-}
-
-struct Keyword {
-    const char *name;
-    TOK type;
-};
-
-static Keyword keywords[] = {
-    {"TITLE",       tok_title},
-    {"NEURON",      tok_neuron},
-    {"UNITS",       tok_units},
-    {"PARAMETER",   tok_parameter},
-    {"ASSIGNED",    tok_assigned},
-    {"STATE",       tok_state},
-    {"BREAKPOINT",  tok_breakpoint},
-    {"DERIVATIVE",  tok_derivative},
-    {"PROCEDURE",   tok_procedure},
-    {"FUNCTION",    tok_function},
-    {"INITIAL",     tok_initial},
-    {"NET_RECEIVE", tok_net_receive},
-    {"UNITSOFF",    tok_unitsoff},
-    {"UNITSON",     tok_unitson},
-    {"SUFFIX",      tok_suffix},
-    {"NONSPECIFIC_CURRENT", tok_nonspecific_current},
-    {"USEION",      tok_useion},
-    {"READ",        tok_read},
-    {"WRITE",       tok_write},
-    {"RANGE",       tok_range},
-    {"LOCAL",       tok_local},
-    {"SOLVE",       tok_solve},
-    {"THREADSAFE",  tok_threadsafe},
-    {"GLOBAL",      tok_global},
-    {"POINT_PROCESS", tok_point_process},
-    {"METHOD",      tok_method},
-    {"if",          tok_if},
-    {"else",        tok_else},
-    {"cnexp",       tok_cnexp},
-    {"exp",         tok_exp},
-    {"sin",         tok_sin},
-    {"cos",         tok_cos},
-    {"log",         tok_log},
-    {nullptr,       tok_reserved},
-};
-
-std::unordered_map<std::string, TOK> Lexer::keyword_map;
-
-void Lexer::keywords_init() {
-    // check whether the map has already been initialized
-    if(keyword_map.size()>0)
-        return;
-
-    for(int i = 0; keywords[i].name!=nullptr; ++i) {
-        keyword_map.insert( {keywords[i].name, keywords[i].type} );
-    }
-}
-
-struct TokenString {
-    const char *name;
-    TOK token;
-};
-
-static TokenString token_strings[] = {
-    {"=",           tok_eq},
-    {"+",           tok_plus},
-    {"-",           tok_minus},
-    {"*",           tok_times},
-    {"/",           tok_divide},
-    {"^",           tok_pow},
-    {"<",           tok_lt},
-    {"<=",          tok_lte},
-    {">",           tok_gt},
-    {">=",          tok_gte},
-    {"==",          tok_EQ},
-    {"!=",          tok_ne},
-    {",",           tok_comma},
-    {"'",           tok_prime},
-    {"{",           tok_lbrace},
-    {"}",           tok_rbrace},
-    {"(",           tok_lparen},
-    {")",           tok_rparen},
-    {"identifier",  tok_identifier},
-    {"number",      tok_number},
-    {"TITLE",       tok_title},
-    {"NEURON",      tok_neuron},
-    {"UNITS",       tok_units},
-    {"PARAMETER",   tok_parameter},
-    {"ASSIGNED",    tok_assigned},
-    {"STATE",       tok_state},
-    {"BREAKPOINT",  tok_breakpoint},
-    {"DERIVATIVE",  tok_derivative},
-    {"PROCEDURE",   tok_procedure},
-    {"FUNCTION",    tok_function},
-    {"INITIAL",     tok_initial},
-    {"NET_RECEIVE", tok_net_receive},
-    {"UNITSOFF",    tok_unitsoff},
-    {"UNITSON",     tok_unitson},
-    {"SUFFIX",      tok_suffix},
-    {"NONSPECIFIC_CURRENT", tok_nonspecific_current},
-    {"USEION",      tok_useion},
-    {"READ",        tok_read},
-    {"WRITE",       tok_write},
-    {"RANGE",       tok_range},
-    {"LOCAL",       tok_local},
-    {"SOLVE",       tok_solve},
-    {"THREADSAFE",  tok_threadsafe},
-    {"GLOBAL",      tok_global},
-    {"POINT_PROCESS", tok_point_process},
-    {"METHOD",      tok_method},
-    {"if",          tok_if},
-    {"else",        tok_else},
-    {"eof",         tok_eof},
-    {"exp",         tok_exp},
-    {"log",         tok_log},
-    {"cos",         tok_cos},
-    {"sin",         tok_sin},
-    {"cnexp",       tok_cnexp},
-    {"error",       tok_reserved},
-};
-
-std::map<TOK, std::string> Lexer::token_map;
-
-void Lexer::token_strings_init() {
-    // check whether the map has already been initialized
-    if(token_map.size()>0)
-        return;
-
-    int i;
-    for(i = 0; token_strings[i].token!=tok_reserved; ++i) {
-        token_map.insert( {token_strings[i].token, token_strings[i].name} );
-    }
-    // insert the last token: tok_reserved
-    token_map.insert( {token_strings[i].token, token_strings[i].name} );
-}
-
-std::string token_string(TOK token) {
-    auto pos = Lexer::token_map.find(token);
-    return pos==Lexer::token_map.end() ? std::string("<unknown token>") : pos->second;
 }
 
 std::map<TOK, int> Lexer::binop_prec_;
@@ -475,28 +341,5 @@ int Lexer::binop_precedence(TOK tok) {
 TOK Lexer::get_identifier_type(std::string const& identifier) {
     auto pos = keyword_map.find(identifier);
     return pos==keyword_map.end() ? tok_identifier : pos->second;
-}
-
-//*********************
-// Location
-//*********************
-
-std::ostream& operator<< (std::ostream& os, Location const& L) {
-    return os << "(line " << L.line << ",col " << L.column << ")";
-}
-
-//*********************
-// Token
-//*********************
-
-bool is_keyword(Token const& t) {
-    for(Keyword *k=keywords; k->name!=nullptr; ++k)
-        if(t.type == k->type)
-            return true;
-    return false;
-}
-
-std::ostream& operator<< (std::ostream& os, Token const& t) {
-    return os << "<<" << token_string(t.type) << ", " << t.spelling << ", " << t.location << ">>";
 }
 

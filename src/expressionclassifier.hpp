@@ -69,7 +69,7 @@ private:
     void set() const {
         // a mutex is required because two threads might attempt to update
         // the cached constant_/coefficient_ values, which would violate the
-        // assertion that set() is const
+        // condition that set() is const
         std::lock_guard<std::mutex> g(mutex_);
 
         // update the constant_ and coefficient_ terms if they have not already

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -7,7 +8,7 @@
 // is thing in list?
 template <typename T, int N>
 bool is_in(T thing, const T (&list)[N]) {
-    for(auto item : list) {
+    for(auto const& item : list) {
         if(thing==item) {
             return true;
         }

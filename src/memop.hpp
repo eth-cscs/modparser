@@ -1,5 +1,6 @@
 #pragma once
 
+#include "util.hpp"
 #include "lexer.hpp"
 
 /// Defines a memory operation that is to performed by an APIMethod.
@@ -25,7 +26,13 @@ struct MemOp {
     MemOp(TOK o, Symbol *loc, Symbol *ext)
     : op(o), local(loc), external(ext)
     {
-        assert(op==tok_plus || op==tok_minus || op==tok_eq);
+        const TOK valid_ops[] = {tok_plus, tok_minus, tok_eq};
+        if(!is_in(op, valid_ops)) {
+            throw compiler_exception(
+                "invalid operation  for creating a MemOp : " +
+                loc->to_string() + yellow(token_string(op)) + ext->to_string(),
+                loc->location());
+        }
     }
 };
 

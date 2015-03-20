@@ -51,9 +51,9 @@ void Expression::semantic(std::shared_ptr<scope_type>) {
 }
 
 expression_ptr Expression::clone() const {
-    std::cerr << "clone() has not been implemented for " << this->to_string() << std::endl;
-    assert(false);
-    return nullptr;
+    throw compiler_exception(
+        "clone() has not been implemented for " + this->to_string(),
+        location_);
 }
 
 /*******************************************************************************
@@ -304,7 +304,13 @@ std::string ProcedureExpression::to_string() const {
 
 void ProcedureExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name()) != global_symbols.end());
+    if(global_symbols.find(name()) == global_symbols.end()) {
+        throw compiler_exception(
+            "attempt to perform semantic analysis for procedure '"
+            + yellow(name())
+            + "' which has not been added to global symbol table",
+            location_);
+    }
 
     // create the scope for this procedure
     scope_ = std::make_shared<scope_type>(global_symbols);
@@ -388,7 +394,13 @@ std::string InitialBlock::to_string() const {
 
 void NetReceiveExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name()) != global_symbols.end());
+    if(global_symbols.find(name()) == global_symbols.end()) {
+        throw compiler_exception(
+            "attempt to perform semantic analysis for procedure '"
+            + yellow(name())
+            + "' which has not been added to global symbol table",
+            location_);
+    }
 
     // create the scope for this procedure
     scope_ = std::make_shared<scope_type>(global_symbols);
@@ -401,7 +413,6 @@ void NetReceiveExpression::semantic(scope_type::symbol_map &global_symbols) {
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    // TODO : this could be making a mess
     for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block()) {
             if(initial_block_) {
@@ -433,7 +444,13 @@ std::string FunctionExpression::to_string() const {
 
 void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name()) != global_symbols.end());
+    if(global_symbols.find(name()) == global_symbols.end()) {
+        throw compiler_exception(
+            "attempt to perform semantic analysis for procedure '"
+            + yellow(name())
+            + "' which has not been added to global symbol table",
+            location_);
+    }
 
     // create the scope for this procedure
     scope_ = std::make_shared<scope_type>(global_symbols);
@@ -771,7 +788,6 @@ expression_ptr unary_expression( Location loc,
                       << std::endl;;
             return nullptr;
     }
-    assert(false); // something catastrophic went wrong
     return nullptr;
 }
 
@@ -814,7 +830,5 @@ expression_ptr binary_expression(Location loc,
                       << std::endl;
             return nullptr;
     }
-
-    assert(false); // something catastrophic went wrong
     return nullptr;
 }

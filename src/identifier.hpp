@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 /// indicate how a variable is accessed
 /// access is (read, written, or both)
 /// the distinction between write only and read only is required because

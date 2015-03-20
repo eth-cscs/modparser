@@ -2,74 +2,15 @@
 
 // inspiration was taken from the Digital Mars D compiler
 //      github.com/D-Programming-Language/dmd
-#include <cassert>
 
 #include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-enum TOK {
-    tok_eof, // end of file
-
-    /////////////////////////////
-    // symbols
-    /////////////////////////////
-    // = + - * / ^
-    tok_eq, tok_plus, tok_minus, tok_times, tok_divide, tok_pow,
-    // comparison
-    tok_not,    // !
-    tok_lt,     // <
-    tok_lte,    // <=
-    tok_gt,     // >
-    tok_gte,    // >=
-    tok_EQ,     // ==
-    tok_ne,     // !=
-
-    // , '
-    tok_comma, tok_prime,
-
-    // { }
-    tok_lbrace, tok_rbrace,
-    // ( )
-    tok_lparen, tok_rparen,
-
-    // variable/function names
-    tok_identifier,
-
-    // numbers
-    tok_number,
-
-    /////////////////////////////
-    // keywords
-    /////////////////////////////
-    // block keywoards
-    tok_title,
-    tok_neuron, tok_units, tok_parameter,
-    tok_assigned, tok_state, tok_breakpoint,
-    tok_derivative, tok_procedure, tok_initial, tok_function,
-    tok_net_receive,
-
-    // keywoards inside blocks
-    tok_unitsoff, tok_unitson,
-    tok_suffix, tok_nonspecific_current, tok_useion,
-    tok_read, tok_write,
-    tok_range, tok_local,
-    tok_solve, tok_method,
-    tok_threadsafe, tok_global,
-    tok_point_process,
-
-    // unary operators
-    tok_exp, tok_sin, tok_cos, tok_log,
-
-    // logical keywords
-    tok_if, tok_else,
-
-    // solver methods
-    tok_cnexp,
-
-    tok_reserved, // placeholder for generating keyword lookup
-};
+#include "location.hpp"
+#include "error.hpp"
+#include "token.hpp"
 
 // status of the lexer
 enum LStat {
@@ -77,51 +18,7 @@ enum LStat {
     k_compiler_happy   // lexer is in a good place
 };
 
-struct Location {
-    int line;
-    int column;
-
-    Location() : Location(1, 1)
-    {}
-
-    Location(int ln, int col)
-    :   line(ln),
-        column(col)
-    {}
-};
-
-// what is in a token?
-//  TOK indicating type of token
-//  information about its location
-struct Token {
-    // the spelling string contains the text of the token as it was written
-    // in the input file
-    //   type = tok_number     : spelling = "3.1415"  (e.g.)
-    //   type = tok_identifier : spelling = "foo_bar" (e.g.)
-    //   type = tok_plus       : spelling = "+"       (always)
-    //   type = tok_if         : spelling = "if"      (always)
-    std::string spelling;
-    TOK type;
-    Location location;
-
-    Token(TOK tok, std::string const& sp, Location loc=Location(0,0))
-    :   spelling(sp),
-        type(tok),
-        location(loc)
-    {}
-
-    Token()
-    :   spelling(""),
-        type(tok_reserved),
-        location(Location())
-    {};
-};
-
-extern std::string token_string(TOK token);
-
-std::ostream& operator<< (std::ostream& os, Token const& t);
 bool is_keyword(Token const& t);
-std::ostream& operator<< (std::ostream& os, Location const& L);
 
 
 // class that implements the lexer
@@ -135,9 +32,11 @@ public:
         line_(begin),
         location_()
     {
-        assert(begin_<=end_);
-        keywords_init();
-        token_strings_init();
+        if(begin_>end_) {
+            throw std::out_of_range("Lexer(begin, end) : begin>end");
+        }
+
+        initialize_token_maps();
         binop_prec_init();
     }
 
@@ -153,8 +52,7 @@ public:
         current_ = begin_;
         line_    = begin_;
 
-        keywords_init();
-        token_strings_init();
+        initialize_token_maps();
         binop_prec_init();
     }
 
@@ -179,10 +77,6 @@ public:
 
     Location location() {return location_;}
 
-    // lookup table used for checking if an identifier matches a keyword
-    static std::unordered_map<std::string, TOK> keyword_map;
-    // for stringifying a token type
-    static std::map<TOK, std::string> token_map;
     // binary operator precedence
     static std::map<TOK, int> binop_prec_;
 

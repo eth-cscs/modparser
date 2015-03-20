@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "blocks.hpp"
+#include "expression.hpp"
 
 // wrapper around a .mod file
 class Module {

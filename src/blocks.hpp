@@ -3,9 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "lexer.hpp"
+#include "identifier.hpp"
+#include "location.hpp"
+#include "token.hpp"
 #include "util.hpp"
-#include "expression.hpp"
 
 // describes a relationship with an ion channel
 struct IonDep {

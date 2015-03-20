@@ -1,25 +1,21 @@
 #include <iostream>
 #include <cmath>
 
+#include "error.hpp"
 #include "expressionclassifier.hpp"
+#include "util.hpp"
 
 // this turns out to be quite easy, however quite fiddly to do right.
 
 // default is to do nothing and return
 void ExpressionClassifierVisitor::visit(Expression *e) {
-    std::cout
-        << red("compiler error: ") << white(pprintf("%", e->location()))
-        << " attempting to apply linear analysis on "
-        << e->to_string()
-        << std::endl;
-    assert(false);
+    throw compiler_exception(" attempting to apply linear analysis on " + e->to_string(), e->location());
 }
 
 // number expresssion
 void ExpressionClassifierVisitor::visit(NumberExpression *e) {
     // save the coefficient as the number
     coefficient_ = e->clone();
-    //std::cout << "leaf      " << e->to_string() << std::endl;
 }
 
 // identifier expresssion
@@ -32,18 +28,18 @@ void ExpressionClassifierVisitor::visit(IdentifierExpression *e) {
     else {
         coefficient_ = e->clone();
     }
-    //std::cout << "leaf      " << e->to_string() << std::endl;
 }
 
 /// unary expresssion
 void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
-    //std::cout << "unary     " << e->to_string() << std::endl;
     e->expression()->accept(this);
     if(found_symbol_) {
         switch(e->op()) {
             // plus or minus don't change linearity
             case tok_minus :
-                coefficient_ = unary_expression(Location(), e->op(), std::move(coefficient_));
+                coefficient_ = unary_expression(Location(),
+                                                e->op(),
+                                                std::move(coefficient_));
                 return;
             case tok_plus :
                 return;
@@ -55,12 +51,9 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
                 is_linear_ = false;
                 return;
             default :
-                std::cout
-                    << red("compiler error: ")
-                    << white(pprintf("%", e->location()))
-                    << " attempted to find linear expression for an unsupported UnaryExpression "
-                    << yellow(token_string(e->op())) << std::endl;
-                assert(false);
+                throw compiler_exception(
+                    "attempting to apply linear analysis on unsuported UnaryExpression "
+                    + yellow(token_string(e->op())), e->location());
         }
     }
     else {
@@ -72,7 +65,6 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
 // handle all binary expressions with one routine, because the
 // pre-order and in-order code is the same for all cases
 void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
-    //std::cout << "binary    " << e->to_string() << std::endl;
     bool lhs_contains_symbol = false;
     bool rhs_contains_symbol = false;
     expression_ptr lhs_coefficient;
@@ -87,8 +79,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     lhs_coefficient     = std::move(coefficient_);
     lhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
-    //if(lhs_coefficient) std::cout << "  lhs coeff : " << lhs_coefficient->to_string() << std::endl;
-    //if(lhs_constant)    std::cout << "  lhs const : " << lhs_constant->to_string() << std::endl;
 
     // check the rhs
     reset();
@@ -97,13 +87,9 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
     rhs_coefficient     = std::move(coefficient_);
     rhs_constant        = std::move(constant_);
     if(!is_linear_) return; // early return if nonlinear
-    //if(rhs_coefficient) std::cout << "  rhs coeff : " << rhs_coefficient->to_string() << std::endl;
-    //if(rhs_constant)    std::cout << "  rhs const : " << rhs_constant->to_string() << std::endl;
 
     // mark symbol as found if in either lhs or rhs
     found_symbol_ = rhs_contains_symbol || lhs_contains_symbol;
-
-    //std::cout << "  " << (found_symbol_ ? "found x" : "not found x") << std::endl;
 
     if( found_symbol_ ) {
         // if both lhs and rhs contain symbol check that the binary operator
@@ -111,7 +97,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // note that we don't have to test for linearity, because we abort early
         // if either lhs or rhs are nonlinear
         if( rhs_contains_symbol && lhs_contains_symbol ) {
-            //std::cout << "  on both sides " << e->to_string() << std::endl;
             // be careful to get the order of operation right for
             // non-computative operators
             switch(e->op()) {
@@ -143,14 +128,11 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // only RHS contains the symbol
         ////////////////////////////////////////////////////////////////////////
         else if(rhs_contains_symbol) {
-            //std::cout << "  on rhs " << e->to_string() << std::endl;
             switch(e->op()) {
                 case tok_times  :
-                    //std::cout << "    times" << std::endl;
                     // determine the linear coefficient
                     if( rhs_coefficient->is_number() &&
                         rhs_coefficient->is_number()->value()==1) {
-                        //std::cout << "    uh oh..." << std::endl;
                         coefficient_ = lhs_coefficient->clone();
                     }
                     else {
@@ -231,7 +213,6 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         // only LHS contains the symbol
         ////////////////////////////////////////////////////////////////////////
         else if(lhs_contains_symbol) {
-            //std::cout << "  on lhs " << e->to_string() << std::endl;
             switch(e->op()) {
                 case tok_times  :
                     // check if the lhs is == 1
