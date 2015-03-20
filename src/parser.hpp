@@ -3,9 +3,9 @@
 #include <memory>
 #include <string>
 
-#include "expression.h"
-#include "lexer.h"
-#include "module.h"
+#include "expression.hpp"
+#include "lexer.hpp"
+#include "module.hpp"
 
 class Parser : public Lexer {
 public:

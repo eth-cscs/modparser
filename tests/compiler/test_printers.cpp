@@ -1,4 +1,4 @@
-#include "test.h"
+#include "test.hpp"
 
 #include "../src/cprinter.hpp"
 

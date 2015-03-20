@@ -1,10 +1,10 @@
 #include <cmath>
 
-#include "test.h"
+#include "test.hpp"
 
-#include "../src/constantfolder.h"
+#include "../src/constantfolder.hpp"
 
-#include "../src/util.h"
+#include "../src/util.hpp"
 
 TEST(Optimizer, constant_folding) {
     auto v = make_unique<ConstantFolderVisitor>();

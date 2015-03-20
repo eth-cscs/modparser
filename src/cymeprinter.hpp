@@ -2,9 +2,9 @@
 
 #include <sstream>
 
-#include "module.h"
+#include "module.hpp"
 #include "textbuffer.hpp"
-#include "visitor.h"
+#include "visitor.hpp"
 
 class CymePrinter : public Visitor {
 public:

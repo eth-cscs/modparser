@@ -1,5 +1,5 @@
 #include "cprinter.hpp"
-#include "lexer.h"
+#include "lexer.hpp"
 
 /******************************************************************************
                               CPrinter driver

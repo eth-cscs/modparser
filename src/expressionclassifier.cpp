@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cmath>
 
-#include "expressionclassifier.h"
+#include "expressionclassifier.hpp"
 
 // this turns out to be quite easy, however quite fiddly to do right.
 

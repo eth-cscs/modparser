@@ -1,5 +1,5 @@
-#include "test.h"
-#include "../src/module.h"
+#include "test.hpp"
+#include "../src/module.hpp"
 
 TEST(Module, open) {
     Module m("./modfiles/test.mod");

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "visitor.h"
+#include "visitor.hpp"
 
 class ConstantFolderVisitor : public Visitor {
 public:

@@ -1,7 +1,7 @@
 #include <cmath>
 
-#include "test.h"
-#include "../src/lexer.h"
+#include "test.hpp"
+#include "../src/lexer.hpp"
 
 //#define PRINT_LEX_STRING std::cout << "________________\n" << string << "\n________________\n";
 #define PRINT_LEX_STRING

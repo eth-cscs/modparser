@@ -2,11 +2,11 @@
 #include <iostream>
 #include <set>
 
-#include "errorvisitor.h"
-#include "expressionclassifier.h"
-#include "inline.h"
-#include "module.h"
-#include "parser.h"
+#include "errorvisitor.hpp"
+#include "expressionclassifier.hpp"
+#include "inline.hpp"
+#include "module.hpp"
+#include "parser.hpp"
 
 Module::Module(std::string const& fname)
 : fname_(fname)

@@ -1,5 +1,5 @@
 #include "cymeprinter.hpp"
-#include "lexer.h"
+#include "lexer.hpp"
 
 /******************************************************************************
                               CymePrinter driver

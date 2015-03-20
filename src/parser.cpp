@@ -2,10 +2,10 @@
 #include <list>
 #include <cstring>
 
-#include "parser.h"
-#include "util.h"
-#include "perfvisitor.h"
-#include "constantfolder.h"
+#include "parser.hpp"
+#include "util.hpp"
+#include "perfvisitor.hpp"
+#include "constantfolder.hpp"
 
 // specialize on const char* for lazy evaluation of compile time strings
 bool Parser::expect(TOK tok, const char* str) {

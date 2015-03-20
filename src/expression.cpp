@@ -1,6 +1,6 @@
 #include <cstring>
 
-#include "expression.h"
+#include "expression.hpp"
 
 std::string to_string(symbolKind k) {
     switch (k) {
@@ -638,7 +638,7 @@ void IfExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
-#include "visitor.h"
+#include "visitor.hpp"
 /*
    Visitor hooks
 */

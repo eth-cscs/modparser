@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lexer.h"
+#include "lexer.hpp"
 
 /// Defines a memory operation that is to performed by an APIMethod.
 /// Kernels can read/write global state via an index, e.g.

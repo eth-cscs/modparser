@@ -1,7 +1,7 @@
-#include "test.h"
+#include "test.hpp"
 
-#include "../src/module.h"
-#include "../src/parser.h"
+#include "../src/module.hpp"
+#include "../src/parser.hpp"
 
 TEST(Parser, full_file) {
     Module m("./modfiles/test.mod");

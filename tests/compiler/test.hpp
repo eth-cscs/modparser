@@ -2,8 +2,8 @@
 
 #include <gtest.h>
 
-#include "../src/parser.h"
-#include "../src/util.h"
+#include "../src/parser.hpp"
+#include "../src/util.hpp"
 
 //#define VERBOSE_TEST
 #ifdef VERBOSE_TEST

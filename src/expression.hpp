@@ -7,11 +7,11 @@
 #include <string>
 #include <vector>
 
-#include "util.h"
-#include "identifier.h"
-#include "lexer.h"
-#include "memop.h"
-#include "scope.h"
+#include "util.hpp"
+#include "identifier.hpp"
+#include "lexer.hpp"
+#include "memop.hpp"
+#include "scope.hpp"
 
 class Visitor;
 

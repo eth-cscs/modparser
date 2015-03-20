@@ -1,6 +1,6 @@
 #pragma once
 
-#include "expression.h"
+#include "expression.hpp"
 
 Expression* inline_procedure(BlockExpression* block, const int recursion_level=0);
 

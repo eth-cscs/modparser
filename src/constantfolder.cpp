@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cmath>
 
-#include "constantfolder.h"
+#include "constantfolder.hpp"
 
 /*
    perform a walk of the AST

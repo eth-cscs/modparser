@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "lexer.h"
-#include "util.h"
-#include "expression.h"
+#include "lexer.hpp"
+#include "util.hpp"
+#include "expression.hpp"
 
 // describes a relationship with an ion channel
 struct IonDep {

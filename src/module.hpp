@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "blocks.h"
+#include "blocks.hpp"
 
 // wrapper around a .mod file
 class Module {

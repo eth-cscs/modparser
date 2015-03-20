@@ -4,8 +4,8 @@
 #include <iostream>
 #include <string>
 
-#include "lexer.h"
-#include "util.h"
+#include "lexer.hpp"
+#include "util.hpp"
 
 // helpers for identifying character types
 inline bool in_range(char c, char first, char last) {

@@ -2,9 +2,9 @@
 
 #include <mutex>
 
-#include "constantfolder.h"
-#include "scope.h"
-#include "visitor.h"
+#include "constantfolder.hpp"
+#include "scope.hpp"
+#include "visitor.hpp"
 
 enum expressionClassification {
     k_expression_const,

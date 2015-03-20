@@ -2,8 +2,8 @@
 
 #include <cassert>
 
-#include "expression.h"
-#include "util.h"
+#include "expression.hpp"
+#include "util.hpp"
 
 /// visitor base class
 /// The visitors for all AST nodes throw an assertion

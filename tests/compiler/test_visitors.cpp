@@ -1,12 +1,12 @@
-#include "test.h"
+#include "test.hpp"
 
-#include "../src/constantfolder.h"
-#include "../src/expressionclassifier.h"
-//#include "../src/variablerenamer.h"
-#include "../src/perfvisitor.h"
+#include "../src/constantfolder.hpp"
+#include "../src/expressionclassifier.hpp"
+//#include "../src/variablerenamer.hpp"
+#include "../src/perfvisitor.hpp"
 
-#include "../src/parser.h"
-#include "../src/util.h"
+#include "../src/parser.hpp"
+#include "../src/util.hpp"
 
 /**************************************************************
  * visitors

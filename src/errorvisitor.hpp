@@ -1,8 +1,8 @@
 #pragma once
 
 #include <iostream>
-#include "visitor.h"
-#include "expression.h"
+#include "visitor.hpp"
+#include "expression.hpp"
 
 class ErrorVisitor : public Visitor {
 public:

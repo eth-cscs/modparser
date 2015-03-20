@@ -7,10 +7,10 @@
 #include "cprinter.hpp"
 #include "cudaprinter.hpp"
 #include "cymeprinter.hpp"
-#include "lexer.h"
-#include "module.h"
-#include "parser.h"
-#include "util.h"
+#include "lexer.hpp"
+#include "module.hpp"
+#include "parser.hpp"
+#include "util.hpp"
 
 //#define VERBOSE
 
