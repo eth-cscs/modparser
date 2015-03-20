@@ -8,6 +8,10 @@
 // wrapper around a .mod file
 class Module {
 public :
+    using scope_type = Expression::scope_type;
+    using symbol_map = scope_type::symbol_map;
+    using symbol_ptr = scope_type::symbol_ptr;
+
     Module(std::string const& fname);
     Module(std::vector<char> const& buffer);
 
@@ -21,13 +25,13 @@ public :
     void               title(const std::string& t) {title_ = t;}
     std::string const& title() const          {return title_;}
 
-    NeuronBlock &      neuron_block()       {return neuron_block_;}
+    NeuronBlock &      neuron_block() {return neuron_block_;}
     NeuronBlock const& neuron_block() const {return neuron_block_;}
 
-    StateBlock &       state_block()        {return state_block_;}
+    StateBlock &       state_block()  {return state_block_;}
     StateBlock const&  state_block()  const {return state_block_;}
 
-    UnitsBlock &       units_block()        {return units_block_;}
+    UnitsBlock &       units_block()  {return units_block_;}
     UnitsBlock const&  units_block()  const {return units_block_;}
 
     ParameterBlock &       parameter_block()        {return parameter_block_;}
@@ -43,14 +47,14 @@ public :
     void assigned_block (AssignedBlock  const &a) {assigned_block_  = a;}
 
     // access to the AST
-    std::vector<Expression*>&      procedures();
-    std::vector<Expression*>const& procedures() const;
+    std::vector<symbol_ptr>&      procedures();
+    std::vector<symbol_ptr>const& procedures() const;
 
-    std::vector<Expression*>&      functions();
-    std::vector<Expression*>const& functions() const;
+    std::vector<symbol_ptr>&      functions();
+    std::vector<symbol_ptr>const& functions() const;
 
-    std::unordered_map<std::string, Symbol>&      symbols();
-    std::unordered_map<std::string, Symbol>const& symbols() const;
+    symbol_map &      symbols();
+    symbol_map const& symbols() const;
 
     // error handling
     void error(std::string const& msg, Location loc);
@@ -82,11 +86,11 @@ private :
     LStat status_ = k_compiler_happy;
 
     // AST storage
-    std::vector<Expression *> procedures_;
-    std::vector<Expression *> functions_;
+    std::vector<symbol_ptr> procedures_;
+    std::vector<symbol_ptr> functions_;
 
     // hash table for lookup of variable and call names
-    std::unordered_map<std::string, Symbol> symbols_;
+    symbol_map symbols_;
 
     /// tests if symbol is defined
     bool has_symbol(const std::string& name) {
@@ -95,7 +99,7 @@ private :
     /// tests if symbol is defined
     bool has_symbol(const std::string& name, symbolKind kind) {
         auto s = symbols_.find(name);
-        return s == symbols_.end() ? false : s->second.kind == kind;
+        return s == symbols_.end() ? false : s->second->kind() == kind;
     }
 
     // blocks

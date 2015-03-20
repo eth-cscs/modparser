@@ -38,7 +38,7 @@ TEST(Parser, procedure) {
 };
     for(auto const& str : calls) {
         Parser p(str);
-        Expression *e = p.parse_procedure();
+        auto e = p.parse_procedure();
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
 #endif
@@ -60,7 +60,7 @@ TEST(Parser, net_receive) {
     "  y = x+a              \n"
     "}";
     Parser p(str);
-    Expression *e = p.parse_procedure();
+    auto e = p.parse_procedure();
     #ifdef VERBOSE_TEST
     if(e) std::cout << e->to_string() << std::endl;
     #endif
@@ -68,7 +68,7 @@ TEST(Parser, net_receive) {
     EXPECT_NE(e, nullptr);
     EXPECT_EQ(p.status(), k_compiler_happy);
 
-    auto nr = e->is_net_receive();
+    auto nr = e->is_symbol()->is_net_receive();
     EXPECT_NE(nr, nullptr);
     if(nr) {
         EXPECT_EQ(nr->args().size(), (unsigned)2);
@@ -92,7 +92,7 @@ TEST(Parser, function) {
 };
     for(auto const& str : calls) {
         Parser p(str);
-        Expression *e = p.parse_function();
+        auto e = p.parse_function();
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
 #endif
@@ -107,7 +107,7 @@ TEST(Parser, function) {
 
 TEST(Parser, parse_solve) {
     Parser p("SOLVE states METHOD cnexp");
-    Expression *e = p.parse_solve();
+    auto e = p.parse_solve();
 
 #ifdef VERBOSE_TEST
     if(e) std::cout << e->to_string() << std::endl;
@@ -116,7 +116,7 @@ TEST(Parser, parse_solve) {
     EXPECT_EQ(p.status(), k_compiler_happy);
 
     if(e) {
-        SolveExpression* s = dynamic_cast<SolveExpression*>(e);
+        SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
         EXPECT_EQ(s->method(), k_cnexp);
         EXPECT_EQ(s->name(), "states");
     }
@@ -136,7 +136,7 @@ TEST(Parser, parse_if) {
         "       b = 4^b    \n"
         "   }              \n";
         Parser p(expression);
-        Expression *e = p.parse_if();
+        auto e = p.parse_if();
         EXPECT_NE(e, nullptr);
         if(e) {
             auto ife = e->is_if();
@@ -160,7 +160,7 @@ TEST(Parser, parse_if) {
         "       a = 2+b    \n"
         "   }                ";
         Parser p(expression);
-        Expression *e = p.parse_if();
+        auto e = p.parse_if();
         EXPECT_NE(e, nullptr);
         if(e) {
             auto ife = e->is_if();
@@ -184,7 +184,7 @@ TEST(Parser, parse_if) {
         "       a = 2+b    \n"
         "   }              ";
         Parser p(expression);
-        Expression *e = p.parse_if();
+        auto e = p.parse_if();
         EXPECT_NE(e, nullptr);
         if(e) {
             auto ife = e->is_if();
@@ -208,7 +208,7 @@ TEST(Parser, parse_local) {
     ////////////////////// test for valid expressions //////////////////////
     {
         Parser p("LOCAL xyz");
-        Expression *e = p.parse_local();
+        auto e = p.parse_local();
 
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
@@ -226,7 +226,7 @@ TEST(Parser, parse_local) {
 
     {
         Parser p("LOCAL x, y, z");
-        Expression *e = p.parse_local();
+        auto e = p.parse_local();
 
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
@@ -250,7 +250,7 @@ TEST(Parser, parse_local) {
     ////////////////////// test for invalid expressions //////////////////////
     {
         Parser p("LOCAL 2");
-        Expression *e = p.parse_local();
+        auto e = p.parse_local();
 
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), k_compiler_error);
@@ -264,7 +264,7 @@ TEST(Parser, parse_local) {
 
     {
         Parser p("LOCAL x, ");
-        Expression *e = p.parse_local();
+        auto e = p.parse_local();
 
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), k_compiler_error);
@@ -290,7 +290,7 @@ TEST(Parser, parse_unary_expression) {
 
     for(auto const& expression : good_expressions) {
         Parser p(expression);
-        Expression *e = p.parse_unaryop();
+        auto e = p.parse_unaryop();
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
@@ -318,7 +318,7 @@ TEST(Parser, parse_parenthesis_expression) {
 
     for(auto const& expression : good_expressions) {
         Parser p(expression);
-        Expression *e = p.parse_parenthesis_expression();
+        auto e = p.parse_parenthesis_expression();
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
@@ -343,7 +343,7 @@ TEST(Parser, parse_parenthesis_expression) {
 
     for(auto const& expression : bad_expressions) {
         Parser p(expression);
-        Expression *e = p.parse_parenthesis_expression();
+        auto e = p.parse_parenthesis_expression();
 
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), k_compiler_error);
@@ -377,7 +377,7 @@ TEST(Parser, parse_line_expression) {
 
     for(auto const& expression : good_expressions) {
         Parser p(expression);
-        Expression *e = p.parse_line_expression();
+        auto e = p.parse_line_expression();
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
@@ -404,7 +404,7 @@ TEST(Parser, parse_line_expression) {
 
     for(auto const& expression : bad_expressions) {
         Parser p(expression);
-        Expression *e = p.parse_line_expression();
+        auto e = p.parse_line_expression();
 
         EXPECT_EQ(e, nullptr);
         EXPECT_EQ(p.status(), k_compiler_error);

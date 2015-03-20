@@ -31,7 +31,7 @@ void ConstantFolderVisitor::visit(UnaryExpression *e) {
     e->expression()->accept(this);
     if(is_number) {
         if(!e->is_number()) {
-            e->replace_expression(new NumberExpression(e->location(), value));
+            e->replace_expression(make_expression<NumberExpression>(e->location(), value));
         }
         switch(e->op()) {
             case tok_minus :
@@ -74,9 +74,7 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
         lhs_is_number = true;
         // replace lhs with a number node, if it is not already one
         if(!e->lhs()->is_number()) {
-            //std::cout << "lhs : " << e->lhs()->to_string() << " -> ";
-            e->replace_lhs( new NumberExpression(e->location(), value) );
-            //std::cout << e->lhs()->to_string() << std::endl;
+            e->replace_lhs( make_expression<NumberExpression>(e->location(), value) );
         }
     }
     //std::cout << "lhs : " << e->lhs()->to_string() << std::endl;
@@ -88,7 +86,7 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
         // replace rhs with a number node, if it is not already one
         if(!e->rhs()->is_number()) {
             //std::cout << "rhs : " << e->rhs()->to_string() << " -> ";
-            e->replace_rhs( new NumberExpression(e->location(), value) );
+            e->replace_rhs( make_expression<NumberExpression>(e->location(), value) );
             //std::cout << e->rhs()->to_string() << std::endl;
         }
     }
@@ -145,7 +143,7 @@ void ConstantFolderVisitor::visit(CallExpression *e) {
         if(is_number) {
             // replace rhs with a number node, if it is not already one
             if(!a->is_number()) {
-                a = new NumberExpression(a->location(), value);
+                a.reset(new NumberExpression(a->location(), value));
             }
         }
     }

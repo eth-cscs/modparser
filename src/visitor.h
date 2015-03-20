@@ -17,9 +17,10 @@
 class Visitor {
 public:
     virtual void visit(Expression *e)           { assert(false);                }
+    virtual void visit(Symbol *e)               { visit((Expression*) e);       }
     virtual void visit(IdentifierExpression *e) { visit((Expression*) e);       }
     virtual void visit(NumberExpression *e)     { visit((Expression*) e);       }
-    virtual void visit(LocalExpression *e)      { visit((Expression*) e);       }
+    virtual void visit(LocalDeclaration *e)      { visit((Expression*) e);       }
     virtual void visit(ArgumentExpression *e)   { visit((Expression*) e);       }
     virtual void visit(PrototypeExpression *e)  { visit((Expression*) e);       }
     virtual void visit(CallExpression *e)       { visit((Expression*) e);       }

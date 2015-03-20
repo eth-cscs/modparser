@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "expression.h"
@@ -8,29 +9,30 @@
 
 class Parser : public Lexer {
 public:
+
     explicit Parser(Module& m, bool advance=true);
     Parser(std::string const&);
     bool parse();
 
-    Expression* parse_prototype(std::string);
-    Expression* parse_statement();
-    Expression* parse_identifier();
-    Expression* parse_number();
-    Expression* parse_call();
-    Expression* parse_expression();
-    Expression* parse_primary();
-    Expression* parse_parenthesis_expression();
-    Expression* parse_line_expression();
-    Expression* parse_binop(Expression *, Token);
-    Expression* parse_unaryop();
-    Expression* parse_local();
-    Expression* parse_solve();
-    Expression* parse_block(bool);
-    Expression* parse_initial();
-    Expression* parse_if();
+    expression_ptr parse_prototype(std::string);
+    expression_ptr parse_statement();
+    expression_ptr parse_identifier();
+    expression_ptr parse_number();
+    expression_ptr parse_call();
+    expression_ptr parse_expression();
+    expression_ptr parse_primary();
+    expression_ptr parse_parenthesis_expression();
+    expression_ptr parse_line_expression();
+    expression_ptr parse_binop(expression_ptr&&, Token);
+    expression_ptr parse_unaryop();
+    expression_ptr parse_local();
+    expression_ptr parse_solve();
+    expression_ptr parse_block(bool);
+    expression_ptr parse_initial();
+    expression_ptr parse_if();
 
-    Expression* parse_procedure();
-    Expression* parse_function();
+    symbol_ptr parse_procedure();
+    symbol_ptr parse_function();
 
     std::string const& error_message() {
         return error_string_;

@@ -1,27 +1,34 @@
 #pragma once
 
+#include <mutex>
+
 #include "constantfolder.h"
 #include "scope.h"
 #include "visitor.h"
 
-enum expressionClassification {k_expression_const, k_expression_lin, k_expression_nonlin};
+enum expressionClassification {
+    k_expression_const,
+    k_expression_lin,
+    k_expression_nonlin
+};
 
 class ExpressionClassifierVisitor : public Visitor {
 public:
-    ExpressionClassifierVisitor(Symbol const& s)
-    : symbol(s)
+    ExpressionClassifierVisitor(Symbol *s)
+    : symbol_(s)
     {
         const_folder_ = new ConstantFolderVisitor();
     }
 
-    void reset(Symbol const& s) {
+    void reset(Symbol* s) {
         reset();
-        symbol = s;
+        symbol_ = s;
     }
 
     void reset() {
         is_linear_    = true;
         found_symbol_ = false;
+        configured_   = false;
         coefficient_  = nullptr;
         constant_     = nullptr;
     }
@@ -44,40 +51,13 @@ public:
     }
 
     Expression *linear_coefficient() {
-        // if is a linear expression with nonzero linear coefficient
-        if(classify() == k_expression_lin) {
-            coefficient_->accept(const_folder_);
-            if(const_folder_->is_number)
-                return new NumberExpression(
-                        Location(),
-                        const_folder_->value);
-            return coefficient_;
-        }
-        // constant expression
-        else if(classify() == k_expression_const) {
-            return new NumberExpression(Location(), 0.);
-        }
-        // nonlinear expression
-        else {
-            return nullptr;
-        }
+        set();
+        return coefficient_.get();
     }
 
     Expression *constant_term() {
-        // if is a linear expression with nonzero linear coefficient
-        if(classify() == k_expression_lin) {
-            //return constant_;
-            return constant_ ? constant_ : new NumberExpression(Location(), 0.);
-        }
-        // constant expression
-        else if(classify() == k_expression_const) {
-            return coefficient_;
-            //return coefficient_ ? coefficient_ : new NumberExpression(Location(), 0.);
-        }
-        // nonlinear expression
-        else {
-            return nullptr;
-        }
+        set();
+        return constant_.get();
     }
 
     ~ExpressionClassifierVisitor() {
@@ -85,12 +65,57 @@ public:
     }
 
 private:
+
+    void set() const {
+        // a mutex is required because two threads might attempt to update
+        // the cached constant_/coefficient_ values, which would violate the
+        // assertion that set() is const
+        std::lock_guard<std::mutex> g(mutex_);
+
+        // update the constant_ and coefficient_ terms if they have not already
+        // been set
+        if(!configured_) {
+            if(classify() == k_expression_lin) {
+                // if constat_ was never set, it must be zero
+                if(!constant_) {
+                    constant_ =
+                        make_expression<NumberExpression>(Location(), 0.);
+                }
+                // perform constant folding on the coefficient term
+                coefficient_->accept(const_folder_);
+                if(const_folder_->is_number) {
+                    // if the folding resulted in a constant, reset coefficient
+                    // to be a NumberExpression
+                    coefficient_.reset(new NumberExpression(
+                                            Location(),
+                                            const_folder_->value)
+                                      );
+                }
+            }
+            else if(classify() == k_expression_const) {
+                coefficient_.reset(new NumberExpression(
+                                        Location(),
+                                        0.)
+                                  );
+            }
+            else { // nonlinear expression
+                coefficient_ = nullptr;
+                constant_    = nullptr;
+            }
+            configured_ = true;
+        }
+    }
+
     // assume linear until otherwise proven
     bool is_linear_     = true;
     bool found_symbol_  = false;
-    Expression* coefficient_   = nullptr;
-    Expression* constant_  = nullptr;
-    Symbol symbol;
+    mutable bool configured_    = false;
+    mutable expression_ptr coefficient_;
+    mutable expression_ptr constant_;
+    Symbol* symbol_;
     ConstantFolderVisitor* const_folder_;
+
+    mutable std::mutex mutex_;
+
 };
 

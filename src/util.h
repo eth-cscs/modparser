@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <sstream>
 #include <vector>
 
@@ -123,5 +124,12 @@ std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
         os << *it << (it==V.end()-1 ? "" : " ");
     }
     return os << "]";
+}
+
+// just because we aren't using C++14, doesn't mean we shouldn't go
+// without make_unique
+template <typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
 }
 

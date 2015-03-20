@@ -37,32 +37,32 @@ Module::Module(std::vector<char> const& buffer)
         buffer_.push_back(0);
 }
 
-std::vector<Expression*>&
+std::vector<Module::symbol_ptr>&
 Module::procedures() {
     return procedures_;
 }
 
-std::vector<Expression*>const&
+std::vector<Module::symbol_ptr>const&
 Module::procedures() const {
     return procedures_;
 }
 
-std::vector<Expression*>&
+std::vector<Module::symbol_ptr>&
 Module::functions() {
     return functions_;
 }
 
-std::vector<Expression*>const&
+std::vector<Module::symbol_ptr>const&
 Module::functions() const {
     return functions_;
 }
 
-std::unordered_map<std::string, Symbol>&
+Module::symbol_map&
 Module::symbols() {
     return symbols_;
 }
 
-std::unordered_map<std::string, Symbol>const&
+Module::symbol_map const&
 Module::symbols() const {
     return symbols_;
 }
@@ -102,23 +102,21 @@ bool Module::semantic() {
     }
 
     // add functions and procedures
-    for(auto f: functions_) {
-        auto fun = static_cast<FunctionExpression*>(f);
+    for(auto& f: functions_) {
         // check to see if the symbol has already been defined
-        bool is_found = (symbols_.find(fun->name()) != symbols_.end());
+        bool is_found = (symbols_.find(f->name()) != symbols_.end());
         if(is_found) {
             error(
                 pprintf("function '%' clashes with previously defined symbol",
-                        fun->name()),
-                fun->location()
+                        f->name()),
+                f->location()
             );
             return false;
         }
         // add symbol to table
-        symbols_[fun->name()] = Symbol(k_symbol_function, f);
+        symbols_[f->name()] = std::move(f);
     }
-    for(auto p: procedures_) {
-        auto proc = static_cast<ProcedureExpression*>(p);
+    for(auto& proc: procedures_) {
         bool is_found = (symbols_.find(proc->name()) != symbols_.end());
         if(is_found) {
             error(
@@ -129,7 +127,7 @@ bool Module::semantic() {
             return false;
         }
         // add symbol to table
-        symbols_[proc->name()] = Symbol(k_symbol_procedure, p);
+        symbols_[proc->name()] = std::move(proc);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -139,15 +137,15 @@ bool Module::semantic() {
     //  -   generate local variable table
     ////////////////////////////////////////////////////////////////////////////
     int errors = 0;
-    for(auto e : symbols_) {
-        Symbol s = e.second;
+    for(auto& e : symbols_) {
+        auto& s = e.second;
 
-        if( s.kind == k_symbol_function || s.kind == k_symbol_procedure ) {
+        if( s->kind() == k_symbol_function || s->kind() == k_symbol_procedure ) {
             // first perform semantic analysis
-            s.expression->semantic(symbols_);
+            s->semantic(symbols_);
             // then use an error visitor to print out all the semantic errors
             ErrorVisitor* v = new ErrorVisitor(file_name());
-            s.expression->accept(v);
+            s->accept(v);
             errors += v->num_errors();
             delete v;
         }
@@ -177,46 +175,80 @@ bool Module::semantic() {
     //  hinf/minf in KdShy2007 would be indicated as being not used on rhs by
     //  any methods, and thus as being safe for removal
     ////////////////////////////////////////////////////////////////////////////
+
+    auto add_output = []
+        (APIMethod* p, TOK op, std::string const& local, std::string const& global)
+    {
+        auto l = p->scope()->find(local);
+        auto g = p->scope()->find_global(global);
+        if(!l || !g) {
+            std::cerr << red("error ") + "unable to add store operation "
+                      << yellow(local) + " -> " + yellow(global) << " to " << yellow(p->name())
+                      << (l ? "" : " : " + yellow(local)  + " is not a variable")
+                      << (g ? "" : " : " + yellow(global) + " is not a global variable")
+                      <<  std::endl;
+            assert(false);
+        }
+        p->outputs().push_back({op, l, g});
+    };
+    auto add_input = []
+        (APIMethod* p, TOK op, std::string const& local, std::string const& global)
+    {
+        auto l = p->scope()->find(local);
+        auto g = p->scope()->find_global(global);
+        if(!l || !g) {
+            std::cerr << red("error ") + "unable to add load operation "
+                      << yellow(local) + " <- " + yellow(global) << " to " << yellow(p->name())
+                      << (l ? "" : " : " + yellow(local)  + " is not a variable")
+                      << (g ? "" : " : " + yellow(global) + " is not a global variable")
+                      <<  std::endl;
+            assert(false);
+        }
+        p->inputs().push_back({op, l, g});
+    };
+
     if( has_symbol("initial", k_symbol_procedure) ) {
         // clone the initial procedure
-        auto initial = symbols_["initial"].expression->is_procedure();
+        auto initial = symbols_["initial"]->is_procedure();
         auto loc = initial->location();
-        auto proc_init = new APIMethod(
-                            initial->location(),
-                            "nrn_init",
-                            {}, // no arguments
-                            new BlockExpression(loc, {}, false));
+        auto proc_init =
+            new APIMethod(initial->location(),
+                          "nrn_init",
+                          std::vector<expression_ptr>(), // no arguments
+                          make_expression<BlockExpression>(loc,
+                                                           std::list<expression_ptr>(),
+                                                           false)
+                         );
 
         if( symbols_.find("nrn_init")!=symbols_.end() ) {
             error("'nrn_init' clashes with reserved name, please rename it",
                   loc);
             return false;
         }
-        symbols_["nrn_init"] = Symbol(k_symbol_procedure, proc_init);
+        symbols_["nrn_init"] = symbol_ptr(proc_init);
 
         // get a reference to the empty body of the init function
         auto& body = proc_init->body()->body();
-        for(auto e : *(initial->body())) {
-            body.push_back(e->clone());
+        for(auto& e : *(initial->body())) {
+            body.emplace_back(e->clone());
         }
         // perform semantic analysis for init
         proc_init->semantic(symbols_);
 
         // set input vec_v
-        proc_init->inputs().push_back({tok_eq, proc_init->scope()->find("v"), symbols_["vec_v"]});
-        procedures_.push_back(proc_init);
+        proc_init->inputs().push_back({tok_eq, proc_init->scope()->find("v"), symbols_["vec_v"].get()});
     }
     else {
         error("an INITIAL block is required", Location());
         return false;
     }
     if( has_symbol("breakpoint", k_symbol_procedure) ) {
-        auto breakpoint = symbols_["breakpoint"].expression->is_procedure();
+        auto breakpoint = symbols_["breakpoint"]->is_procedure();
         auto loc = breakpoint->location();
 
         // helper for making identifiers on the fly
         auto id = [] (std::string const& name) {
-            return new IdentifierExpression(Location(), name);
+            return make_expression<IdentifierExpression>(Location(), name);
         };
         //..........................................................
         //..........................................................
@@ -226,7 +258,7 @@ bool Module::semantic() {
 
         // find the SOLVE statement
         SolveExpression* sexp = nullptr;
-        for(auto e: *(breakpoint->body())) {
+        for(auto& e: *(breakpoint->body())) {
             sexp = e->is_solve_statement();
             if(sexp) break;
         }
@@ -242,14 +274,14 @@ bool Module::semantic() {
                         loc,
                         "nrn_state",
                         {},
-                        new BlockExpression(loc, {}, false)
+                        make_expression<BlockExpression>
+                            (loc, std::list<expression_ptr>(), false)
                     );
 
             // perform semantic analysis for init
             proc_state->semantic(symbols_);
 
-            procedures_.push_back(proc_state);
-            symbols_["nrn_state"] = Symbol(k_symbol_procedure, proc_state);
+            symbols_["nrn_state"] = symbol_ptr{proc_state};
         }
         else {
             // get the DERIVATIVE block
@@ -259,7 +291,8 @@ bool Module::semantic() {
                         dblock->location(),
                         "nrn_state",
                         {},
-                        new BlockExpression(loc, {}, false)
+                        make_expression<BlockExpression>
+                            (loc, std::list<expression_ptr>(), false)
                     );
             // check for symbol clash
             if( symbols_.find("nrn_state")!=symbols_.end() ) {
@@ -271,20 +304,20 @@ bool Module::semantic() {
             // get a reference to the empty body of the init function
             bool has_derivaties = false;
             auto& body = proc_state->body()->body();
-            for(auto e : *(dblock->body())) {
-                if(e->is_assignment()) {
-                    auto lhs = e->is_assignment()->lhs();
-                    auto rhs = e->is_assignment()->rhs();
-                    if(lhs->is_derivative()) {
+            for(auto& e : *(dblock->body())) {
+                if(auto ass = e->is_assignment()) {
+                    auto lhs = ass->lhs();
+                    auto rhs = ass->rhs();
+                    if(auto deriv = lhs->is_derivative()) {
                         has_derivaties = true;
-                        auto sym = lhs->is_derivative()->symbol();
-                        auto name = lhs->is_derivative()->name();
+                        auto sym  = deriv->symbol();
+                        auto name = deriv->name();
 
                         // create visitor for lineary analysis
-                        auto v = new ExpressionClassifierVisitor(sym);
+                        auto v = make_unique<ExpressionClassifierVisitor>(sym);
 
                         // analyse the rhs
-                        rhs->accept(v);
+                        rhs->accept(v.get());
 
                         // quit if ODE is not linear
                         if( v->classify() != k_expression_lin ) {
@@ -301,27 +334,35 @@ bool Module::semantic() {
                         // we are going to build this update function by
                         //  1. generating statements that define a_=a and ba_=b/a
                         //  2. generating statements that update the solution
-                        auto a = v->linear_coefficient();
-                        auto id_a  = id("a_");
+                        // TODO : pass without cloning?
                         // statement : a_ = a
-                        auto stmt_a  = binary_expression(Location(), tok_eq, id_a, a);
+                        auto stmt_a  =
+                            binary_expression(Location(),
+                                              tok_eq,
+                                              id("a_"),
+                                              v->linear_coefficient()->clone());
 
-                        // define ba
-                        auto b = v->constant_term();
-                        auto id_ab = id("ba_");
                         // expression : b/a
-                        auto expr_ba = binary_expression(Location(), tok_divide, b, id_a);
+                        auto expr_ba =
+                            binary_expression(Location(),
+                                              tok_divide,
+                                              v->constant_term()->clone(),
+                                              id("a_"));
                         // statement  : ba_ = b/a
-                        auto stmt_ba = binary_expression(Location(), tok_eq, id_ab, expr_ba);
+                        auto stmt_ba = binary_expression(Location(), tok_eq, id("ba_"), std::move(expr_ba));
 
                         // the update function
                         auto e_string = name + "  = -ba_ + "
                                         "(" + name + " + ba_)*exp(a_*dt)";
                         auto stmt_update = Parser(e_string).parse_line_expression();
 
-                        body.push_back(stmt_a);
-                        body.push_back(stmt_ba);
-                        body.push_back(stmt_update);
+                        // add declaration of local variables
+                        body.emplace_back(Parser("LOCAL a_").parse_local());
+                        body.emplace_back(Parser("LOCAL ba_").parse_local());
+                        // add integration statements
+                        body.emplace_back(std::move(stmt_a));
+                        body.emplace_back(std::move(stmt_ba));
+                        body.emplace_back(std::move(stmt_update));
                         continue;
                     }
                     else {
@@ -332,35 +373,11 @@ bool Module::semantic() {
                 body.push_back(e->clone());
             }
 
-            symbols_["nrn_state"] = Symbol(k_symbol_procedure, proc_state);
+            symbols_["nrn_state"] = symbol_ptr{proc_state};
             proc_state->semantic(symbols_);
 
-            // if there are derivative expressions, we need to add symbols for
-            // local variables a_ and ab_ to the symbol table
-            if(has_derivaties) {
-                auto scp = proc_state->scope();
-
-                // If this assertion fails, it is because the variable shadows
-                // one that is already present. Which sholuld be caught
-                // earlier because we want to prohibit variable names that end
-                // with an underscore, like a_ and ab_
-                assert(scp->find("a_").kind  == k_symbol_none);
-                assert(scp->find("ab_").kind == k_symbol_none);
-
-                // TODO: ensure that we can define a local variable with
-                // expression==nullptr, because that makes sense in situations
-                // like this, where we inject a symbol
-                // Actually, no, that is a bad idea, because we may still
-                // require additional symbol information when visiting a
-                // symbol in a visitor, e.g. via Symbol::expression->scope()
-                scp->add_local_symbol("a_",  id("a_"), k_symbol_local);
-                scp->add_local_symbol("ba_", id("ba_"), k_symbol_local);
-            }
-
             // set input vec_v
-            proc_state->inputs().push_back({tok_eq, proc_state->scope()->find("v"), symbols_["vec_v"]});
-
-            procedures_.push_back(proc_state);
+            add_input(proc_state, tok_eq, "v", "vec_v");
         }
 
         //..........................................................
@@ -368,14 +385,16 @@ bool Module::semantic() {
         // nrn_current : update contributions to currents
         //..........................................................
         //..........................................................
-        std::list<Expression*> block;
+        std::list<expression_ptr> block;
 
         auto is_ion_update = [] (Expression* e) -> VariableExpression* {
             if(auto a = e->is_assignment()) {
                 // semantic analysis has been performed on the original expression
-                if(auto var = a->lhs()->is_identifier()->variable()) {
-                    return var==nullptr ? nullptr
-                                        : (var->is_ion() ? var : nullptr);
+                // which means that the lhs is an identifier, and that it is a variable
+                // because it has to be 
+                if(auto var = a->lhs()->is_identifier()->symbol()->is_variable()) {
+                    return var ? (var->is_ion() ? var : nullptr)
+                               : nullptr;
                 }
             }
             return nullptr;
@@ -384,32 +403,38 @@ bool Module::semantic() {
         // add statements that initialize the reduction variables
         bool update_current = false;
         std::list<std::string> outputs;
-        for(auto e: *(breakpoint->body())) {
+        for(auto& e: *(breakpoint->body())) {
+            // ignore solve statements
             if(e->is_solve_statement()) continue;
 
             // add the expression
-            block.push_back(e->clone());
+            block.emplace_back(e->clone());
 
             // we are updating an ionic current
             // so keep track of current and conductance accumulation
-            if(auto var = is_ion_update(e)) {
+            if(auto var = is_ion_update(e.get())) {
                 auto lhs = e->is_assignment()->lhs()->is_identifier();
                 auto rhs = e->is_assignment()->rhs();
 
                 // analyze the expression for linear terms
-                auto v = new ExpressionClassifierVisitor(symbols_["v"]);
-                rhs->accept(v);
+                auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
+                rhs->accept(v.get());
 
                 if(v->classify()==k_expression_lin) {
+                    block.emplace_back(Parser("LOCAL current_").parse_local());
+                    block.emplace_back(Parser("LOCAL conductance_").parse_local());
+
                     // add current update
                     std::string e_string = "current_ = current_ + " + var->name();
-                    block.push_back(Parser(e_string).parse_line_expression());
+                    block.emplace_back(Parser(e_string).parse_line_expression());
 
-                    auto id_g = id("conductance_");
                     auto g_stmt =
-                        binary_expression(tok_eq, id_g,
-                            binary_expression(tok_plus, id_g, v->linear_coefficient()));
-                    block.push_back(g_stmt);
+                        binary_expression(tok_eq,
+                                          id("conductance_"),
+                                          binary_expression(tok_plus,
+                                                            id("conductance_"),
+                                                            v->linear_coefficient()->clone()));
+                    block.emplace_back(std::move(g_stmt));
                 }
                 else {
                     error("current update functions must be a linear function of v : " + rhs->to_string(),
@@ -427,9 +452,9 @@ bool Module::semantic() {
         //if(update_current) {
         //    block.push_back(Parser("g_ = conductance_").parse_line_expression());
         //}
-        ConstantFolderVisitor* v = new ConstantFolderVisitor();
-        for(auto e : block) {
-            e->accept(v);
+        auto v = make_unique<ConstantFolderVisitor>();
+        for(auto& e : block) {
+            e->accept(v.get());
         }
 
         auto proc_current =
@@ -437,37 +462,35 @@ bool Module::semantic() {
                     breakpoint->location(),
                     "nrn_current",
                     {},
-                    new BlockExpression(loc, block, false)
+                    make_expression<BlockExpression>(loc, std::move(block), false)
                 );
 
-        symbols_["nrn_current"] = Symbol(k_symbol_procedure, proc_current);
+        symbols_["nrn_current"] = symbol_ptr(proc_current);
         proc_current->semantic(symbols_);
 
         auto scp = proc_current->scope();
-        scp->add_local_symbol("current_",     id("current_"),     k_symbol_local);
-        scp->add_local_symbol("conductance_", id("conductance_"), k_symbol_local);
-
         // now set up the input/output tables with full semantic information
         for(auto &var: outputs) {
-            proc_current->outputs().push_back({tok_plus, scp->find(var), symbols_["ion_"+var]});
+            add_output(proc_current, tok_plus, var, "ion_"+var);
         }
+
         // only output contribution to RHS if there is one to make
         if(update_current) {
-            proc_current->outputs().push_back({tok_minus, scp->find("current_"), symbols_["vec_rhs"]});
-            proc_current->outputs().push_back({tok_plus, scp->find("conductance_"), symbols_["vec_d"]});
+            add_output(proc_current, tok_minus, "current_",     "vec_rhs");
+            add_output(proc_current, tok_plus,  "conductance_", "vec_d");
             if(outputs.size()>0) {
-                // only need input ionic values if external ion chennel dependency
+                // only need input ionic values if external ion channel dependency
                 // assume that all input ion variables are used
-                for(auto var: symbols_) {
-                    auto e = var.second.expression->is_variable();
+                for(auto& var: symbols_) {
+                    auto e = var.second->is_variable();
                     if( e && e->is_ion() && e->is_readable()) {
-                        proc_current->inputs().push_back({tok_eq, scp->find(e->name()), symbols_["ion_"+e->name()]});
+                        add_input(proc_current, tok_eq, e->name(), "ion_"+e->name());
                     }
                 }
             }
         }
         // set input vec_v
-        proc_current->inputs().push_back({tok_eq, scp->find("v"), symbols_["vec_v"]});
+        proc_current->inputs().push_back({tok_eq, scp->find("v"), symbols_["vec_v"].get()});
     }
     else {
         error("a BREAKPOINT block is required", Location());
@@ -479,30 +502,18 @@ bool Module::semantic() {
     //..........................................................
     //..........................................................
     // remove, because we fold the rhs update into nrn_current
-    /*
-    auto proc_jacob =
-        new APIMethod(
-            Location(), "nrn_jacob", {}, new BlockExpression(Location(), {}, false) );
-    symbols_["nrn_jacob"] = Symbol(k_symbol_procedure, proc_jacob);
-    proc_jacob->semantic(symbols_);
-
-    // set output update for vec_d
-    // remove, because we want to fuse this with nrn_current
-    //proc_jacob->outputs().push_back({tok_plus, symbols_["g_"], symbols_["vec_d"]});
-    */
-
 
     // apply semantic analysis to the entries in the output and input indexes
     for(auto &s : symbols_) {
-        if(auto method = s.second.expression->is_api_method()) {
+        if(auto method = s.second->is_api_method()) {
             auto scope = method->scope();
             for(auto &in: method->inputs()) {
-                in.local.expression->semantic(scope);
-                in.external.expression->semantic(scope);
+                in.local->semantic(scope);
+                in.external->semantic(scope);
             }
             for(auto &out: method->outputs()) {
-                out.local.expression->semantic(scope);
-                out.external.expression->semantic(scope);
+                out.local->semantic(scope);
+                out.external->semantic(scope);
             }
         }
     }
@@ -518,40 +529,38 @@ void Module::add_variables_to_symbols() {
     t->state(false);            t->linkage(k_local_link);
     t->ion_channel(k_ion_none); t->range(k_scalar);
     t->access(k_read);          t->visibility(k_global_visibility);
-    symbols_["t"]    = Symbol(k_symbol_variable, t);
+    symbols_["t"]    = symbol_ptr{t};
 
     auto dt = new VariableExpression(Location(), "dt");
     dt->state(false);            dt->linkage(k_local_link);
     dt->ion_channel(k_ion_none); dt->range(k_scalar);
     dt->access(k_read);          dt->visibility(k_global_visibility);
-    symbols_["dt"]    = Symbol(k_symbol_variable, dt);
+    symbols_["dt"]    = symbol_ptr{dt};
 
     auto g_ = new VariableExpression(Location(), "g_");
     g_->state(false);            g_->linkage(k_local_link);
     g_->ion_channel(k_ion_none); g_->range(k_range);
     g_->access(k_readwrite);     g_->visibility(k_global_visibility);
-    symbols_["g_"]    = Symbol(k_symbol_variable, g_);
+    symbols_["g_"]    = symbol_ptr{g_};
 
     // add indexed variables to the table
     auto vec_rhs = new IndexedVariable(Location(), "vec_rhs");
     vec_rhs->access(k_write);
     vec_rhs->ion_channel(k_ion_none);
-    symbols_["vec_rhs"] = Symbol(k_symbol_indexed_variable, vec_rhs);
+    symbols_["vec_rhs"] = symbol_ptr{vec_rhs};
 
     auto vec_d = new IndexedVariable(Location(), "vec_d");
     vec_d->access(k_write);
     vec_d->ion_channel(k_ion_none);
-    symbols_["vec_d"] = Symbol(k_symbol_indexed_variable, vec_d);
+    symbols_["vec_d"] = symbol_ptr{vec_d};
 
     auto vec_v = new IndexedVariable(Location(), "vec_v");
     vec_v->access(k_read);
     vec_v->ion_channel(k_ion_none);
-    symbols_["vec_v"] = Symbol(k_symbol_indexed_variable, vec_v);
+    symbols_["vec_v"] = symbol_ptr{vec_v};
 
     // add state variables
     for(auto const &var : state_block()) {
-        // TODO : using an empty Location because the source location is not
-        // recorded when a state block is parsed.
         VariableExpression *id = new VariableExpression(Location(), var);
 
         id->state(true);    // set state to true
@@ -563,7 +572,7 @@ void Module::add_variables_to_symbols() {
         id->range(k_range);             // always a range
         id->access(k_readwrite);
 
-        symbols_[var] = Symbol(k_symbol_variable, id);
+        symbols_[var] = symbol_ptr{id};
     }
 
     // add the parameters
@@ -597,7 +606,7 @@ void Module::add_variables_to_symbols() {
             id->value(std::stod(var.value));
         }
 
-        symbols_[name] = Symbol(k_symbol_variable, id);
+        symbols_[name] = symbol_ptr{id};
     }
 
     // add the assigned variables
@@ -614,7 +623,7 @@ void Module::add_variables_to_symbols() {
         id->range(k_range);
         id->access(k_readwrite);
 
-        symbols_[name] = Symbol(k_symbol_variable, id);
+        symbols_[name] = symbol_ptr{id};
     }
 
     ////////////////////////////////////////////////////
@@ -624,21 +633,21 @@ void Module::add_variables_to_symbols() {
     // first the ION channels
     // check for nonspecific current
     if( neuron_block().has_nonspecific_current() ) {
-        auto e = neuron_block().nonspecific_current;
-        auto id = dynamic_cast<VariableExpression*>(symbols_[e->name()].expression);
+        auto const& i = neuron_block().nonspecific_current;
+        auto id = symbols_[i.spelling]->is_variable();
         if(id==nullptr) {
             error( pprintf(
-                    "nonspecific current % must be declared as "
-                    " declared as PARAMETER or ASSIGNED",
-                     yellow(e->name())),
-                    e->location()); // location of definition
+                        "nonspecific current % must be declared as "
+                        " declared as PARAMETER or ASSIGNED",
+                        yellow(i.spelling)),
+                    i.location); // location of definition
         }
         std::string name = id->name();
         if(name[0] != 'i') {
             error( pprintf(
-                    "nonspecific current % does not start with 'i'",
-                     yellow(e->name())),
-                    e->location()); // location of definition
+                       "nonspecific current % does not start with 'i'",
+                       yellow(i.spelling)),
+                   i.location); // location of definition
         }
         id->access(k_readwrite);
         id->visibility(k_global_visibility);
@@ -648,8 +657,7 @@ void Module::add_variables_to_symbols() {
         // assume that the ion channel variable has already been declared
         // we check for this, and throw an error if not
         for(auto const& var : ion.read) {
-            auto id =
-                dynamic_cast<VariableExpression*>(symbols_[var].expression);
+            auto id = symbols_[var]->is_variable();
             if(id==nullptr) { // assert that variable is already set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -668,11 +676,10 @@ void Module::add_variables_to_symbols() {
             auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
             shadow_id->access(k_read);
             shadow_id->ion_channel(ion.kind());
-            symbols_[shadow_id->name()] = {k_symbol_indexed_variable, shadow_id};
+            symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
         }
         for(auto const& var : ion.write) {
-            auto id =
-                dynamic_cast<VariableExpression*>(symbols_[var].expression);
+            auto id = symbols_[var]->is_variable();
             if(id==nullptr) { // assert that variable is already set
                 error( pprintf(
                         "variable % from ion channel % has to be"
@@ -691,33 +698,33 @@ void Module::add_variables_to_symbols() {
             auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
             shadow_id->access(k_write);
             shadow_id->ion_channel(ion.kind());
-            symbols_[shadow_id->name()] = {k_symbol_indexed_variable, shadow_id};
+            symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
         }
     }
     // then GLOBAL variables
     for(auto const& var : neuron_block().globals) {
-        if(!symbols_[var.spelling].expression) {
+        if(!symbols_[var.spelling]) {
             error( yellow(var.spelling) +
                    " is declared as GLOBAL, but has not been declared in the" +
                    " ASSIGNED block",
                    var.location);
             return;
         }
-        auto id = symbols_[var.spelling].expression->is_variable();
+        auto id = symbols_[var.spelling]->is_variable();
         assert(id); // this shouldn't happen, ever
         id->visibility(k_global_visibility);
     }
 
     // then RANGE variables
     for(auto const& var : neuron_block().ranges) {
-        if(!symbols_[var.spelling].expression) {
+        if(!symbols_[var.spelling]) {
             error( yellow(var.spelling) +
                    " is declared as RANGE, but has not been declared in the" +
                    " ASSIGNED or PARAMETER block",
                    var.location);
             return;
         }
-        auto id = symbols_[var.spelling].expression->is_variable();
+        auto id = symbols_[var.spelling]->is_variable();
         assert(id); // this shouldn't happen, ever
         id->range(k_range);
     }
@@ -727,31 +734,16 @@ bool Module::optimize() {
     // how to structure the optimizer
     // loop over APIMethods
     //      - apply optimization to each in turn
-
-    /*
-    for(auto name : {"nrn_current", "nrn_state", "nrn_init", "nrn_jacob"}) {
-        auto method = symbols_[name].expression->is_api_method();
-
-        //std::cout << yellow("optimizing ") + white(method->name()) << std::endl;
-
-        std::cout << red("BEFORE") << std::endl;
-        std::cout << method->to_string() << std::endl;
-
-        std::cout << red("AFTER") << std::endl;
-        std::cout << method->to_string() << std::endl;
-    }
-    */
-
-    auto folder = new ConstantFolderVisitor();
+    auto folder = make_unique<ConstantFolderVisitor>();
     for(auto &symbol : symbols_) {
-        auto kind = symbol.second.kind;
+        auto kind = symbol.second->kind();
         BlockExpression* body;
         if(kind == k_symbol_procedure) {
             // we are only interested in true procedurs and APIMethods
-            auto proc = symbol.second.expression->is_procedure();
+            auto proc = symbol.second->is_procedure();
             auto pkind = proc->kind();
             if(pkind == k_proc_normal || pkind == k_proc_api )
-                body = symbol.second.expression->is_procedure()->body();
+                body = symbol.second->is_procedure()->body();
             else
                 continue;
         }
@@ -762,17 +754,14 @@ bool Module::optimize() {
         else {
             continue;
         }
-        //std::cout << red("------------") << std::endl;
-        //std::cout << red("BEFORE  ") << symbol.second.expression->is_procedure()->name() << std::endl;
-        //std::cout << body->to_string() << std::endl;
 
         /////////////////////////////////////////////////////////////////////
         // loop over folding and propogation steps until there are no changes
         /////////////////////////////////////////////////////////////////////
 
         // perform constant folding
-        for(auto line : *body) {
-            line->accept(folder);
+        for(auto& line : *body) {
+            line->accept(folder.get());
         }
 
         // preform expression simplification
@@ -784,38 +773,18 @@ bool Module::optimize() {
         // remove dead local variables
         /////////////////////////////////////////////////////////////////////
 
-
-        /////////////////////////////////////////////////////////////////////
-        // remove dead local variables
-        /////////////////////////////////////////////////////////////////////
-
         /////////////////////////////////////////////////////////////////////
         // tag ghost fields in APIMethods
         /////////////////////////////////////////////////////////////////////
         if(kind == k_symbol_procedure) {
-            auto proc = symbol.second.expression->is_api_method();
+            auto proc = symbol.second->is_api_method();
             if(proc && this->kind()==k_module_point) {
-                //std::cout << "marking ghost fields in " << yellow(proc->name()) << std::endl;
-
-                //if (local is local variable)
                 for(auto &out: proc->outputs()) {
                     // by definition the output has to be an indexed variable
-                    if(out.local.kind == k_symbol_local) {
-                        // this is bad: the Symbol in out.local does not match the one in scope_->locals()
-                        // can we make MemOp store a shared pointer to the scope, and a pair of names used
-                        // to index the local and external fields?
-                        out.local.kind = k_symbol_ghost;
-                        // TODO: make name() a member of the expression base class
-                        std::string const& name = out.local.expression->is_identifier()->name();
-                        proc->scope()->locals()[name].kind = k_symbol_ghost;
+                    if(out.local->kind() == k_symbol_local) {
+                        out.local->set_kind(k_symbol_ghost);
                     }
-
-                    // note: this should also be implemented for the case of an array writing
-                    // out, which is the case for nrn_jacob where g_ -> ...
-                    // Instead, we should do away with nrn_jacob entirely, instead making the rhs
-                    // update part of current, and performing a memcpy if required
                 }
-                //std::cout << proc->to_string() << std::endl;;
             }
         }
 

@@ -83,7 +83,6 @@ Parser::Parser(std::string const& buf)
 bool Parser::parse() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
-    Expression *e; // for use when parsing blocks
     while(token_.type!=tok_eof) {
         switch(token_.type) {
             case tok_title :
@@ -111,14 +110,18 @@ bool Parser::parse() {
             case tok_initial    :
             case tok_derivative :
             case tok_procedure  :
-                e = parse_procedure();
-                if(!e) break;
-                module_->procedures().push_back(e);
+                {
+                auto p = parse_procedure();
+                if(!p) break;
+                module_->procedures().emplace_back(std::move(p));
+                }
                 break;
             case tok_function  :
-                e = parse_function();
-                if(!e) break;
-                module_->functions().push_back(e);
+                {
+                auto f = parse_function();
+                if(!f) break;
+                module_->functions().emplace_back(std::move(f));
+                }
                 break;
             default :
                 error(pprintf("expected block type, found '%'", token_.spelling));
@@ -322,18 +325,20 @@ void Parser::parse_neuron_block() {
                 // Assume that there is one non-specific current per mechanism.
                 // It would be easy to extend this to multiple currents,
                 // however there are no mechanisms in the CoreNeuron repository
-                // that do this, so err on the side of caution.
+                // that do this
                 {
                     get_token(); // consume NONSPECIFIC_CURRENT
 
-                    // get the name of the current
-                    auto id = parse_identifier();
+                    auto tok = token_;
 
+                    // parse the current name and check for errors
+                    auto id = parse_identifier();
                     if(status_==k_compiler_error) {
                         return;
                     }
 
-                    neuron_block.nonspecific_current = id->is_identifier();
+                    // store the token with nonspecific current's name and location
+                    neuron_block.nonspecific_current = tok;
                 }
                 break;
 
@@ -347,8 +352,6 @@ void Parser::parse_neuron_block() {
 
     // copy neuron block into module
     module_->neuron_block(neuron_block);
-
-    //std::cout << neuron_block;
 
     // now we have a curly brace, so prime the next token
     get_token();
@@ -600,7 +603,7 @@ unit_error:
 // Takes an optional argument that allows the user to specify the
 // name of the prototype, which is used for prototypes where the name
 // is implcitly defined (e.g. INITIAL and BREAKPOINT blocks)
-Expression* Parser::parse_prototype(std::string name=std::string()) {
+expression_ptr Parser::parse_prototype(std::string name=std::string()) {
     Token identifier = token_;
 
     if(name.size()) {
@@ -616,9 +619,8 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     // check for an argument list enclosed in parenthesis (...)
     // return a prototype with an empty argument list if not found
     if( token_.type != tok_lparen ) {
-        return new PrototypeExpression( identifier.location,
-                                        identifier.spelling,
-                                        {});
+        //return make_expression<PrototypeExpression>(identifier.location, identifier.spelling, {});
+        return expression_ptr{new PrototypeExpression(identifier.location, identifier.spelling, {})};
     }
 
     get_token(); // consume '('
@@ -653,15 +655,14 @@ Expression* Parser::parse_prototype(std::string name=std::string()) {
     }
     get_token(); // consume closing parenthesis
 
-    // pack the arguments into LocalExpressions
-    std::vector<Expression*> arg_expressions;
+    // pack the arguments into LocalDeclarations
+    std::vector<expression_ptr> arg_expressions;
     for(auto const& t : arg_tokens) {
-        arg_expressions.push_back(new ArgumentExpression(t.location, t));
+        arg_expressions.emplace_back(make_expression<ArgumentExpression>(t.location, t));
     }
 
-    return new PrototypeExpression( identifier.location,
-                                    identifier.spelling,
-                                    arg_expressions);
+    return make_expression<PrototypeExpression>
+        (identifier.location, identifier.spelling, std::move(arg_expressions));
 }
 
 void Parser::parse_title() {
@@ -688,8 +689,8 @@ void Parser::parse_title() {
 /// parse a procedure
 /// can handle both PROCEDURE and INITIAL blocks
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
-Expression* Parser::parse_procedure() {
-    Expression* p = nullptr;
+symbol_ptr Parser::parse_procedure() {
+    expression_ptr p;
     procedureKind kind = k_proc_normal;
 
     switch( token_.type ) {
@@ -697,25 +698,25 @@ Expression* Parser::parse_procedure() {
             kind = k_proc_derivative;
             get_token(); // consume keyword token
             if( !expect( tok_identifier ) ) return nullptr;
-            p = parse_prototype();
+            p = std::move(parse_prototype());
             break;
         case tok_procedure:
             kind = k_proc_normal;
             get_token(); // consume keyword token
             if( !expect( tok_identifier ) ) return nullptr;
-            p = parse_prototype();
+            p = std::move(parse_prototype());
             break;
         case tok_initial:
             kind = k_proc_initial;
-            p = parse_prototype("initial");
+            p = std::move(parse_prototype("initial"));
             break;
         case tok_breakpoint:
             kind = k_proc_breakpoint;
-            p = parse_prototype("breakpoint");
+            p = std::move(parse_prototype("breakpoint"));
             break;
         case tok_net_receive:
             kind = k_proc_net_receive;
-            p = parse_prototype("net_receive");
+            p = std::move(parse_prototype("net_receive"));
             break;
         default:
             // it is a compiler error if trying to parse_procedure() without
@@ -728,21 +729,21 @@ Expression* Parser::parse_procedure() {
     if(!expect(tok_lbrace)) return nullptr;
 
     // parse the body of the function
-    Expression* body = parse_block(false);
+    expression_ptr body = parse_block(false);
     if(body==nullptr) return nullptr;
 
     auto proto = p->is_prototype();
     if(kind != k_proc_net_receive) {
-        return new ProcedureExpression(
-                    proto->location(), proto->name(), proto->args(), body, kind);
+        return make_symbol<ProcedureExpression>
+            (proto->location(), proto->name(), std::move(proto->args()), std::move(body), kind);
     }
     else {
-        return new NetReceiveExpression(
-                    proto->location(), proto->name(), proto->args(), body);
+        return make_symbol<NetReceiveExpression>
+            (proto->location(), proto->name(), std::move(proto->args()), std::move(body));
     }
 }
 
-Expression* Parser::parse_function() {
+symbol_ptr Parser::parse_function() {
     // check for compiler implementation error
     assert(token_.type == tok_function);
 
@@ -752,26 +753,26 @@ Expression* Parser::parse_function() {
     if( !expect( tok_identifier ) ) return nullptr;
 
     // parse the prototype
-    Expression *p = parse_prototype();
+    auto p = parse_prototype();
     if(p==nullptr) return nullptr;
 
     // check for opening left brace {
     if(!expect(tok_lbrace)) return nullptr;
 
     // parse the body of the function
-    Expression* body = parse_block(false);
+    auto body = parse_block(false);
     if(body==nullptr) return nullptr;
 
     PrototypeExpression *proto = p->is_prototype();
-    return new FunctionExpression(
-            proto->location(), proto->name(), proto->args(), body);
+    return make_symbol<FunctionExpression>
+        (proto->location(), proto->name(), std::move(proto->args()), std::move(body));
 }
 
 // this is the first port of call when parsing a new line inside a verb block
 // it tests to see whether the expression is:
 //      :: LOCAL identifier
 //      :: expression
-Expression *Parser::parse_statement() {
+expression_ptr Parser::parse_statement() {
     switch(token_.type) {
         case tok_if :
             return parse_if();
@@ -792,11 +793,11 @@ Expression *Parser::parse_statement() {
     return nullptr;
 }
 
-Expression *Parser::parse_identifier() {
+expression_ptr Parser::parse_identifier() {
     assert(token_.type==tok_identifier);
 
     // save name and location of the identifier
-    Expression* id = new IdentifierExpression(token_.location, token_.spelling);
+    auto id = make_expression<IdentifierExpression>(token_.location, token_.spelling);
 
     // consume identifier
     get_token();
@@ -805,7 +806,7 @@ Expression *Parser::parse_identifier() {
     return id;
 }
 
-Expression *Parser::parse_call() {
+expression_ptr Parser::parse_call() {
     // save name and location of the identifier
     Token idtoken = token_;
 
@@ -816,33 +817,33 @@ Expression *Parser::parse_call() {
     // assert this is so
     assert(token_.type == tok_lparen);
 
-    std::vector<Expression*> args;
+    std::vector<expression_ptr> args;
 
     // parse a function call
     get_token(); // consume '('
 
     while(token_.type != tok_rparen) {
-        Expression *e = parse_expression();
-        if(!e) return nullptr;
+        auto e = parse_expression();
+        if(!e) return e;
 
-        args.push_back(e);
+        args.emplace_back(std::move(e));
 
         // reached the end of the argument list
         if(token_.type == tok_rparen) break;
 
         // insist on a comma between arguments
         if( !expect(tok_comma, "call arguments must be separated by ','") )
-            return nullptr;
+            return expression_ptr();
         get_token(); // consume ','
     }
 
     // check that we have a closing parenthesis
     if(!expect(tok_rparen, "function call missing closing ')'") ) {
-        return nullptr;
+        return expression_ptr();
     }
     get_token(); // consume ')'
 
-    return new CallExpression(idtoken.location, idtoken.spelling, args);
+    return make_expression<CallExpression>(idtoken.location, idtoken.spelling, std::move(args));
 }
 
 // parse a full line expression, i.e. one of
@@ -853,9 +854,9 @@ Expression *Parser::parse_call() {
 // then attempts to parse the RHS if
 //      1. the lhs is not a procedure call
 //      2. the operator that follows is =
-Expression *Parser::parse_line_expression() {
+expression_ptr Parser::parse_line_expression() {
     int line = location_.line;
-    Expression *lhs;
+    expression_ptr lhs;
     Token next = peek();
     if(next.type == tok_lparen) {
         lhs = parse_call();
@@ -863,41 +864,41 @@ Expression *Parser::parse_line_expression() {
         // to avoid :
         //      :: assigning to it            e.g. foo() = x + 6
         //      :: stray symbols coming after e.g. foo() + x
-        // here we assume that foo is a procedure call, if it is an eroneous
-        // function call this has to be caught in the second pass..
+        // We assume that foo is a procedure call, if it is an eroneous
+        // function call this has to be caught in the second pass.
         // or optimized away with a warning
-        if(!lhs) return nullptr;
+        if(!lhs) return lhs;
         if(location_.line == line && token_.type != tok_eof) {
             error(pprintf(
                 "expected a new line after call expression, found '%'",
                 yellow(token_.spelling)));
-            return nullptr;
+            return expression_ptr();
         }
         return lhs  ;
     } else if(next.type == tok_prime) {
-        lhs = new DerivativeExpression(location_, token_.spelling);
+        lhs = make_expression<DerivativeExpression>(location_, token_.spelling);
         // consume both name and derivative operator
         get_token();
         get_token();
         // a derivative statement must be followed by '='
         if(token_.type!=tok_eq) {
-            error("a derivative declaration must have an assignment of the form\n  x' = expression\n  where x is a state variable");
-            return nullptr;
+            error("a derivative declaration must have an assignment of the "\
+                  "form\n  x' = expression\n  where x is a state variable");
+            return expression_ptr();
         }
     } else {
-        //lhs = parse_primary();
         lhs = parse_unaryop();
     }
 
-    if(lhs==nullptr) { // error
-        return nullptr;
+    if(!lhs) { // error
+        return lhs;
     }
 
     // we parse a binary expression if followed by an operator
     if(token_.type == tok_eq) {
         Token op = token_;  // save the '=' operator with location
         get_token();        // consume the '=' operator
-        return parse_binop(lhs, op);
+        return parse_binop(std::move(lhs), op);
     } else if(line == location_.line && token_.type != tok_eof){
         error(pprintf("expected an assignment '%' or new line, found '%'",
                       yellow("="),
@@ -908,8 +909,8 @@ Expression *Parser::parse_line_expression() {
     return lhs;
 }
 
-Expression *Parser::parse_expression() {
-    Expression *lhs = parse_unaryop();
+expression_ptr Parser::parse_expression() {
+    auto lhs = parse_unaryop();
 
     if(lhs==nullptr) { // error
         return nullptr;
@@ -923,7 +924,7 @@ Expression *Parser::parse_expression() {
         }
         Token op = token_;  // save the operator
         get_token();        // consume the operator
-        return parse_binop(lhs, op);
+        return parse_binop(std::move(lhs), op);
     }
 
     return lhs;
@@ -935,8 +936,8 @@ Expression *Parser::parse_expression() {
 /// all nodes in the expression using parse_unary, which simplifies the call sites
 /// with either a primary or unary node is to be parsed.
 /// It also simplifies parsing nested unary functions, e.g. x + - - y
-Expression *Parser::parse_unaryop() {
-    Expression *e;
+expression_ptr Parser::parse_unaryop() {
+    expression_ptr e;
     Token op = token_;
     switch(token_.type) {
         case tok_plus  :
@@ -947,7 +948,7 @@ Expression *Parser::parse_unaryop() {
             get_token();       // consume '-'
             e = parse_unaryop(); // handle recursive unary
             if(!e) return nullptr;
-            return unary_expression(token_.location, op.type, e);
+            return unary_expression(token_.location, op.type, std::move(e));
         case tok_exp   :
         case tok_sin   :
         case tok_cos   :
@@ -960,7 +961,7 @@ Expression *Parser::parse_unaryop() {
             }
             e = parse_unaryop(); // handle recursive unary
             if(!e) return nullptr;
-            return unary_expression(token_.location, op.type, e);
+            return unary_expression(token_.location, op.type, std::move(e));
         default     :
             return parse_primary();
     }
@@ -975,7 +976,7 @@ Expression *Parser::parse_unaryop() {
 ///  ::  identifier
 ///  ::  call
 ///  ::  parenthesis expression (parsed recursively)
-Expression *Parser::parse_primary() {
+expression_ptr Parser::parse_primary() {
     switch(token_.type) {
         case tok_number:
             return parse_number();
@@ -994,13 +995,13 @@ Expression *Parser::parse_primary() {
     return nullptr;
 }
 
-Expression *Parser::parse_parenthesis_expression() {
+expression_ptr Parser::parse_parenthesis_expression() {
     // never call unless at start of parenthesis
     assert(token_.type==tok_lparen);
 
     get_token(); // consume '('
 
-    Expression* e = parse_expression();
+    auto e = parse_expression();
 
     // check for closing parenthesis ')'
     if( !e || !expect(tok_rparen) ) return nullptr;
@@ -1010,17 +1011,17 @@ Expression *Parser::parse_parenthesis_expression() {
     return e;
 }
 
-Expression* Parser::parse_number() {
+expression_ptr Parser::parse_number() {
     assert(token_.type = tok_number);
 
-    Expression *e = new NumberExpression(token_.location, token_.spelling);
+    auto e = make_expression<NumberExpression>(token_.location, token_.spelling);
 
     get_token(); // consume the number
 
     return e;
 }
 
-Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
+expression_ptr Parser::parse_binop(expression_ptr&& lhs, Token op_left) {
     // only way out of the loop below is by return:
     //      :: return with nullptr on error
     //      :: return when loop runs out of operators
@@ -1029,28 +1030,27 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
     //          i.e. if(p_op>p_left)
     while(1) {
         // get precedence of the left operator
-        int p_left = binop_precedence(op_left.type);
+        auto p_left = binop_precedence(op_left.type);
 
-        //Expression* e = parse_primary();
-        Expression* e = parse_unaryop();
+        auto e = parse_unaryop();
         if(!e) return nullptr;
 
-        Token op = token_;
-        int p_op = binop_precedence(op.type);
+        auto op = token_;
+        auto p_op = binop_precedence(op.type);
 
         //  if no binop, parsing of expression is finished with (op_left lhs e)
         if(p_op < 0) {
-            return binary_expression(op_left.location, op_left.type, lhs, e);
+            return binary_expression(op_left.location, op_left.type, std::move(lhs), std::move(e));
         }
 
         get_token(); // consume op
         if(p_op > p_left) {
-            Expression *rhs = parse_binop(e, op);
+            auto rhs = parse_binop(std::move(e), op);
             if(!rhs) return nullptr;
-            return binary_expression(op_left.location, op_left.type, lhs, rhs);
+            return binary_expression(op_left.location, op_left.type, std::move(lhs), std::move(rhs));
         }
 
-        lhs = binary_expression(op_left.location, op_left.type, lhs, e);
+        lhs = binary_expression(op_left.location, op_left.type, std::move(lhs), std::move(e));
         op_left = op;
     }
     assert(false);
@@ -1061,15 +1061,15 @@ Expression *Parser::parse_binop(Expression *lhs, Token op_left) {
 /// a local variable definition is a line with the form
 ///     LOCAL x
 /// where x is a valid identifier name
-Expression *Parser::parse_local() {
+expression_ptr Parser::parse_local() {
     assert(token_.type==tok_local);
     Location loc = location_;
 
     get_token(); // consume LOCAL
 
     // create local expression stub
-    Expression *e = new LocalExpression(loc);
-    if(e==nullptr) return nullptr;
+    auto e = make_expression<LocalDeclaration>(loc);
+    if(!e) return e;
 
     // add symbols
     while(1) {
@@ -1096,7 +1096,7 @@ Expression *Parser::parse_local() {
 /// parse a SOLVE statement
 /// a SOLVE statement specifies a procedure and a method
 ///     SOLVE procedure METHOD method
-Expression *Parser::parse_solve() {
+expression_ptr Parser::parse_solve() {
     assert(token_.type==tok_solve);
     int line = location_.line;
     Location loc = location_; // solve location for expression
@@ -1126,7 +1126,7 @@ Expression *Parser::parse_solve() {
         if(token_.type != tok_eof) goto solve_statment_error;
     }
 
-    return new SolveExpression(loc, name, method);
+    return make_expression<SolveExpression>(loc, name, method);
 
 solve_statment_error:
     error( "SOLVE statements must have the form\n"
@@ -1135,7 +1135,7 @@ solve_statment_error:
     return nullptr;
 }
 
-Expression *Parser::parse_if() {
+expression_ptr Parser::parse_if() {
     assert(token_.type==tok_if);
 
     Token if_token = token_;
@@ -1144,15 +1144,15 @@ Expression *Parser::parse_if() {
     if(!expect(tok_lparen)) return nullptr;
 
     // parse the conditional
-    Expression* cond = parse_parenthesis_expression();
-    if(cond==nullptr) return nullptr;
+    auto cond = parse_parenthesis_expression();
+    if(!cond) return nullptr;
 
     // parse the block of the true branch
-    Expression* true_branch = parse_block(true);
-    if(true_branch==nullptr) return nullptr;
+    auto true_branch = parse_block(true);
+    if(!true_branch) return nullptr;
 
     // parse the false branch if there is an else
-    Expression* false_branch = nullptr;
+    expression_ptr false_branch;
     if(token_.type == tok_else) {
         get_token(); // consume else
 
@@ -1170,13 +1170,13 @@ Expression *Parser::parse_if() {
         }
     }
 
-    return new IfExpression(if_token.location, cond, true_branch, false_branch);
+    return make_expression<IfExpression>(if_token.location, std::move(cond), std::move(true_branch), std::move(false_branch));
 }
 
 // takes a flag indicating whether the block is at procedure/function body,
 // or lower. Can be used to check for illegal statements inside a nested block,
 // e.g. LOCAL declarations.
-Expression *Parser::parse_block(bool is_nested) {
+expression_ptr Parser::parse_block(bool is_nested) {
     // blocks have to be enclosed in curly braces {}
     assert(token_.type==tok_lbrace);
 
@@ -1185,10 +1185,10 @@ Expression *Parser::parse_block(bool is_nested) {
     // save the location of the first statement as the starting point for the block
     Location block_location = token_.location;
 
-    std::list<Expression*> body;
+    std::list<expression_ptr> body;
     while(token_.type != tok_rbrace) {
-        Expression *e = parse_statement();
-        if(e==nullptr) return nullptr;
+        auto e = parse_statement();
+        if(!e) return e;
 
         if(is_nested) {
             if(e->is_local_declaration()) {
@@ -1197,7 +1197,7 @@ Expression *Parser::parse_block(bool is_nested) {
             }
         }
 
-        body.push_back(e);
+        body.emplace_back(std::move(e));
     }
 
     if(token_.type != tok_rbrace) {
@@ -1208,10 +1208,10 @@ Expression *Parser::parse_block(bool is_nested) {
     }
     get_token(); // consume closing '}'
 
-    return new BlockExpression(block_location, body, is_nested);
+    return make_expression<BlockExpression>(block_location, std::move(body), is_nested);
 }
 
-Expression *Parser::parse_initial() {
+expression_ptr Parser::parse_initial() {
     // has to start with INITIAL: error in compiler implementaion otherwise
     assert(token_.type==tok_initial);
 
@@ -1223,10 +1223,10 @@ Expression *Parser::parse_initial() {
     if(!expect(tok_lbrace)) return nullptr;
     get_token(); // consume '{'
 
-    std::list<Expression*> body;
+    std::list<expression_ptr> body;
     while(token_.type != tok_rbrace) {
-        Expression *e = parse_statement();
-        if(e==nullptr) return nullptr;
+        auto e = parse_statement();
+        if(!e) return e;
 
         // disallow variable declarations in an INITIAL block
         if(e->is_local_declaration()) {
@@ -1234,7 +1234,7 @@ Expression *Parser::parse_initial() {
             return nullptr;
         }
 
-        body.push_back(e);
+        body.emplace_back(std::move(e));
     }
 
     if(token_.type != tok_rbrace) {
@@ -1245,6 +1245,6 @@ Expression *Parser::parse_initial() {
     }
     get_token(); // consume closing '}'
 
-    return new InitialBlock(block_location, body);
+    return make_expression<InitialBlock>(block_location, std::move(body));
 }
 

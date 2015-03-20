@@ -1,7 +1,6 @@
 #pragma once
 
 #include "lexer.h"
-#include "scope.h"
 
 /// Defines a memory operation that is to performed by an APIMethod.
 /// Kernels can read/write global state via an index, e.g.
@@ -16,14 +15,17 @@
 ///     - a list of load/input transactions to perform before kernel
 ///     - a list of store/output transactions to perform after kernel
 /// The lists are of MemOps, which describe the local and external variables
+template <typename Symbol>
 struct MemOp {
+    using symbol_type = Symbol;
     TOK op;
-    Symbol local;
-    Symbol external;
+    Symbol *local;
+    Symbol *external;
 
-    MemOp(TOK o, Symbol loc, Symbol ext)
+    MemOp(TOK o, Symbol *loc, Symbol *ext)
     : op(o), local(loc), external(ext)
     {
         assert(op==tok_plus || op==tok_minus || op==tok_eq);
     }
 };
+

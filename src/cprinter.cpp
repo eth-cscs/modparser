@@ -6,16 +6,15 @@
 ******************************************************************************/
 
 CPrinter::CPrinter(Module &m, bool o)
-    :   module_(&m),
-        optimize_(o)
+:   module_(&m),
+    optimize_(o)
 {
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types
     std::vector<VariableExpression*> scalar_variables;
     std::vector<VariableExpression*> array_variables;
-    for(auto sym: m.symbols()) {
-        if(sym.second.kind==k_symbol_variable) {
-            auto var = sym.second.expression->is_variable();
+    for(auto& sym: m.symbols()) {
+        if(auto var = sym.second->is_variable()) {
             if(var->is_range()) {
                 array_variables.push_back(var);
             }
@@ -134,11 +133,11 @@ CPrinter::CPrinter(Module &m, bool o)
 
     increase_indentation();
     auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
-    for(auto const &var : m.symbols()) {
-        if(   var.second.kind==k_symbol_procedure
-           && proctest(var.second.expression->is_procedure()->kind()))
+    for(auto &var : m.symbols()) {
+        if(   var.second->kind()==k_symbol_procedure
+           && proctest(var.second->is_procedure()->kind()))
         {
-            var.second.expression->accept(this);
+            var.second->accept(this);
         }
     }
 
@@ -175,11 +174,22 @@ CPrinter::CPrinter(Module &m, bool o)
 ******************************************************************************/
 
 void CPrinter::visit(Expression *e) {
-    std::cout << "CPrinter :: error printing : " << e->to_string() << std::endl;
+    std::cout << red("error ") << " CPrinter "
+              << "doesn't know how to print the expression : "
+              << std::endl << "  " << e->to_string() << std::endl;
     assert(false);
 }
 
-void CPrinter::visit(LocalExpression *e) {
+void CPrinter::visit(LocalDeclaration *e) {
+}
+
+void CPrinter::visit(Symbol *e) {
+    std::string const& name = e->name();
+    text_ << name;
+    auto k = e->kind();
+    if(k==k_symbol_ghost) {
+        text_ << "[j_]";
+    }
 }
 
 void CPrinter::visit(NumberExpression *e) {
@@ -187,17 +197,7 @@ void CPrinter::visit(NumberExpression *e) {
 }
 
 void CPrinter::visit(IdentifierExpression *e) {
-    if(auto var = e->variable()) {
-        var->accept(this);
-    }
-    else {
-        std::string const& name = e->name();
-        text_ << name;
-        auto k = e->scope()->locals()[name].kind;
-        if(k==k_symbol_ghost) {
-            text_ << "[j_]";
-        }
-    }
+    e->symbol()->accept(this);
 }
 
 void CPrinter::visit(VariableExpression *e) {
@@ -253,8 +253,8 @@ void CPrinter::visit(BlockExpression *e) {
     // only if this is the outer block
     if(!e->is_nested()) {
         std::vector<std::string> names;
-        for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local)
+        for(auto& var : e->scope()->locals()) {
+            if(var.second->kind() == k_symbol_local)
                 names.push_back(var.first);
         }
         if(names.size()>0) {
@@ -267,7 +267,7 @@ void CPrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto stmt : e->body()) {
+    for(auto& stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -294,7 +294,7 @@ void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
     //set_gutter(0);
     text_.add_gutter() << "void " << e->name() << "(const int i_";
-    for(auto arg : e->args()) {
+    for(auto& arg : e->args()) {
         text_ << ", value_type " << arg->is_argument()->name();
     }
     text_.end_line(") {");
@@ -322,9 +322,9 @@ void CPrinter::visit(APIMethod *e) {
     increase_indentation();
 
     // create local indexed views
-    for(auto &in : e->inputs()) {
+    for(auto& in : e->inputs()) {
         auto const& name =
-            in.external.expression->is_indexed_variable()->name();
+            in.external->is_indexed_variable()->name();
         text_.add_gutter();
         text_ << "const indexed_view " + name;
         if(name.substr(0,3) == "vec") {
@@ -344,7 +344,7 @@ void CPrinter::visit(APIMethod *e) {
     }
     for(auto &in : e->outputs()) {
         auto const& name =
-            in.external.expression->is_indexed_variable()->name();
+            in.external->is_indexed_variable()->name();
         text_.add_gutter() << "indexed_view " + name;
         if(name.substr(0,3) == "vec") {
             text_ << "(matrix_." + name + "(), node_indices_);\n";
@@ -392,9 +392,9 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     // insert loads from external state here
     for(auto &in : e->inputs()) {
         text_.add_gutter();
-        in.local.expression->accept(this);
+        in.local->accept(this);
         text_ << " = ";
-        in.external.expression->accept(this);
+        in.external->accept(this);
         text_.end_line(";");
     }
 
@@ -403,9 +403,9 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     // insert stores here
     for(auto &out : e->outputs()) {
         text_.add_gutter();
-        out.external.expression->accept(this);
+        out.external->accept(this);
         text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
+        out.local->accept(this);
         text_.end_line(";");
     }
 
@@ -427,10 +427,10 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
-    std::vector<MemOp*> aliased_variables;
+    std::vector<APIMethod::memop_type*> aliased_variables;
     if(is_point_process) {
         for(auto &out : e->outputs()) {
-            if(out.local.kind == k_symbol_ghost) {
+            if(out.local->kind() == k_symbol_ghost) {
                 aliased_variables.push_back(&out);
             }
         }
@@ -448,7 +448,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("constexpr int BSIZE = 64;");
     text_.add_line("int NB = n_/BSIZE;");
     for(auto out: aliased_variables) {
-        text_.add_line("value_type " + out->local.expression->is_identifier()->name() + "[BSIZE];");
+        text_.add_line("value_type " + out->local->name() + "[BSIZE];");
     }
     text_.add_line("START_PROFILE");
 
@@ -467,15 +467,15 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     // initialize ghost fields to zero
     for(auto out: aliased_variables) {
-        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
+        text_.add_line(out->local->name() + "[j_] = value_type{0.};");
     }
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {
         text_.add_gutter();
-        in.local.expression->accept(this);
+        in.local->accept(this);
         text_ << " = ";
-        in.external.expression->accept(this);
+        in.external->accept(this);
         text_.end_line(";");
     }
 
@@ -491,9 +491,9 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // insert stores here
     for(auto &out : e->outputs()) {
         text_.add_gutter();
-        out.external.expression->accept(this);
+        out.external->accept(this);
         text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
+        out.local->accept(this);
         text_.end_line(";");
     }
 
@@ -511,16 +511,16 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     // initialize ghost fields to zero
     for(auto out: aliased_variables) {
-        text_.add_line(out->local.expression->is_identifier()->name() + "[j_] = value_type{0.};");
+        text_.add_line(out->local->name() + "[j_] = value_type{0.};");
     }
 
 
     // insert loads from external state here
     for(auto &in : e->inputs()) {
         text_.add_gutter();
-        in.local.expression->accept(this);
+        in.local->accept(this);
         text_ << " = ";
-        in.external.expression->accept(this);
+        in.external->accept(this);
         text_.end_line(";");
     }
 
@@ -535,9 +535,9 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // insert stores here
     for(auto &out : e->outputs()) {
         text_.add_gutter();
-        out.external.expression->accept(this);
+        out.external->accept(this);
         text_ << (out.op==tok_plus ? " += " : " -= ");
-        out.local.expression->accept(this);
+        out.local->accept(this);
         text_.end_line(";");
     }
 

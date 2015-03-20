@@ -7,7 +7,7 @@ void VariableRenamer::visit(Expression *e) {
 void VariableRenamer::visit(NumberExpression *e) {}
 
 void VariableRenamer::visit(IdentifierExpression *e) {
-    if(from_ == e->name()) {
+    if(from_ == e->spelling()) {
         e->rename(to_);
     }
 }

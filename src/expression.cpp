@@ -2,6 +2,26 @@
 
 #include "expression.h"
 
+std::string to_string(symbolKind k) {
+    switch (k) {
+        case k_symbol_variable:
+            return std::string("variable");
+        case k_symbol_indexed_variable:
+            return std::string("indexed variable");
+        case k_symbol_local:
+            return std::string("local");
+        case k_symbol_argument:
+            return std::string("argument");
+        case k_symbol_procedure:
+            return std::string("procedure");
+        case k_symbol_function:
+            return std::string("function");
+        default:
+            return std::string("none");
+    }
+}
+
+
 std::string to_string(procedureKind k) {
     switch(k) {
         case k_proc_normal             :
@@ -25,38 +45,45 @@ std::string to_string(procedureKind k) {
   Expression
 *******************************************************************************/
 
-void Expression::semantic(std::shared_ptr<Scope>) {
+void Expression::semantic(std::shared_ptr<scope_type>) {
     error_ = true;
     error_string_ = "semantic() has not been implemented for this expression";
 }
 
-Expression* Expression::clone() const {
+expression_ptr Expression::clone() const {
     std::cerr << "clone() has not been implemented for " << this->to_string() << std::endl;
     assert(false);
     return nullptr;
 }
 
 /*******************************************************************************
+  Symbol
+*******************************************************************************/
+std::string Symbol::to_string() const {
+    return blue("Symbol") + " " + yellow(name_);
+}
+
+/*******************************************************************************
   IdentifierExpression
 *******************************************************************************/
 
-void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
+void IdentifierExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
 
-    Symbol s = scope_->find(name_);
+    auto s = scope_->find(spelling_);
 
-    if(s.expression==nullptr) {
+    if(s==nullptr) {
         error_ = true;
         error_string_ =
             pprintf("the variable '%' is undefined",
-                    yellow(name_), location_);
+                    yellow(spelling_), location_);
         return;
     }
-    if(s.kind == k_symbol_procedure || s.kind == k_symbol_function) {
+    if(s->kind() == k_symbol_procedure || s->kind() == k_symbol_function) {
         error_ = true;
         error_string_ =
             pprintf("the symbol '%' is a function/procedure, not a variable",
-                    yellow(name_));
+                    yellow(spelling_));
         return;
     }
 
@@ -64,22 +91,17 @@ void IdentifierExpression::semantic(std::shared_ptr<Scope> scp) {
     symbol_ = s;
 }
 
-Expression* IdentifierExpression::clone() const {
-    return new IdentifierExpression(location_, name_);
-}
-
-VariableExpression* IdentifierExpression::variable() {
-    // can we just look at symbol_.kind and lookup based on that?
-    return symbol_.expression ? symbol_.expression->is_variable() : nullptr;
+expression_ptr IdentifierExpression::clone() const {
+    return make_expression<IdentifierExpression>(location_, spelling_);
 }
 
 bool IdentifierExpression::is_lvalue() {
     // check for global variable that is writeable
-    auto var = variable();
+    auto var = symbol_->is_variable();
     if(var) return var->is_writeable();
 
     // else look for local symbol
-    if(symbol_.kind == k_symbol_local || symbol_.kind == k_symbol_argument ) return true;
+    if(symbol_->kind() == k_symbol_local || symbol_->kind() == k_symbol_argument ) return true;
 
     return false;
 }
@@ -88,15 +110,15 @@ bool IdentifierExpression::is_lvalue() {
   NumberExpression
 ********************************************************************************/
 
-Expression* NumberExpression::clone() const {
-    return new NumberExpression(location_, value_);
+expression_ptr NumberExpression::clone() const {
+    return make_expression<NumberExpression>(location_, value_);
 }
 
 /*******************************************************************************
-  LocalExpression
+  LocalDeclaration
 *******************************************************************************/
 
-std::string LocalExpression::to_string() const {
+std::string LocalDeclaration::to_string() const {
     std::string str = blue("local");
     for(auto v : vars_) {
         str += " " + yellow(v.first);
@@ -104,15 +126,15 @@ std::string LocalExpression::to_string() const {
     return str;
 }
 
-Expression* LocalExpression::clone() const {
-    auto local = new LocalExpression(location());
+expression_ptr LocalDeclaration::clone() const {
+    auto local = new LocalDeclaration(location());
     for(auto &v : vars_) {
         local->add_variable(v.second);
     }
-    return local;
+    return expression_ptr{local};
 }
 
-bool LocalExpression::add_variable(Token tok) {
+bool LocalDeclaration::add_variable(Token tok) {
     if(vars_.find(tok.spelling)!=vars_.end()) {
         error_ = true;
         error_string_ = "the variable '" + yellow(tok.spelling) + "' is defined more than once";
@@ -123,20 +145,21 @@ bool LocalExpression::add_variable(Token tok) {
     return true;
 }
 
-void LocalExpression::semantic(std::shared_ptr<Scope> scp) {
+void LocalDeclaration::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
 
     // loop over the variables declared in this LOCAL statement
     for(auto &v : vars_) {
         auto &name = v.first;
-        Symbol s = scope_->find(name);
+        auto s = scope_->find(name);
 
         // First check that the variable is undefined
         // Note that we allow for local variables with the same name as
         // class scope variables (globals), in which case the local variable
         // name will be used for lookup
-        if(s.expression==nullptr || (s.expression && s.kind==k_symbol_variable)) {
-            symbols_.push_back( scope_->add_local_symbol(name, this) );
+        if(s==nullptr || (s && s->kind()==k_symbol_variable)) {
+            scope_type::symbol_ptr symbol(new Symbol(location_, name, k_symbol_local));
+            symbols_.push_back( scope_->add_local_symbol( name, std::move(symbol)) );
         }
         else {
             error_ = true;
@@ -153,13 +176,14 @@ std::string ArgumentExpression::to_string() const {
     return blue("arg") + " " + yellow(name_);
 }
 
-void ArgumentExpression::semantic(std::shared_ptr<Scope> scp) {
+void ArgumentExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
 
-    Symbol s = scope_->find(name_);
+    auto s = scope_->find(name_);
 
-    if(s.expression==nullptr || (s.expression && s.kind==k_symbol_variable)) {
-        scope_->add_local_symbol(name_, this, k_symbol_argument);
+    if(s==nullptr || (s && s->kind()==k_symbol_variable)) {
+        scope_type::symbol_ptr symbol(new Symbol(location_, name_, k_symbol_argument));
+        scope_->add_local_symbol(name_, std::move(symbol));
     }
     else {
         error_ = true;
@@ -173,10 +197,10 @@ void ArgumentExpression::semantic(std::shared_ptr<Scope> scp) {
 *******************************************************************************/
 
 std::string VariableExpression::to_string() const {
-    char name[17];
-    snprintf(name, 17, "%-10s", name_.c_str());
+    char n[17];
+    snprintf(n, 17, "%-10s", name().c_str());
     std::string
-        s = blue("variable") + " " + yellow(name) + "("
+        s = blue("variable") + " " + yellow(n) + "("
           + colorize("write", is_writeable() ? kGreen : kRed) + ", "
           + colorize("read", is_readable() ? kGreen : kRed)   + ", "
           + (is_range() ? "range" : "scalar")                 + ", "
@@ -193,10 +217,10 @@ std::string VariableExpression::to_string() const {
 *******************************************************************************/
 
 std::string IndexedVariable::to_string() const {
-    char name[17];
-    snprintf(name, 17, "%-10s", name_.c_str());
+    char n[17];
+    snprintf(n, 17, "%-10s", name().c_str());
     std::string
-        s = blue("indexed") + "  " + yellow(name) + "("
+        s = blue("indexed") + "  " + yellow(n) + "("
           + (is_writeable() ? green("write") : red("write")) + ", "
           + (is_readable()  ? green("read")  : red("read")) + ", "
           + "ion" + colorize(::to_string(ion_channel()),
@@ -209,32 +233,33 @@ std::string IndexedVariable::to_string() const {
 *******************************************************************************/
 
 std::string CallExpression::to_string() const {
-    std::string str = blue("call") + " " + yellow(name_) + " (";
-    for(auto arg : args_)
+    std::string str = blue("call") + " " + yellow(spelling_) + " (";
+    for(auto& arg : args_)
         str += arg->to_string() + ", ";
     str += ")";
 
     return str;
 }
 
-void CallExpression::semantic(std::shared_ptr<Scope> scp) {
+void CallExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
 
     // look up to see if symbol is defined
-    Symbol s = scope_->find(name_);
+    // restrict search to global namespace
+    auto s = scope_->find_global(spelling_);
 
     // either undefined or refers to a variable
-    if(s.expression==0) {
+    if(!s) {
         error_ = true;
         error_string_ = 
             pprintf("there is no function or procedure named '%' ",
-                    yellow(name_));
+                    yellow(spelling_));
     }
-    if(s.kind==k_symbol_local || s.kind==k_symbol_variable) {
+    if(s->kind()==k_symbol_local || s->kind()==k_symbol_variable) {
         error_ = true;
         error_string_ = 
             pprintf("the symbol '%' refers to a variable, but it is being called like a function",
-                    yellow(name_));
+                    yellow(spelling_));
     }
 
     // save the symbol
@@ -246,19 +271,19 @@ void CallExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 
     // perform semantic analysis on the arguments
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scp);
     }
 }
 
-Expression* CallExpression::clone() const {
+expression_ptr CallExpression::clone() const {
     // clone the arguments
-    std::vector<Expression*> cloned_args;
-    for(auto a: args_) {
-        cloned_args.push_back(a->clone());
+    std::vector<expression_ptr> cloned_args;
+    for(auto& a: args_) {
+        cloned_args.emplace_back(a->clone());
     }
 
-    return new CallExpression(location_, name_, cloned_args);
+    return make_expression<CallExpression>(location_, spelling_, std::move(cloned_args));
 }
 
 /*******************************************************************************
@@ -266,10 +291,10 @@ Expression* CallExpression::clone() const {
 *******************************************************************************/
 
 std::string ProcedureExpression::to_string() const {
-    std::string str = blue("procedure") + " " + yellow(name_) + "\n";
+    std::string str = blue("procedure") + " " + yellow(name()) + "\n";
     str += blue("  special") + " : " + ::to_string(kind_) + "\n";
     str += blue("  args") + "    : ";
-    for(auto arg : args_)
+    for(auto& arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+blue("body")+" :";
     str += body_->to_string();
@@ -277,20 +302,21 @@ std::string ProcedureExpression::to_string() const {
     return str;
 }
 
-void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
+void ProcedureExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name_) != global_symbols.end());
+    assert(global_symbols.find(name()) != global_symbols.end());
 
     // create the scope for this procedure
-    scope_ = std::make_shared<Scope>(global_symbols);
+    scope_ = std::make_shared<scope_type>(global_symbols);
 
     // add the argumemts to the list of local variables
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scope_);
     }
 
     // this loop could be used to then check the types of statements in the body
-    for(auto e : *body_) {
+    // TODO : this could be making a mess
+    for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block())
             error("INITIAL block not allowed inside "+::to_string(kind_)+" definition");
     }
@@ -299,8 +325,7 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
     body_->semantic(scope_);
 
     // the symbol for this expression is itself
-    // this could lead to nasty self-referencing loops
-    symbol_ = global_symbols.find(name_)->second;
+    symbol_ = scope_->find_global(name());
 }
 
 /*******************************************************************************
@@ -308,37 +333,32 @@ void ProcedureExpression::semantic(Scope::symbol_map &global_symbols) {
 *******************************************************************************/
 
 std::string APIMethod::to_string() const {
-    auto namestr = [] (Expression* e) -> std::string {
-        if(auto id = e->is_identifier())
-            return yellow(id->name());
-        if(auto id = e->is_variable())
-            return yellow(id->name());
-        if(auto id = e->is_indexed_variable())
-            return yellow(id->name());
+    auto namestr = [] (Symbol* e) -> std::string {
+        return yellow(e->name());
         return "";
     };
-    std::string str = blue("API method") + " " + yellow(name_) + "\n";
+    std::string str = blue("API method") + " " + yellow(name()) + "\n";
 
     str += blue("  loads ") + " : ";
-    for(auto in : in_) {
-        str += namestr(in.local.expression) + " <- ";
-        str += namestr(in.external.expression);
+    for(auto& in : in_) {
+        str += namestr(in.local) + " <- ";
+        str += namestr(in.external);
         str += ", ";
     }
     str += "\n";
 
     str += blue("  stores") + " : ";
-    for(auto out : out_) {
-        str += namestr(out.local.expression) + " -> ";
-        str += namestr(out.external.expression);
+    for(auto& out : out_) {
+        str += namestr(out.local) + " -> ";
+        str += namestr(out.external);
         str += ", ";
     }
     str += "\n";
 
     str += blue("  locals") + " : ";
-    for(auto var : scope_->locals()) {
-        str += namestr(var.second.expression);
-        if(var.second.kind == k_symbol_ghost) str += green("(ghost)");
+    for(auto& var : scope_->locals()) {
+        str += namestr(var.second.get());
+        if(var.second->kind() == k_symbol_ghost) str += green("(ghost)");
         str += ", ";
     }
     str += "\n";
@@ -355,7 +375,7 @@ std::string APIMethod::to_string() const {
 
 std::string InitialBlock::to_string() const {
     std::string str = green("[[initial");
-    for(auto ex : body_) {
+    for(auto& ex : body_) {
        str += "\n   " + ex->to_string();
     }
     str += green("\n  ]]");
@@ -366,23 +386,23 @@ std::string InitialBlock::to_string() const {
   NetReceiveExpression
 *******************************************************************************/
 
-void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
+void NetReceiveExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name_) != global_symbols.end());
+    assert(global_symbols.find(name()) != global_symbols.end());
 
     // create the scope for this procedure
-    scope_ = std::make_shared<Scope>(global_symbols);
+    scope_ = std::make_shared<scope_type>(global_symbols);
 
     // add the argumemts to the list of local variables
-    // TODO : this does not appear to be working
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scope_);
     }
 
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    for(auto e : *body_) {
+    // TODO : this could be making a mess
+    for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block()) {
             if(initial_block_) {
                 error("only one INITIAL block is permitted per NET_RECEIVE block");
@@ -393,7 +413,7 @@ void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
 
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
-    symbol_ = global_symbols.find(name_)->second;
+    symbol_ = scope_->find_global(name());
 }
 
 /*******************************************************************************
@@ -401,9 +421,9 @@ void NetReceiveExpression::semantic(Scope::symbol_map &global_symbols) {
 *******************************************************************************/
 
 std::string FunctionExpression::to_string() const {
-    std::string str = blue("function") + " " + yellow(name_) + "\n";
+    std::string str = blue("function") + " " + yellow(name()) + "\n";
     str += blue("  args") + " : ";
-    for(auto arg : args_)
+    for(auto& arg : args_)
         str += arg->to_string() + " ";
     str += "\n  "+blue("body")+" :";
     str += body_->to_string();
@@ -411,15 +431,15 @@ std::string FunctionExpression::to_string() const {
     return str;
 }
 
-void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
+void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     // assert that the symbol is already visible in the global_symbols
-    assert(global_symbols.find(name_) != global_symbols.end());
+    assert(global_symbols.find(name()) != global_symbols.end());
 
     // create the scope for this procedure
-    scope_ = std::make_shared<Scope>(global_symbols);
+    scope_ = std::make_shared<scope_type>(global_symbols);
 
     // add the argumemts to the list of local variables
-    for(auto a : args_) {
+    for(auto& a : args_) {
         a->semantic(scope_);
     }
 
@@ -427,44 +447,46 @@ void FunctionExpression::semantic(Scope::symbol_map &global_symbols) {
     // which acts as a placeholder for the return value
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
-    auto return_var = new LocalExpression(body_->location(), name_);
-    scope_->add_local_symbol(name_, return_var);
+    auto return_var = scope_type::symbol_ptr(
+        new Symbol(body_->location(), name(), k_symbol_local)
+    );
+    scope_->add_local_symbol(name(), std::move(return_var));
 
     // perform semantic analysis for each expression in the body
     body_->semantic(scope_);
     // this loop could be used to then check the types of statements in the body
-    for(auto e : *body_) {
+    for(auto& e : *(body())) {
         if(e->is_initial_block()) error("INITIAL block not allowed inside FUNCTION definition");
     }
 
     // check that the last expression in the body was an assignment to
     // the return placeholder
     bool last_expr_is_assign = false;
-    auto tail = body_->back()->is_assignment();
+    auto tail = body()->back()->is_assignment();
     if(tail) {
-        // we know that the tail is an assignemnt expression so reinterpret away
+        // we know that the tail is an assignment expression
         auto lhs = tail->lhs()->is_identifier();
         // use nullptr check followed by lazy name lookup
-        if(lhs && lhs->name()==name_) {
+        if(lhs && lhs->name()==name()) {
             last_expr_is_assign = true;
         }
     }
     if(!last_expr_is_assign) {
         warning_ = true;
         warning_string_ = "the last expression in function '"
-                        + yellow(name_)
+                        + yellow(name())
                         + "' does not set the return value";
     }
 
     // the symbol for this expression is itself
     // this could lead to nasty self-referencing loops
-    symbol_ = global_symbols.find(name_)->second;
+    symbol_ = scope_->find_global(name());
 }
 
 /*******************************************************************************
   UnaryExpression
 *******************************************************************************/
-void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
+void UnaryExpression::semantic(std::shared_ptr<scope_type> scp) {
     expression_->semantic(scp);
 
     if(expression_->is_procedure_call()) {
@@ -473,18 +495,18 @@ void UnaryExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
-void UnaryExpression::replace_expression(Expression* other) {
-    expression_ = other;
+void UnaryExpression::replace_expression(expression_ptr&& other) {
+    std::swap(expression_, other);
 }
 
-Expression* UnaryExpression::clone() const {
+expression_ptr UnaryExpression::clone() const {
     return unary_expression(location_, op_, expression_->clone());
 }
 
 /*******************************************************************************
   BinaryExpression
 *******************************************************************************/
-void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
+void BinaryExpression::semantic(std::shared_ptr<scope_type> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
@@ -494,16 +516,16 @@ void BinaryExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
-Expression* BinaryExpression::clone() const {
+expression_ptr BinaryExpression::clone() const {
     return binary_expression(location_, op_, lhs_->clone(), rhs_->clone());
 }
 
-void BinaryExpression::replace_lhs(Expression* other) {
-    lhs_ = other;
+void BinaryExpression::replace_lhs(expression_ptr&& other) {
+    std::swap(lhs_, other);
 }
 
-void BinaryExpression::replace_rhs(Expression* other) {
-    rhs_ = other;
+void BinaryExpression::replace_rhs(expression_ptr&& other) {
+    std::swap(rhs_, other);
 }
 
 std::string BinaryExpression::to_string() const {
@@ -515,7 +537,7 @@ std::string BinaryExpression::to_string() const {
   AssignmentExpression
 *******************************************************************************/
 
-void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
+void AssignmentExpression::semantic(std::shared_ptr<scope_type> scp) {
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
@@ -538,15 +560,13 @@ void AssignmentExpression::semantic(std::shared_ptr<Scope> scp) {
   SolveExpression
 *******************************************************************************/
 
-void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
-    auto e = scp->find(name_).expression;
+void SolveExpression::semantic(std::shared_ptr<scope_type> scp) {
+    auto e = scp->find(name());
     auto proc = e ? e->is_procedure() : nullptr;
 
     // this is optimistic: it simply looks for a procedure,
     // it should also evaluate the procedure to see whether it contains the derivatives
     if(proc) {
-        // another test like :
-        //if(proc->is_derivative_block())
         procedure_ = proc;
     }
     else {
@@ -556,10 +576,10 @@ void SolveExpression::semantic(std::shared_ptr<Scope> scp) {
     }
 }
 
-Expression* SolveExpression::clone() const {
+expression_ptr SolveExpression::clone() const {
     auto s = new SolveExpression(location_, name_, method_);
     s->procedure(procedure_);
-    return s;
+    return expression_ptr{s};
 }
 /*******************************************************************************
   BlockExpression
@@ -567,26 +587,26 @@ Expression* SolveExpression::clone() const {
 
 std::string BlockExpression::to_string() const {
     std::string str = green("[[");
-    for(auto ex : body_) {
+    for(auto& ex : body_) {
        str += "\n   " + ex->to_string();
     }
     str += green("\n  ]]");
     return str;
 }
 
-void BlockExpression::semantic(std::shared_ptr<Scope> scp) {
+void BlockExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
-    for(auto e : body_) {
+    for(auto& e : body_) {
         e->semantic(scope_);
     }
 }
 
-Expression* BlockExpression::clone() const {
-    std::list<Expression*> body;
-    for(auto e: body_) {
-        body.push_back(e->clone());
+expression_ptr BlockExpression::clone() const {
+    std::list<expression_ptr> body;
+    for(auto& e: body_) {
+        body.emplace_back(e->clone());
     }
-    return new BlockExpression(location_, body, is_nested_);
+    return make_expression<BlockExpression>(location_, std::move(body), is_nested_);
 }
 
 /*******************************************************************************
@@ -602,7 +622,7 @@ std::string IfExpression::to_string() const {
     return s;
 }
 
-void IfExpression::semantic(std::shared_ptr<Scope> scp) {
+void IfExpression::semantic(std::shared_ptr<scope_type> scp) {
     condition_->semantic(scp);
 
     auto cond = condition_->is_conditional();
@@ -623,6 +643,9 @@ void IfExpression::semantic(std::shared_ptr<Scope> scp) {
    Visitor hooks
 */
 void Expression::accept(Visitor *v) {
+    v->visit(this);
+}
+void Symbol::accept(Visitor *v) {
     v->visit(this);
 }
 void IdentifierExpression::accept(Visitor *v) {
@@ -652,7 +675,7 @@ void IndexedVariable::accept(Visitor *v) {
 void NumberExpression::accept(Visitor *v) {
     v->visit(this);
 }
-void LocalExpression::accept(Visitor *v) {
+void LocalDeclaration::accept(Visitor *v) {
     v->visit(this);
 }
 void ArgumentExpression::accept(Visitor *v) {
@@ -719,25 +742,29 @@ void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
 
-Expression* unary_expression( TOK op,
-                              Expression* e) {
-    return unary_expression(op, e);
+expression_ptr unary_expression( TOK op,
+                                 expression_ptr&& e
+                               )
+{
+    return unary_expression(op, std::move(e));
 }
 
-Expression* unary_expression( Location loc,
-                              TOK op,
-                              Expression* e) {
+expression_ptr unary_expression( Location loc,
+                                 TOK op,
+                                 expression_ptr&& e
+                               )
+{
     switch(op) {
         case tok_minus :
-            return new NegUnaryExpression(loc, e);
+            return make_expression<NegUnaryExpression>(loc, std::move(e));
         case tok_exp :
-            return new ExpUnaryExpression(loc, e);
+            return make_expression<ExpUnaryExpression>(loc, std::move(e));
         case tok_cos :
-            return new CosUnaryExpression(loc, e);
+            return make_expression<CosUnaryExpression>(loc, std::move(e));
         case tok_sin :
-            return new SinUnaryExpression(loc, e);
+            return make_expression<SinUnaryExpression>(loc, std::move(e));
         case tok_log :
-            return new LogUnaryExpression(loc, e);
+            return make_expression<LogUnaryExpression>(loc, std::move(e));
        default :
             std::cerr << yellow(token_string(op))
                       << " is not a valid unary operator"
@@ -748,35 +775,39 @@ Expression* unary_expression( Location loc,
     return nullptr;
 }
 
-Expression* binary_expression( TOK op,
-                               Expression* lhs,
-                               Expression* rhs) {
-    return binary_expression(Location(), op, lhs, rhs);
+expression_ptr binary_expression( TOK op,
+                                  expression_ptr&& lhs,
+                                  expression_ptr&& rhs
+                                )
+{
+    return binary_expression(Location(), op, std::move(lhs), std::move(rhs));
 }
 
-Expression* binary_expression( Location loc,
-                               TOK op,
-                               Expression* lhs,
-                               Expression* rhs) {
+expression_ptr binary_expression(Location loc,
+                                 TOK op,
+                                 expression_ptr&& lhs,
+                                 expression_ptr&& rhs
+                                )
+{
     switch(op) {
         case tok_eq     :
-            return new AssignmentExpression(loc, lhs, rhs);
+            return make_expression<AssignmentExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_plus   :
-            return new AddBinaryExpression(loc, lhs, rhs);
+            return make_expression<AddBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_minus  :
-            return new SubBinaryExpression(loc, lhs, rhs);
+            return make_expression<SubBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_times  :
-            return new MulBinaryExpression(loc, lhs, rhs);
+            return make_expression<MulBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_divide :
-            return new DivBinaryExpression(loc, lhs, rhs);
+            return make_expression<DivBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_pow    :
-            return new PowBinaryExpression(loc, lhs, rhs);
+            return make_expression<PowBinaryExpression>(loc, std::move(lhs), std::move(rhs));
         case tok_lt     :
         case tok_lte    :
         case tok_gt     :
         case tok_gte    :
         case tok_EQ     :
-            return new ConditionalExpression(loc, op, lhs, rhs);
+            return make_expression<ConditionalExpression>(loc, op, std::move(lhs), std::move(rhs));
         default         :
             std::cerr << yellow(token_string(op))
                       << " is not a valid binary operator"

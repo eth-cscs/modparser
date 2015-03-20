@@ -12,9 +12,9 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     // and a list of all scalar types
     std::vector<VariableExpression*> scalar_variables;
     std::vector<VariableExpression*> array_variables;
-    for(auto sym: m.symbols()) {
-        if(sym.second.kind==k_symbol_variable) {
-            auto var = sym.second.expression->is_variable();
+    for(auto& sym: m.symbols()) {
+        if(sym.second->kind()==k_symbol_variable) {
+            auto var = sym.second->is_variable();
             if(var->is_range()) {
                 array_variables.push_back(var);
             }
@@ -90,10 +90,10 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
         increase_indentation();
         // forward declarations of procedures
         for(auto const &var : m.symbols()) {
-            if(   var.second.kind==k_symbol_procedure
-            && var.second.expression->is_procedure()->kind() == k_proc_normal)
+            if(   var.second->kind()==k_symbol_procedure
+            && var.second->is_procedure()->kind() == k_proc_normal)
             {
-                print_procedure_prototype(var.second.expression->is_procedure());
+                print_procedure_prototype(var.second->is_procedure());
                 text_.end_line(";");
                 text_.add_line();
             }
@@ -104,10 +104,10 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
         auto proctest = [] (procedureKind k) {return k == k_proc_normal
                                                   || k == k_proc_api;   };
         for(auto const &var : m.symbols()) {
-            if(   var.second.kind==k_symbol_procedure
-            && proctest(var.second.expression->is_procedure()->kind()))
+            if(   var.second->kind()==k_symbol_procedure
+            && proctest(var.second->is_procedure()->kind()))
             {
-                var.second.expression->accept(this);
+                var.second->accept(this);
             }
         }
         decrease_indentation();
@@ -223,10 +223,10 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
 
     auto proctest = [] (procedureKind k) {return k == k_proc_api;};
     for(auto const &var : m.symbols()) {
-        if(   var.second.kind==k_symbol_procedure
-        && proctest(var.second.expression->is_procedure()->kind()))
+        if(   var.second->kind()==k_symbol_procedure
+        && proctest(var.second->is_procedure()->kind()))
         {
-            auto proc = var.second.expression->is_api_method();
+            auto proc = var.second->is_api_method();
             auto name = proc->name();
             text_ << "  void " << name << "() {\n";
             text_ << "    auto n = size();\n";
@@ -272,11 +272,13 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
 }
 
 void CUDAPrinter::visit(Expression *e) {
-    std::cout << "CUDAPrinter :: error printing : " << e->to_string() << std::endl;
+    std::cout << red("error ") << " CUDAPrinter "
+              << "doesn't know how to print the expression : "
+              << std::endl << "  " << e->to_string() << std::endl;
     assert(false);
 }
 
-void CUDAPrinter::visit(LocalExpression *e) {
+void CUDAPrinter::visit(LocalDeclaration *e) {
 }
 
 void CUDAPrinter::visit(NumberExpression *e) {
@@ -284,12 +286,11 @@ void CUDAPrinter::visit(NumberExpression *e) {
 }
 
 void CUDAPrinter::visit(IdentifierExpression *e) {
-    if(auto var = e->variable()) {
-        var->accept(this);
-    }
-    else {
-        text_ << e->name();
-    }
+    e->symbol()->accept(this);
+}
+
+void CUDAPrinter::visit(Symbol *e) {
+    text_ << e->name();
 }
 
 void CUDAPrinter::visit(VariableExpression *e) {
@@ -299,11 +300,11 @@ void CUDAPrinter::visit(VariableExpression *e) {
     }
 }
 
-std::string CUDAPrinter::index_string(Expression *e) {
-    if(e->is_variable()) {
+std::string CUDAPrinter::index_string(Symbol *s) {
+    if(s->is_variable()) {
         return "tid_";
     }
-    else if(auto var = e->is_indexed_variable()) {
+    else if(auto var = s->is_indexed_variable()) {
         switch(var->ion_channel()) {
             case k_ion_none :
                 return "gid_";
@@ -371,15 +372,15 @@ void CUDAPrinter::visit(BlockExpression *e) {
     // only if this is the outer block
     if(!e->is_nested()) {
         std::vector<std::string> names;
-        for(auto var : e->scope()->locals()) {
-            if(var.second.kind == k_symbol_local) {
+        for(auto& var : e->scope()->locals()) {
+            if(var.second->kind() == k_symbol_local) {
                 text_.add_line("auto " + var.first + " = T{0};");
             }
         }
     }
 
     // ------------- statements ------------- //
-    for(auto stmt : e->body()) {
+    for(auto& stmt : e->body()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -408,7 +409,7 @@ void CUDAPrinter::print_procedure_prototype(ProcedureExpression *e) {
     text_.add_gutter() << "void " << e->name()
                        << "(" << module_->name() << "_ParamPack<T,I> const& params_,"
                        << "const int tid_";
-    for(auto arg : e->args()) {
+    for(auto& arg : e->args()) {
         text_ << ", T " << arg->is_argument()->name();
     }
     text_ << ")";
@@ -471,10 +472,10 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
 
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
-    std::vector<MemOp*> aliased_variables;
+    std::vector<APIMethod::memop_type*> aliased_variables;
     if(is_point_process) {
         for(auto &out : e->outputs()) {
-            if(out.local.kind == k_symbol_ghost) {
+            if(out.local->kind() == k_symbol_ghost) {
                 aliased_variables.push_back(&out);
             }
         }
@@ -482,7 +483,7 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
 
     // declare local variables
     for(auto &var: aliased_variables) {
-        auto const& name = var->local.expression->is_identifier()->name();
+        auto const& name = var->local->name();
         text_.add_line("auto " + name + " = T{0};");
     }
 
@@ -491,7 +492,7 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     auto uses_na = false;
     auto uses_ca = false;
     for(auto &in : e->inputs()) {
-        auto ch = in.external.expression->is_indexed_variable()->ion_channel();
+        auto ch = in.external->is_indexed_variable()->ion_channel();
         if(!uses_k   && (uses_k  = (ch == k_ion_K)) )
             text_.add_line("auto kid_  = params_.ion_k_idx_[tid_];");
         if(!uses_ca  && (uses_ca = (ch == k_ion_Ca)) )
@@ -505,9 +506,9 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     // insert loads from external state
     for(auto &in : e->inputs()) {
         text_.add_gutter();
-        in.local.expression->accept(this);
+        in.local->accept(this);
         text_ << " = ";
-        in.external.expression->accept(this);
+        in.external->accept(this);
         text_.end_line(";");
     }
 
@@ -521,19 +522,19 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     for(auto &out : e->outputs()) {
         text_.add_gutter();
         if(!is_point_process) {
-            out.external.expression->accept(this);
+            out.external->accept(this);
             text_ << (out.op==tok_plus ? " += " : " -= ");
-            out.local.expression->accept(this);
+            out.local->accept(this);
         }
         else {
-            auto ext = out.external.expression->is_indexed_variable();
+            auto ext = out.external->is_indexed_variable();
             // for now we assume that only matrix variables are updated in this manner
             assert(ext->ion_channel() == k_ion_none);
 
             text_ << (out.op==tok_plus ? "atomicAdd" : "atomicSub") << "(&";
             ext->accept(this);
             text_ << ", ";
-            out.local.expression->accept(this);
+            out.local->accept(this);
             text_ << ")";
         }
         text_.end_line(";");

@@ -11,7 +11,7 @@ void ErrorVisitor::visit(Expression *e) {
 
 // traverse the statements in a procedure
 void ErrorVisitor::visit(ProcedureExpression *e) {
-    for(auto expression : e->args()) {
+    for(auto& expression : e->args()) {
         expression->accept(this);
     }
 
@@ -21,7 +21,7 @@ void ErrorVisitor::visit(ProcedureExpression *e) {
 
 // traverse the statements in a function
 void ErrorVisitor::visit(FunctionExpression *e) {
-    for(auto expression : e->args()) {
+    for(auto& expression : e->args()) {
         expression->accept(this);
     }
 
@@ -40,7 +40,7 @@ void ErrorVisitor::visit(IfExpression *e) {
 }
 
 void ErrorVisitor::visit(BlockExpression* e) {
-    for(auto expression : e->body()) {
+    for(auto& expression : e->body()) {
         expression->accept(this);
     }
 
@@ -48,7 +48,7 @@ void ErrorVisitor::visit(BlockExpression* e) {
 }
 
 void ErrorVisitor::visit(InitialBlock* e) {
-    for(auto expression : e->body()) {
+    for(auto& expression : e->body()) {
         expression->accept(this);
     }
 
@@ -70,7 +70,7 @@ void ErrorVisitor::visit(BinaryExpression *e) {
 
 // binary expresssion
 void ErrorVisitor::visit(CallExpression *e) {
-    for(auto expression: e->args()) {
+    for(auto& expression: e->args()) {
         expression->accept(this);
     }
     print_error(e);

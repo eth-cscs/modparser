@@ -20,11 +20,12 @@ public:
     void visit(VariableExpression *e)   override;
     void visit(IndexedVariable *e)      override;
 
+    void visit(Symbol *e)               override;
     void visit(IdentifierExpression *e) override;
     void visit(CallExpression *e)       override;
     void visit(ProcedureExpression *e)  override;
     void visit(APIMethod *e)            override;
-    void visit(LocalExpression *e)      override;
+    void visit(LocalDeclaration *e)      override;
     //void visit(FunctionExpression *e)   override;
     void visit(BlockExpression *e)      override;
     void visit(IfExpression *e)         override;
@@ -49,7 +50,7 @@ private:
     Module *module_ = nullptr;
     TOK parent_op_ = tok_eq;
     TextBuffer text_;
-    bool optimize_ = false;
+    //bool optimize_ = false;
     bool on_lhs_ = false;
     bool on_load_store_ = false;
 };

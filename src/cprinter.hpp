@@ -20,11 +20,12 @@ public:
     void visit(VariableExpression *e)   override;
     void visit(IndexedVariable *e)      override;
 
+    void visit(Symbol *e)               override;
     void visit(IdentifierExpression *e) override;
     void visit(CallExpression *e)       override;
     void visit(ProcedureExpression *e)  override;
     void visit(APIMethod *e)            override;
-    void visit(LocalExpression *e)      override;
+    void visit(LocalDeclaration *e)      override;
     //void visit(FunctionExpression *e)   override;
     void visit(BlockExpression *e)      override;
     void visit(IfExpression *e)         override;
