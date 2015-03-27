@@ -5,8 +5,8 @@
 class compiler_exception : public std::exception {
 public:
     compiler_exception(std::string m, Location location)
-    :   message_(std::move(m)),
-        location_(location)
+    :   location_(location),
+        message_(std::move(m))
     {}
 
     virtual const char* what() const throw() {

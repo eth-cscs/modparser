@@ -302,14 +302,12 @@ bool Module::semantic() {
             }
 
             // get a reference to the empty body of the init function
-            bool has_derivaties = false;
             auto& body = proc_state->body()->body();
             for(auto& e : *(dblock->body())) {
                 if(auto ass = e->is_assignment()) {
                     auto lhs = ass->lhs();
                     auto rhs = ass->rhs();
                     if(auto deriv = lhs->is_derivative()) {
-                        has_derivaties = true;
                         auto sym  = deriv->symbol();
                         auto name = deriv->name();
 
