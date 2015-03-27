@@ -67,5 +67,5 @@ If no ouput file is specified, as above, the generated code is written to stdout
 To use the compiler to generate the mechanism headers for the benchmark example @ github.com/eth-cscs/mod2c-perf, you will want to add the mod2c target to your PATH, e.g.
 ```
 cd bin
-export PATH=`pwd`
+export PATH=`pwd`:$PATH
 ```
