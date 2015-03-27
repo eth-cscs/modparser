@@ -25,6 +25,7 @@ export CC=`which clang`
 export CXX=`which clang++`
 cmake .
 make all
+```
 
 ```make all``` will build two targets: the ```bin/modcc``` executable for the compiler, and the unit tests ```tests/test_compiler```.
 
