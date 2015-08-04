@@ -93,13 +93,15 @@ enum symbolKind {
 std::string to_string(symbolKind k);
 
 /// methods for time stepping state
-enum solverMethod {
-    k_cnexp // the only method we have at the moment
+enum class solverMethod {
+    cnexp, // the only method we have at the moment
+    none
 };
 
 static std::string to_string(solverMethod m) {
     switch(m) {
-        case k_cnexp : return std::string("cnexp");
+        case solverMethod::cnexp : return std::string("cnexp");
+        case solverMethod::none  : return std::string("none");
     }
     return std::string("<error : undefined solverMethod>");
 }

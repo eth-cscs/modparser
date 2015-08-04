@@ -106,24 +106,47 @@ TEST(Parser, function) {
 }
 
 TEST(Parser, parse_solve) {
-    Parser p("SOLVE states METHOD cnexp");
-    auto e = p.parse_solve();
+    {
+        Parser p("SOLVE states METHOD cnexp");
+        auto e = p.parse_solve();
 
 #ifdef VERBOSE_TEST
-    if(e) std::cout << e->to_string() << std::endl;
+        if(e) std::cout << e->to_string() << std::endl;
 #endif
-    EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), k_compiler_happy);
 
-    if(e) {
-        SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
-        EXPECT_EQ(s->method(), k_cnexp);
-        EXPECT_EQ(s->name(), "states");
+        if(e) {
+            SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
+            EXPECT_EQ(s->method(), solverMethod::cnexp);
+            EXPECT_EQ(s->name(), "states");
+        }
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==k_compiler_error) {
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        }
     }
+    {
+        Parser p("SOLVE states");
+        auto e = p.parse_solve();
 
-    // always print the compiler errors, because they are unexpected
-    if(p.status()==k_compiler_error) {
-        std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), k_compiler_happy);
+
+        if(e) {
+            SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
+            EXPECT_EQ(s->method(), solverMethod::none);
+            EXPECT_EQ(s->name(), "states");
+        }
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==k_compiler_error) {
+            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        }
     }
 }
 

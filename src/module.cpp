@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -101,21 +102,6 @@ bool Module::semantic() {
         std::cerr << red("error: ") << error_string_ << std::endl;
     }
 
-    auto add_proc_or_func = [this] (symbol_ptr&& symbol) {
-        bool is_found = (symbols_.find(symbol->name()) != symbols_.end());
-        if(is_found) {
-            error(
-                pprintf("'%' clashes with previously defined symbol",
-                        symbol->name()),
-                symbol->location()
-            );
-            return false;
-        }
-        // add symbol to table
-        symbols_[symbol->name()] = std::move(symbol);
-        return true;
-    };
-
     // Helper which iterates over a vector of Symbols, inserting them into the
     // symbol table if they have not already been inserted.
     // Returns false if the list contains a symbol that is already in the
@@ -137,7 +123,7 @@ bool Module::semantic() {
         return true;
     };
 
-    // add functions and procedures
+    // add functions and procedures to symbol table
     if(!add_symbols(functions_))  return false;
     if(!add_symbols(procedures_)) return false;
 
@@ -145,7 +131,7 @@ bool Module::semantic() {
     // now iterate over the functions and procedures and perform semantic
     // analysis on each. This includes
     //  -   variable, function and procedure lookup
-    //  -   generate local variable table
+    //  -   generate local variable table for each function/procedure
     ////////////////////////////////////////////////////////////////////////////
     int errors = 0;
     for(auto& e : symbols_) {
@@ -154,6 +140,7 @@ bool Module::semantic() {
         if( s->kind() == k_symbol_function || s->kind() == k_symbol_procedure ) {
             // first perform semantic analysis
             s->semantic(symbols_);
+
             // then use an error visitor to print out all the semantic errors
             ErrorVisitor* v = new ErrorVisitor(file_name());
             s->accept(v);
@@ -180,13 +167,15 @@ bool Module::semantic() {
     //          - generate new local symbols
     //      - inline procedures
     //          - localize variables
-    //
-    //  we can the do multiple rounds of constant folding, eliminating variables
-    //  as we go. The point of this would be that once performed, the arrays
-    //  hinf/minf in KdShy2007 would be indicated as being not used on rhs by
-    //  any methods, and thus as being safe for removal
     ////////////////////////////////////////////////////////////////////////////
 
+    // add_output and add_input are helpers for adding a MemOp to the output or
+    // input lists respectively for an APIMethod.
+    // The output and input lists are a tuple of variables, one local and one
+    // global, where the local variable is mapped onto the global variable using
+    // an index.
+    // An example is the voltage, v, which is a local variable read from the
+    // global array of voltages.
     auto add_output = []
         (APIMethod* p, TOK op, std::string const& local, std::string const& global)
     {
@@ -202,6 +191,7 @@ bool Module::semantic() {
         }
         p->outputs().push_back({op, l, g});
     };
+
     auto add_input = []
         (APIMethod* p, TOK op, std::string const& local, std::string const& global)
     {
@@ -218,6 +208,8 @@ bool Module::semantic() {
         p->inputs().push_back({op, l, g});
     };
 
+    // Look in the symbol table for a procedure with the name "initial".
+    // This symbol corresponds to the INITIAL block in the .mod file
     if( has_symbol("initial", k_symbol_procedure) ) {
         // clone the initial procedure
         auto initial = symbols_["initial"]->is_procedure();
@@ -253,6 +245,12 @@ bool Module::semantic() {
         error("an INITIAL block is required", Location());
         return false;
     }
+
+    // Look in the symbol table for a procedure with the name "breakpoint".
+    // This symbol corresponds to the BREAKPOINT block in the .mod file
+    // There are two APIMethods generated from BREAKPOINT.
+    // The first is nrn_state, which is the first case handled below.
+    // The second is nrn_current, which is handled after this block
     if( has_symbol("breakpoint", k_symbol_procedure) ) {
         auto breakpoint = symbols_["breakpoint"]->is_procedure();
         auto loc = breakpoint->location();
@@ -262,41 +260,36 @@ bool Module::semantic() {
             return make_expression<IdentifierExpression>(Location(), name);
         };
         //..........................................................
-        //..........................................................
         // nrn_state : The temporal integration of state variables
-        //..........................................................
         //..........................................................
 
         // find the SOLVE statement
-        SolveExpression* sexp = nullptr;
+        SolveExpression* solve_expression = nullptr;
         for(auto& e: *(breakpoint->body())) {
-            sexp = e->is_solve_statement();
-            if(sexp) break;
+            solve_expression = e->is_solve_statement();
+            if(solve_expression) break;
         }
 
         // handle the case where there is no SOLVE in BREAKPOINT
-        if( sexp==nullptr ) {
+        if( solve_expression==nullptr ) {
             std::cout << purple("warning:")
                       << " there is no SOLVE statement, required to update the"
                       << " state variables, in the BREAKPOINT block"
                       << std::endl;
-            auto proc_state =
-                new APIMethod(
+            // create an empty nrn_state method
+            auto proc_state = new APIMethod(
                         loc,
                         "nrn_state",
                         {},
                         make_expression<BlockExpression>
                             (loc, std::list<expression_ptr>(), false)
                     );
-
-            // perform semantic analysis for init
             proc_state->semantic(symbols_);
-
             symbols_["nrn_state"] = symbol_ptr{proc_state};
         }
         else {
             // get the DERIVATIVE block
-            auto dblock = sexp->procedure();
+            auto dblock = solve_expression->procedure();
             auto proc_state =
                 new APIMethod(
                         dblock->location(),
@@ -305,24 +298,44 @@ bool Module::semantic() {
                         make_expression<BlockExpression>
                             (loc, std::list<expression_ptr>(), false)
                     );
-            // check for symbol clash
+            // check that nrn_state has not already been defined as a function
+            // or procedure name elsewhere in the mod file
             if( symbols_.find("nrn_state")!=symbols_.end() ) {
                 error("'nrn_state' clashes with reserved name, please rename it",
                       loc);
                 return false;
             }
 
-            // get a reference to the empty body of the init function
+            // body refers to the currently empty body of the APIMethod that
+            // will hold the AST for the nrn_state function.
             auto& body = proc_state->body()->body();
+
+            auto has_provided_integration_method =
+                solve_expression->method() == solverMethod::cnexp;
+
+            // loop over the statements in the SOLVE block from the mod file
+            // put each statement into the new APIMethod, performing
+            // transformations if necessary.
             for(auto& e : *(dblock->body())) {
                 if(auto ass = e->is_assignment()) {
                     auto lhs = ass->lhs();
                     auto rhs = ass->rhs();
                     if(auto deriv = lhs->is_derivative()) {
+                        // Check that a METHOD was provided in the original SOLVE
+                        // statment. We have to do this because it is possible
+                        // to call SOLVE without a METHOD, in which case there should
+                        // be no derivative expressions in the DERIVATIVE block.
+                        if(!has_provided_integration_method) {
+                            error("The DERIVATIVE block has a derivative expression"
+                                  " but no METHOD was specified in the SOLVE statement",
+                                  deriv->location());
+                            return false;
+                        }
+
                         auto sym  = deriv->symbol();
                         auto name = deriv->name();
 
-                        // create visitor for lineary analysis
+                        // create visitor for linear analysis
                         auto v = make_unique<ExpressionClassifierVisitor>(sym);
 
                         // analyse the rhs
@@ -336,14 +349,14 @@ bool Module::semantic() {
                         }
 
                         // the linear differential equation is of the form
-                        // s' = a*s + b
+                        //      s' = a*s + b
                         // integration by separation of variables gives the following
                         // update function to integrate s for one time step dt
-                        // s = -b/a + (s+b/a)*exp(a*dt)
+                        //      s = -b/a + (s+b/a)*exp(a*dt)
                         // we are going to build this update function by
                         //  1. generating statements that define a_=a and ba_=b/a
                         //  2. generating statements that update the solution
-                        // TODO : pass without cloning?
+
                         // statement : a_ = a
                         auto stmt_a  =
                             binary_expression(Location(),
@@ -382,7 +395,11 @@ bool Module::semantic() {
                 body.push_back(e->clone());
             }
 
+            // add the nrn_state APIMethod to the symbol table
             symbols_["nrn_state"] = symbol_ptr{proc_state};
+            // semantic analysis is required, because this procedure was just
+            // created, so semantic analysis was not performed for it in the
+            // earlier semantic analysis phase
             proc_state->semantic(symbols_);
 
             // set input vec_v
@@ -390,17 +407,16 @@ bool Module::semantic() {
         }
 
         //..........................................................
-        //..........................................................
         // nrn_current : update contributions to currents
-        //..........................................................
         //..........................................................
         std::list<expression_ptr> block;
 
+        // helper which tests a statement to see if it updates an ion
+        // channel variable.
         auto is_ion_update = [] (Expression* e) -> VariableExpression* {
             if(auto a = e->is_assignment()) {
                 // semantic analysis has been performed on the original expression
-                // which means that the lhs is an identifier, and that it is a variable
-                // because it has to be 
+                // which ensures that the lhs is an identifier and a variable
                 if(auto var = a->lhs()->is_identifier()->symbol()->is_variable()) {
                     return var ? (var->is_ion() ? var : nullptr)
                                : nullptr;
@@ -458,9 +474,6 @@ bool Module::semantic() {
                 update_current = true;
             }
         }
-        //if(update_current) {
-        //    block.push_back(Parser("g_ = conductance_").parse_line_expression());
-        //}
         auto v = make_unique<ConstantFolderVisitor>();
         for(auto& e : block) {
             e->accept(v.get());

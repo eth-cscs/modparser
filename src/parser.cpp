@@ -1099,6 +1099,9 @@ expression_ptr Parser::parse_local() {
 /// parse a SOLVE statement
 /// a SOLVE statement specifies a procedure and a method
 ///     SOLVE procedure METHOD method
+/// we also support SOLVE statements without a METHOD clause
+/// for backward compatability with performance hacks that
+/// are implemented in some key mod files (i.e. Prob* synapses)
 expression_ptr Parser::parse_solve() {
     int line = location_.line;
     Location loc = location_; // solve location for expression
@@ -1112,17 +1115,16 @@ expression_ptr Parser::parse_solve() {
     name = token_.spelling; // save name of procedure
     get_token(); // consume the procedure identifier
 
-    if(token_.type != tok_method) goto solve_statment_error;
+    if(token_.type != tok_method) { // no method was provided
+        method = solverMethod::none;
+    }
+    else {
+        get_token(); // consume the METHOD keyword
+        if(token_.type != tok_cnexp) goto solve_statment_error;
+        method = solverMethod::cnexp;
 
-    get_token(); // consume the METHOD keyword
-
-    // for now the parser only knows the cnexp method, because that is the only
-    // method used by the modules in CoreNeuron
-    if(token_.type != tok_cnexp) goto solve_statment_error;
-    method = k_cnexp;
-
-    get_token(); // consume the method description
-
+        get_token(); // consume the method description
+    }
     // check that the rest of the line was empty
     if(line == location_.line) {
         if(token_.type != tok_eof) goto solve_statment_error;
@@ -1133,6 +1135,8 @@ expression_ptr Parser::parse_solve() {
 solve_statment_error:
     error( "SOLVE statements must have the form\n"
            "  SOLVE x METHOD cnexp\n"
+           "    or\n"
+           "  SOLVE x\n"
            "where 'x' is the name of a DERIVATIVE block", loc);
     return nullptr;
 }
