@@ -19,7 +19,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
                 array_variables.push_back(var);
             }
             else {
-                scalar_variables.push_back(var);
+                scalar_variables.push_back(var) ;
             }
         }
     }
