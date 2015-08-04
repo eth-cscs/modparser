@@ -101,34 +101,45 @@ bool Module::semantic() {
         std::cerr << red("error: ") << error_string_ << std::endl;
     }
 
+    auto add_proc_or_func = [this] (symbol_ptr&& symbol) {
+        bool is_found = (symbols_.find(symbol->name()) != symbols_.end());
+        if(is_found) {
+            error(
+                pprintf("'%' clashes with previously defined symbol",
+                        symbol->name()),
+                symbol->location()
+            );
+            return false;
+        }
+        // add symbol to table
+        symbols_[symbol->name()] = std::move(symbol);
+        return true;
+    };
+
+    // Helper which iterates over a vector of Symbols, inserting them into the
+    // symbol table if they have not already been inserted.
+    // Returns false if the list contains a symbol that is already in the
+    // symbol table.
+    auto add_symbols = [this] (std::vector<symbol_ptr>& symbol_list) {
+        for(auto& symbol: symbol_list) {
+            bool is_found = (symbols_.find(symbol->name()) != symbols_.end());
+            if(is_found) {
+                error(
+                    pprintf("'%' clashes with previously defined symbol",
+                            symbol->name()),
+                    symbol->location()
+                );
+                return false;
+            }
+            // add symbol to table
+            symbols_[symbol->name()] = std::move(symbol);
+        }
+        return true;
+    };
+
     // add functions and procedures
-    for(auto& f: functions_) {
-        // check to see if the symbol has already been defined
-        bool is_found = (symbols_.find(f->name()) != symbols_.end());
-        if(is_found) {
-            error(
-                pprintf("function '%' clashes with previously defined symbol",
-                        f->name()),
-                f->location()
-            );
-            return false;
-        }
-        // add symbol to table
-        symbols_[f->name()] = std::move(f);
-    }
-    for(auto& proc: procedures_) {
-        bool is_found = (symbols_.find(proc->name()) != symbols_.end());
-        if(is_found) {
-            error(
-                pprintf("procedure '%' clashes with previously defined symbol",
-                        proc->name()),
-                proc->location()
-            );
-            return false;
-        }
-        // add symbol to table
-        symbols_[proc->name()] = std::move(proc);
-    }
+    if(!add_symbols(functions_))  return false;
+    if(!add_symbols(procedures_)) return false;
 
     ////////////////////////////////////////////////////////////////////////////
     // now iterate over the functions and procedures and perform semantic
