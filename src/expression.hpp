@@ -755,7 +755,7 @@ public:
     :   BlockExpression(loc, std::move(body), true)
     {}
 
-    std::string to_string() const;
+    std::string to_string() const override;
 
     // currently we use the semantic for a BlockExpression
     // this could be overriden to check for statements
@@ -840,7 +840,7 @@ public:
         op_(op)
     {}
 
-    std::string to_string() const {
+    std::string to_string() const override {
         return pprintf("(% %)", green(token_string(op_)), expression_->to_string());
     }
 
@@ -936,7 +936,7 @@ public:
     expression_ptr clone() const override;
     void replace_rhs(expression_ptr&& other);
     void replace_lhs(expression_ptr&& other);
-    std::string to_string() const;
+    std::string to_string() const override;
     void accept(Visitor *v) override;
 };
 

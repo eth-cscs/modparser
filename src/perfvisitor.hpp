@@ -85,7 +85,7 @@ public:
     // leave UnaryExpression throw an exception, to catch
     // any missed specializations
     ////////////////////////////////////////////////////
-    void visit(BinaryExpression *e) {
+    void visit(BinaryExpression *e) override {
         // there must be a specialization of the flops counter for every type
         // of binary expression: if we get here there has been an attempt to
         // visit a binary expression for which no visitor is implemented
@@ -93,30 +93,30 @@ public:
             "PerfVisitor unable to analyse binary expression " + e->to_string(),
             e->location());
     }
-    void visit(AssignmentExpression *e) {
+    void visit(AssignmentExpression *e) override {
         e->rhs()->accept(this);
     }
-    void visit(AddBinaryExpression *e)  {
+    void visit(AddBinaryExpression *e)  override {
         e->lhs()->accept(this);
         e->rhs()->accept(this);
         flops.add++;
     }
-    void visit(SubBinaryExpression *e)  {
+    void visit(SubBinaryExpression *e)  override {
         e->lhs()->accept(this);
         e->rhs()->accept(this);
         flops.sub++;
     }
-    void visit(MulBinaryExpression *e)  {
+    void visit(MulBinaryExpression *e)  override {
         e->lhs()->accept(this);
         e->rhs()->accept(this);
         flops.mul++;
     }
-    void visit(DivBinaryExpression *e)  {
+    void visit(DivBinaryExpression *e)  override {
         e->lhs()->accept(this);
         e->rhs()->accept(this);
         flops.div++;
     }
-    void visit(PowBinaryExpression *e)  {
+    void visit(PowBinaryExpression *e)  override {
         e->lhs()->accept(this);
         e->rhs()->accept(this);
         flops.pow++;
