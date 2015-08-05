@@ -62,7 +62,7 @@ public :
     std::string const& error_string() {
         return error_string_;
     }
-    LStat status() const {
+    lexerStatus status() const {
         return status_;
     }
     moduleKind kind() const {
@@ -84,7 +84,7 @@ private :
 
     // error handling
     std::string error_string_;
-    LStat status_ = k_compiler_happy;
+    lexerStatus status_ = lexerStatus::happy;
 
     // AST storage
     std::vector<symbol_ptr> procedures_;

@@ -70,13 +70,13 @@ Module::symbols() const {
 
 void Module::error(std::string const& msg, Location loc) {
     std::string location_info = pprintf("%:% ", file_name(), loc);
-    if(status_==k_compiler_error) {
+    if(status_==lexerStatus::error) {
         // append to current string
         error_string_ += "\n" + white(location_info) + msg;
     }
     else {
         error_string_ = white(location_info) + msg;
-        status_ = k_compiler_error;
+        status_ = lexerStatus::error;
     }
 }
 
@@ -98,7 +98,7 @@ bool Module::semantic() {
     // Don't quit if there is an error, instead continue with the
     // semantic analysis so that error messages for other errors can
     // be displayed
-    if(status() == k_compiler_error) {
+    if(status() == lexerStatus::error) {
         std::cerr << red("error: ") << error_string_ << std::endl;
     }
 
@@ -137,7 +137,7 @@ bool Module::semantic() {
     for(auto& e : symbols_) {
         auto& s = e.second;
 
-        if( s->kind() == k_symbol_function || s->kind() == k_symbol_procedure ) {
+        if( s->kind() == symbolKind::function || s->kind() == symbolKind::procedure ) {
             // first perform semantic analysis
             s->semantic(symbols_);
 
@@ -152,7 +152,7 @@ bool Module::semantic() {
     if(errors) {
         std::cout << "\nthere were " << errors
                   << " errors in the semantic analysis" << std::endl;
-        status_ = k_compiler_error;
+        status_ = lexerStatus::error;
         return false;
     }
 
@@ -177,7 +177,7 @@ bool Module::semantic() {
     // An example is the voltage, v, which is a local variable read from the
     // global array of voltages.
     auto add_output = []
-        (APIMethod* p, TOK op, std::string const& local, std::string const& global)
+        (APIMethod* p, tok op, std::string const& local, std::string const& global)
     {
         auto l = p->scope()->find(local);
         auto g = p->scope()->find_global(global);
@@ -193,7 +193,7 @@ bool Module::semantic() {
     };
 
     auto add_input = []
-        (APIMethod* p, TOK op, std::string const& local, std::string const& global)
+        (APIMethod* p, tok op, std::string const& local, std::string const& global)
     {
         auto l = p->scope()->find(local);
         auto g = p->scope()->find_global(global);
@@ -210,7 +210,7 @@ bool Module::semantic() {
 
     // Look in the symbol table for a procedure with the name "initial".
     // This symbol corresponds to the INITIAL block in the .mod file
-    if( has_symbol("initial", k_symbol_procedure) ) {
+    if( has_symbol("initial", symbolKind::procedure) ) {
         // clone the initial procedure
         auto initial = symbols_["initial"]->is_procedure();
         auto loc = initial->location();
@@ -239,7 +239,7 @@ bool Module::semantic() {
         proc_init->semantic(symbols_);
 
         // set input vec_v
-        proc_init->inputs().push_back({tok_eq, proc_init->scope()->find("v"), symbols_["vec_v"].get()});
+        proc_init->inputs().push_back({tok::eq, proc_init->scope()->find("v"), symbols_["vec_v"].get()});
     }
     else {
         error("an INITIAL block is required", Location());
@@ -251,7 +251,7 @@ bool Module::semantic() {
     // There are two APIMethods generated from BREAKPOINT.
     // The first is nrn_state, which is the first case handled below.
     // The second is nrn_current, which is handled after this block
-    if( has_symbol("breakpoint", k_symbol_procedure) ) {
+    if( has_symbol("breakpoint", symbolKind::procedure) ) {
         auto breakpoint = symbols_["breakpoint"]->is_procedure();
         auto loc = breakpoint->location();
 
@@ -342,7 +342,7 @@ bool Module::semantic() {
                         rhs->accept(v.get());
 
                         // quit if ODE is not linear
-                        if( v->classify() != k_expression_lin ) {
+                        if( v->classify() != expressionClassification::linear ) {
                             error("unable to integrate nonlinear state ODEs",
                                   rhs->location());
                             return false;
@@ -360,18 +360,18 @@ bool Module::semantic() {
                         // statement : a_ = a
                         auto stmt_a  =
                             binary_expression(Location(),
-                                              tok_eq,
+                                              tok::eq,
                                               id("a_"),
                                               v->linear_coefficient()->clone());
 
                         // expression : b/a
                         auto expr_ba =
                             binary_expression(Location(),
-                                              tok_divide,
+                                              tok::divide,
                                               v->constant_term()->clone(),
                                               id("a_"));
                         // statement  : ba_ = b/a
-                        auto stmt_ba = binary_expression(Location(), tok_eq, id("ba_"), std::move(expr_ba));
+                        auto stmt_ba = binary_expression(Location(), tok::eq, id("ba_"), std::move(expr_ba));
 
                         // the update function
                         auto e_string = name + "  = -ba_ + "
@@ -403,7 +403,7 @@ bool Module::semantic() {
             proc_state->semantic(symbols_);
 
             // set input vec_v
-            add_input(proc_state, tok_eq, "v", "vec_v");
+            add_input(proc_state, tok::eq, "v", "vec_v");
         }
 
         //..........................................................
@@ -445,7 +445,7 @@ bool Module::semantic() {
                 auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
                 rhs->accept(v.get());
 
-                if(v->classify()==k_expression_lin) {
+                if(v->classify()==expressionClassification::linear) {
                     block.emplace_back(Parser("LOCAL current_").parse_local());
                     block.emplace_back(Parser("LOCAL conductance_").parse_local());
 
@@ -454,9 +454,9 @@ bool Module::semantic() {
                     block.emplace_back(Parser(e_string).parse_line_expression());
 
                     auto g_stmt =
-                        binary_expression(tok_eq,
+                        binary_expression(tok::eq,
                                           id("conductance_"),
-                                          binary_expression(tok_plus,
+                                          binary_expression(tok::plus,
                                                             id("conductance_"),
                                                             v->linear_coefficient()->clone()));
                     block.emplace_back(std::move(g_stmt));
@@ -468,7 +468,7 @@ bool Module::semantic() {
                 }
                 // nonspecific currents are not written out to an external
                 // ion channel
-                if(var->ion_channel()!=k_ion_nonspecific) {
+                if(var->ion_channel()!=ionKind::nonspecific) {
                     outputs.push_back(lhs->name());
                 }
                 update_current = true;
@@ -493,26 +493,26 @@ bool Module::semantic() {
         auto scp = proc_current->scope();
         // now set up the input/output tables with full semantic information
         for(auto &var: outputs) {
-            add_output(proc_current, tok_plus, var, "ion_"+var);
+            add_output(proc_current, tok::plus, var, "ion_"+var);
         }
 
         // only output contribution to RHS if there is one to make
         if(update_current) {
-            add_output(proc_current, tok_minus, "current_",     "vec_rhs");
-            add_output(proc_current, tok_plus,  "conductance_", "vec_d");
+            add_output(proc_current, tok::minus, "current_",     "vec_rhs");
+            add_output(proc_current, tok::plus,  "conductance_", "vec_d");
             if(outputs.size()>0) {
                 // only need input ionic values if external ion channel dependency
                 // assume that all input ion variables are used
                 for(auto& var: symbols_) {
                     auto e = var.second->is_variable();
                     if( e && e->is_ion() && e->is_readable()) {
-                        add_input(proc_current, tok_eq, e->name(), "ion_"+e->name());
+                        add_input(proc_current, tok::eq, e->name(), "ion_"+e->name());
                     }
                 }
             }
         }
         // set input vec_v
-        proc_current->inputs().push_back({tok_eq, scp->find("v"), symbols_["vec_v"].get()});
+        proc_current->inputs().push_back({tok::eq, scp->find("v"), symbols_["vec_v"].get()});
     }
     else {
         error("a BREAKPOINT block is required", Location());
@@ -540,7 +540,7 @@ bool Module::semantic() {
         }
     }
 
-    return status() == k_compiler_happy;
+    return status() == lexerStatus::happy;
 }
 
 /// populate the symbol table with class scope variables
@@ -548,37 +548,37 @@ void Module::add_variables_to_symbols() {
     // add reserved symbols (not v, because for some reason it has to be added
     // by the user)
     auto t = new VariableExpression(Location(), "t");
-    t->state(false);            t->linkage(k_local_link);
-    t->ion_channel(k_ion_none); t->range(k_scalar);
-    t->access(k_read);          t->visibility(k_global_visibility);
+    t->state(false);            t->linkage(linkageKind::local);
+    t->ion_channel(ionKind::none); t->range(rangeKind::scalar);
+    t->access(accessKind::read);          t->visibility(visibilityKind::global);
     symbols_["t"]    = symbol_ptr{t};
 
     auto dt = new VariableExpression(Location(), "dt");
-    dt->state(false);            dt->linkage(k_local_link);
-    dt->ion_channel(k_ion_none); dt->range(k_scalar);
-    dt->access(k_read);          dt->visibility(k_global_visibility);
+    dt->state(false);            dt->linkage(linkageKind::local);
+    dt->ion_channel(ionKind::none); dt->range(rangeKind::scalar);
+    dt->access(accessKind::read);          dt->visibility(visibilityKind::global);
     symbols_["dt"]    = symbol_ptr{dt};
 
     auto g_ = new VariableExpression(Location(), "g_");
-    g_->state(false);            g_->linkage(k_local_link);
-    g_->ion_channel(k_ion_none); g_->range(k_range);
-    g_->access(k_readwrite);     g_->visibility(k_global_visibility);
+    g_->state(false);            g_->linkage(linkageKind::local);
+    g_->ion_channel(ionKind::none); g_->range(rangeKind::range);
+    g_->access(accessKind::readwrite);     g_->visibility(visibilityKind::global);
     symbols_["g_"]    = symbol_ptr{g_};
 
     // add indexed variables to the table
     auto vec_rhs = new IndexedVariable(Location(), "vec_rhs");
-    vec_rhs->access(k_write);
-    vec_rhs->ion_channel(k_ion_none);
+    vec_rhs->access(accessKind::write);
+    vec_rhs->ion_channel(ionKind::none);
     symbols_["vec_rhs"] = symbol_ptr{vec_rhs};
 
     auto vec_d = new IndexedVariable(Location(), "vec_d");
-    vec_d->access(k_write);
-    vec_d->ion_channel(k_ion_none);
+    vec_d->access(accessKind::write);
+    vec_d->ion_channel(ionKind::none);
     symbols_["vec_d"] = symbol_ptr{vec_d};
 
     auto vec_v = new IndexedVariable(Location(), "vec_v");
-    vec_v->access(k_read);
-    vec_v->ion_channel(k_ion_none);
+    vec_v->access(accessKind::read);
+    vec_v->ion_channel(ionKind::none);
     symbols_["vec_v"] = symbol_ptr{vec_v};
 
     // add state variables
@@ -588,11 +588,11 @@ void Module::add_variables_to_symbols() {
         id->state(true);    // set state to true
         // state variables are private
         //      what about if the state variables is an ion concentration?
-        id->linkage(k_local_link);
-        id->visibility(k_local_visibility);
-        id->ion_channel(k_ion_none);    // no ion channel
-        id->range(k_range);             // always a range
-        id->access(k_readwrite);
+        id->linkage(linkageKind::local);
+        id->visibility(visibilityKind::local);
+        id->ion_channel(ionKind::none);    // no ion channel
+        id->range(rangeKind::range);             // always a range
+        id->access(accessKind::readwrite);
 
         symbols_[var] = symbol_ptr{id};
     }
@@ -603,24 +603,24 @@ void Module::add_variables_to_symbols() {
         VariableExpression *id = new VariableExpression(Location(), name);
 
         id->state(false);           // never a state variable
-        id->linkage(k_local_link);
+        id->linkage(linkageKind::local);
         // parameters are visible to Neuron
-        id->visibility(k_global_visibility);
-        id->ion_channel(k_ion_none);
+        id->visibility(visibilityKind::global);
+        id->ion_channel(ionKind::none);
         // scalar by default, may later be upgraded to range
-        id->range(k_scalar);
-        id->access(k_read);
+        id->range(rangeKind::scalar);
+        id->access(accessKind::read);
 
         // check for 'special' variables
         if(name == "v") { // global voltage values
-            id->linkage(k_extern_link);
-            id->range(k_range);
+            id->linkage(linkageKind::external);
+            id->range(rangeKind::range);
             // argh, the global version cannot be modified, however
             // the local ghost is sometimes modified
             // make this illegal, because it is probably sloppy programming
-            id->access(k_read);
+            id->access(accessKind::read);
         } else if(name == "celcius") { // global celcius parameter
-            id->linkage(k_extern_link);
+            id->linkage(linkageKind::external);
         }
 
         // set default value if one was specified
@@ -637,13 +637,13 @@ void Module::add_variables_to_symbols() {
         VariableExpression *id = new VariableExpression(Location(), name);
 
         id->state(false);           // never a state variable
-        id->linkage(k_local_link);
+        id->linkage(linkageKind::local);
         // local visibility by default
-        id->visibility(k_local_visibility);
-        id->ion_channel(k_ion_none); // can change later
+        id->visibility(visibilityKind::local);
+        id->ion_channel(ionKind::none); // can change later
         // ranges because these are assigned to in loop
-        id->range(k_range);
-        id->access(k_readwrite);
+        id->range(rangeKind::range);
+        id->access(accessKind::readwrite);
 
         symbols_[name] = symbol_ptr{id};
     }
@@ -671,9 +671,9 @@ void Module::add_variables_to_symbols() {
                        yellow(i.spelling)),
                    i.location); // location of definition
         }
-        id->access(k_readwrite);
-        id->visibility(k_global_visibility);
-        id->ion_channel(k_ion_nonspecific);
+        id->access(accessKind::readwrite);
+        id->visibility(visibilityKind::global);
+        id->ion_channel(ionKind::nonspecific);
     }
     for(auto const& ion : neuron_block().ions) {
         // assume that the ion channel variable has already been declared
@@ -690,13 +690,13 @@ void Module::add_variables_to_symbols() {
                 );
                 return;
             }
-            id->access(k_read);
-            id->visibility(k_global_visibility);
+            id->access(accessKind::read);
+            id->visibility(visibilityKind::global);
             id->ion_channel(ion.kind());
 
             // add the ion variable's indexed shadow
             auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
-            shadow_id->access(k_read);
+            shadow_id->access(accessKind::read);
             shadow_id->ion_channel(ion.kind());
             symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
         }
@@ -712,13 +712,13 @@ void Module::add_variables_to_symbols() {
                 );
                 return;
             }
-            id->access(k_write);
-            id->visibility(k_global_visibility);
+            id->access(accessKind::write);
+            id->visibility(visibilityKind::global);
             id->ion_channel(ion.kind());
 
             // add the ion variable's indexed shadow
             auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
-            shadow_id->access(k_write);
+            shadow_id->access(accessKind::write);
             shadow_id->ion_channel(ion.kind());
             symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
         }
@@ -738,7 +738,7 @@ void Module::add_variables_to_symbols() {
                 "unable to find symbol '" + var.spelling + "' in symbols",
                 Location());
         }
-        id->visibility(k_global_visibility);
+        id->visibility(visibilityKind::global);
     }
 
     // then RANGE variables
@@ -756,7 +756,7 @@ void Module::add_variables_to_symbols() {
                 "unable to find symbol '" + var.spelling + "' in symbols",
                 Location());
         }
-        id->range(k_range);
+        id->range(rangeKind::range);
     }
 }
 
@@ -768,17 +768,17 @@ bool Module::optimize() {
     for(auto &symbol : symbols_) {
         auto kind = symbol.second->kind();
         BlockExpression* body;
-        if(kind == k_symbol_procedure) {
+        if(kind == symbolKind::procedure) {
             // we are only interested in true procedurs and APIMethods
             auto proc = symbol.second->is_procedure();
             auto pkind = proc->kind();
-            if(pkind == k_proc_normal || pkind == k_proc_api )
+            if(pkind == procedureKind::normal || pkind == procedureKind::api )
                 body = symbol.second->is_procedure()->body();
             else
                 continue;
         }
         // for now don't look at functions
-        //else if(kind == k_symbol_function) {
+        //else if(kind == symbolKind::function) {
         //    body = symbol.second.expression->is_function()->body();
         //}
         else {
@@ -806,13 +806,13 @@ bool Module::optimize() {
         /////////////////////////////////////////////////////////////////////
         // tag ghost fields in APIMethods
         /////////////////////////////////////////////////////////////////////
-        if(kind == k_symbol_procedure) {
+        if(kind == symbolKind::procedure) {
             auto proc = symbol.second->is_api_method();
-            if(proc && this->kind()==k_module_point) {
+            if(proc && this->kind()==moduleKind::point) {
                 for(auto &out: proc->outputs()) {
                     // by definition the output has to be an indexed variable
-                    if(out.local->kind() == k_symbol_local) {
-                        out.local->set_kind(k_symbol_ghost);
+                    if(out.local->kind() == symbolKind::local) {
+                        out.local->set_kind(symbolKind::ghost);
                     }
                 }
             }

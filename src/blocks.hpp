@@ -11,19 +11,19 @@
 // describes a relationship with an ion channel
 struct IonDep {
     ionKind kind() const {
-        if(name=="k")  return k_ion_K;
-        if(name=="na") return k_ion_Na;
-        if(name=="ca") return k_ion_Ca;
-        return k_ion_none;
+        if(name=="k")  return ionKind::K;
+        if(name=="na") return ionKind::Na;
+        if(name=="ca") return ionKind::Ca;
+        return ionKind::none;
     }
     std::string name;               // name of ion channel
     std::vector<std::string> read;  // name of channels parameters to write
     std::vector<std::string> write; // name of channels parameters to read
 };
 
-enum moduleKind {
-    k_module_point,
-    k_module_density
+enum class moduleKind {
+    point,
+    density
 };
 
 // information stored in a NEURON {} block in mod file.
@@ -122,8 +122,12 @@ static std::ostream& operator<< (std::ostream& os, IonDep const& I) {
     return os << "(" << I.name << ": read " << I.read << " write " << I.write << ")";
 }
 
+static std::ostream& operator<< (std::ostream& os, moduleKind const& k) {
+    return os << (k==moduleKind::density ? "density" : "point process");
+}
+
 static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
-    os << colorize("NeuronBlock",kBlue)     << std::endl;
+    os << blue("NeuronBlock")     << std::endl;
     os << "  kind       : " << N.kind  << std::endl;
     os << "  name       : " << N.name  << std::endl;
     os << "  threadsafe : " << (N.threadsafe ? "yes" : "no") << std::endl;
@@ -135,27 +139,27 @@ static std::ostream& operator<< (std::ostream& os, NeuronBlock const& N) {
 }
 
 static std::ostream& operator<< (std::ostream& os, StateBlock const& B) {
-    os << colorize("StateBlock",kBlue)      << std::endl;
+    os << blue("StateBlock")      << std::endl;
     return os << "  variables  : " << B.state_variables << std::endl;
 
 }
 
 static std::ostream& operator<< (std::ostream& os, UnitsBlock const& U) {
-    os << colorize("UnitsBlock", kBlue)      << std::endl;
+    os << blue("UnitsBlock")      << std::endl;
     os << "  aliases    : "  << U.unit_aliases << std::endl;
 
     return os;
 }
 
 static std::ostream& operator<< (std::ostream& os, ParameterBlock const& P) {
-    os << colorize("ParameterBlock",kBlue)   << std::endl;
+    os << blue("ParameterBlock")   << std::endl;
     os << "  parameters : "  << P.parameters << std::endl;
 
     return os;
 }
 
 static std::ostream& operator<< (std::ostream& os, AssignedBlock const& A) {
-    os << colorize("AssignedBlock",kBlue)   << std::endl;
+    os << blue("AssignedBlock")   << std::endl;
     os << "  parameters : "  << A.parameters << std::endl;
 
     return os;

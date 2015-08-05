@@ -63,32 +63,32 @@ symbol_ptr make_symbol(Args&&... args) {
 }
 
 // helper functions for generating unary and binary expressions
-expression_ptr unary_expression(Location, TOK, expression_ptr&&);
-expression_ptr unary_expression(TOK, expression_ptr&&);
-expression_ptr binary_expression(Location, TOK, expression_ptr&&, expression_ptr&&);
-expression_ptr binary_expression(TOK, expression_ptr&&, expression_ptr&&);
+expression_ptr unary_expression(Location, tok, expression_ptr&&);
+expression_ptr unary_expression(tok, expression_ptr&&);
+expression_ptr binary_expression(Location, tok, expression_ptr&&, expression_ptr&&);
+expression_ptr binary_expression(tok, expression_ptr&&, expression_ptr&&);
 
 /// specifies special properties of a ProcedureExpression
-enum procedureKind {
-    k_proc_normal,      ///< PROCEDURE
-    k_proc_api,         ///< API PROCEDURE
-    k_proc_initial,     ///< INITIAL
-    k_proc_net_receive, ///< NET_RECEIVE
-    k_proc_breakpoint,  ///< BREAKPOINT
-    k_proc_derivative   ///< DERIVATIVE
+enum class procedureKind {
+    normal,      ///< PROCEDURE
+    api,         ///< API PROCEDURE
+    initial,     ///< INITIAL
+    net_receive, ///< NET_RECEIVE
+    breakpoint,  ///< BREAKPOINT
+    derivative   ///< DERIVATIVE
 };
 std::string to_string(procedureKind k);
 
 /// classification of different symbol kinds
-enum symbolKind {
-    k_symbol_function,     ///< function call
-    k_symbol_procedure,    ///< procedure call
-    k_symbol_variable,     ///< variable at module scope
-    k_symbol_indexed_variable, ///< a variable that is indexed
-    k_symbol_local,        ///< variable at local scope
-    k_symbol_argument,     ///< argument variable
-    k_symbol_ghost,        ///< variable used as ghost buffer
-    k_symbol_none,         ///< no symbol kind (placeholder)
+enum class symbolKind {
+    function,     ///< function call
+    procedure,    ///< procedure call
+    variable,     ///< variable at module scope
+    indexed_variable, ///< a variable that is indexed
+    local,        ///< variable at local scope
+    argument,     ///< argument variable
+    ghost,        ///< variable used as ghost buffer
+    none,         ///< no symbol kind (placeholder)
 };
 std::string to_string(symbolKind k);
 
@@ -326,7 +326,7 @@ public:
     LocalDeclaration(Location loc, std::string const& name)
     :   Expression(loc)
     {
-        Token tok(tok_identifier, name, loc);
+        Token tok(tok::identifier, name, loc);
         add_variable(tok);
     }
 
@@ -377,7 +377,7 @@ private:
 class VariableExpression : public Symbol {
 public:
     VariableExpression(Location loc, std::string name)
-    :   Symbol(loc, std::move(name), k_symbol_variable)
+    :   Symbol(loc, std::move(name), symbolKind::variable)
     {}
 
     std::string to_string() const override;
@@ -414,12 +414,12 @@ public:
         return ion_channel_;
     }
 
-    bool is_ion()       const {return ion_channel_ != k_ion_none;}
+    bool is_ion()       const {return ion_channel_ != ionKind::none;}
     bool is_state()     const {return is_state_;}
-    bool is_range()     const {return range_kind_  == k_range;}
+    bool is_range()     const {return range_kind_  == rangeKind::range;}
     bool is_scalar()    const {return !is_range();}
-    bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
-    bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
+    bool is_readable()  const {return access_==accessKind::read  || access_==accessKind::readwrite;}
+    bool is_writeable() const {return access_==accessKind::write || access_==accessKind::readwrite;}
 
     double value()       const {return value_;}
     void value(double v) {value_ = v;}
@@ -431,11 +431,11 @@ public:
 protected:
 
     bool           is_state_    = false;
-    accessKind     access_      = k_readwrite;
-    visibilityKind visibility_  = k_local_visibility;
-    linkageKind    linkage_     = k_extern_link;
-    rangeKind      range_kind_  = k_range;
-    ionKind        ion_channel_ = k_ion_none;
+    accessKind     access_      = accessKind::readwrite;
+    visibilityKind visibility_  = visibilityKind::local;
+    linkageKind    linkage_     = linkageKind::external;
+    rangeKind      range_kind_  = rangeKind::range;
+    ionKind        ion_channel_ = ionKind::none;
     double         value_       = std::numeric_limits<double>::quiet_NaN();
 };
 
@@ -443,7 +443,7 @@ protected:
 class IndexedVariable : public Symbol {
 public:
     IndexedVariable(Location loc, std::string name)
-    :   Symbol(loc, std::move(name), k_symbol_indexed_variable)
+    :   Symbol(loc, std::move(name), symbolKind::indexed_variable)
     {}
 
     std::string to_string() const override;
@@ -462,17 +462,17 @@ public:
         return ion_channel_;
     }
 
-    bool is_ion()       const {return ion_channel_ != k_ion_none;}
-    bool is_readable()  const {return access_==k_read  || access_==k_readwrite;}
-    bool is_writeable() const {return access_==k_write || access_==k_readwrite;}
+    bool is_ion()       const {return ion_channel_ != ionKind::none;}
+    bool is_readable()  const {return access_==accessKind::read  || access_==accessKind::readwrite;}
+    bool is_writeable() const {return access_==accessKind::write || access_==accessKind::readwrite;}
 
     void accept(Visitor *v) override;
     IndexedVariable* is_indexed_variable() override {return this;}
 
     ~IndexedVariable() {}
 protected:
-    accessKind     access_      = k_readwrite;
-    ionKind        ion_channel_ = k_ion_none;
+    accessKind     access_      = accessKind::readwrite;
+    ionKind        ion_channel_ = ionKind::none;
 };
 
 // a SOLVE statement
@@ -658,10 +658,10 @@ public:
     void accept(Visitor *v) override;
 
     CallExpression* is_function_call()  override {
-        return symbol_->kind() == k_symbol_function ? this : nullptr;
+        return symbol_->kind() == symbolKind::function ? this : nullptr;
     }
     CallExpression* is_procedure_call() override {
-        return symbol_->kind() == k_symbol_procedure ? this : nullptr;
+        return symbol_->kind() == symbolKind::procedure ? this : nullptr;
     }
 private:
     Symbol* symbol_;
@@ -676,8 +676,8 @@ public:
                          std::string name,
                          std::vector<expression_ptr>&& args,
                          expression_ptr&& body,
-                         procedureKind k=k_proc_normal)
-    :   Symbol(loc, std::move(name), k_symbol_procedure), args_(std::move(args)), kind_(k)
+                         procedureKind k=procedureKind::normal)
+    :   Symbol(loc, std::move(name), symbolKind::procedure), args_(std::move(args)), kind_(k)
     {
         if(!body->is_block()) {
             throw compiler_exception(
@@ -709,7 +709,7 @@ protected:
 
     std::vector<expression_ptr> args_;
     expression_ptr body_;
-    procedureKind kind_ = k_proc_normal;
+    procedureKind kind_ = procedureKind::normal;
 };
 
 class APIMethod : public ProcedureExpression {
@@ -720,7 +720,7 @@ public:
                std::string name,
                std::vector<expression_ptr>&& args,
                expression_ptr&& body)
-    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), k_proc_api)
+    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), procedureKind::api)
     {}
 
     APIMethod* is_api_method() override {return this;}
@@ -775,13 +775,13 @@ public:
                           std::string name,
                           std::vector<expression_ptr>&& args,
                           expression_ptr&& body)
-    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), k_proc_net_receive)
+    :   ProcedureExpression(loc, std::move(name), std::move(args), std::move(body), procedureKind::net_receive)
     {}
 
     void semantic(scope_type::symbol_map &scp) override;
     NetReceiveExpression* is_net_receive() override {return this;}
     /// hard code the kind
-    procedureKind kind() {return k_proc_net_receive;}
+    procedureKind kind() {return procedureKind::net_receive;}
 
     void accept(Visitor *v) override;
     InitialBlock* initial_block() {return initial_block_;}
@@ -795,7 +795,7 @@ public:
                         std::string name,
                         std::vector<expression_ptr>&& args,
                         expression_ptr&& body)
-    :   Symbol(loc, std::move(name), k_symbol_function),
+    :   Symbol(loc, std::move(name), symbolKind::function),
         args_(std::move(args))
     {
         if(!body->is_block()) {
@@ -834,9 +834,9 @@ private:
 class UnaryExpression : public Expression {
 protected:
     expression_ptr expression_;
-    TOK op_;
+    tok op_;
 public:
-    UnaryExpression(Location loc, TOK op, expression_ptr&& e)
+    UnaryExpression(Location loc, tok op, expression_ptr&& e)
     :   Expression(loc),
         expression_(std::move(e)),
         op_(op)
@@ -848,7 +848,7 @@ public:
 
     expression_ptr clone() const override;
 
-    TOK op() const {return op_;}
+    tok op() const {return op_;}
     UnaryExpression* is_unary() override {return this;};
     Expression* expression() {return expression_.get();}
     const Expression* expression() const {return expression_.get();}
@@ -861,7 +861,7 @@ public:
 class NegUnaryExpression : public UnaryExpression {
 public:
     NegUnaryExpression(Location loc, expression_ptr e)
-    :   UnaryExpression(loc, tok_minus, std::move(e))
+    :   UnaryExpression(loc, tok::minus, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -871,7 +871,7 @@ public:
 class ExpUnaryExpression : public UnaryExpression {
 public:
     ExpUnaryExpression(Location loc, expression_ptr e)
-    :   UnaryExpression(loc, tok_exp, std::move(e))
+    :   UnaryExpression(loc, tok::exp, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -881,7 +881,7 @@ public:
 class LogUnaryExpression : public UnaryExpression {
 public:
     LogUnaryExpression(Location loc, expression_ptr e)
-    :   UnaryExpression(loc, tok_log, std::move(e))
+    :   UnaryExpression(loc, tok::log, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -891,7 +891,7 @@ public:
 class CosUnaryExpression : public UnaryExpression {
 public:
     CosUnaryExpression(Location loc, expression_ptr e)
-    :   UnaryExpression(loc, tok_cos, std::move(e))
+    :   UnaryExpression(loc, tok::cos, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -901,7 +901,7 @@ public:
 class SinUnaryExpression : public UnaryExpression {
 public:
     SinUnaryExpression(Location loc, expression_ptr e)
-    :   UnaryExpression(loc, tok_sin, std::move(e))
+    :   UnaryExpression(loc, tok::sin, std::move(e))
     {}
 
     void accept(Visitor *v) override;
@@ -919,16 +919,16 @@ class BinaryExpression : public Expression {
 protected:
     expression_ptr lhs_;
     expression_ptr rhs_;
-    TOK op_;
+    tok op_;
 public:
-    BinaryExpression(Location loc, TOK op, expression_ptr&& lhs, expression_ptr&& rhs)
+    BinaryExpression(Location loc, tok op, expression_ptr&& lhs, expression_ptr&& rhs)
     :   Expression(loc),
         lhs_(std::move(lhs)),
         rhs_(std::move(rhs)),
         op_(op)
     {}
 
-    TOK op() const {return op_;}
+    tok op() const {return op_;}
     Expression* lhs() {return lhs_.get();}
     Expression* rhs() {return rhs_.get();}
     const Expression* lhs() const {return lhs_.get();}
@@ -945,7 +945,7 @@ public:
 class AssignmentExpression : public BinaryExpression {
 public:
     AssignmentExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_eq, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::eq, std::move(lhs), std::move(rhs))
     {}
 
     AssignmentExpression* is_assignment() override {return this;}
@@ -958,7 +958,7 @@ public:
 class AddBinaryExpression : public BinaryExpression {
 public:
     AddBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_plus, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::plus, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -967,7 +967,7 @@ public:
 class SubBinaryExpression : public BinaryExpression {
 public:
     SubBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_minus, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::minus, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -976,7 +976,7 @@ public:
 class MulBinaryExpression : public BinaryExpression {
 public:
     MulBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_times, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::times, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -985,7 +985,7 @@ public:
 class DivBinaryExpression : public BinaryExpression {
 public:
     DivBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_divide, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::divide, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -994,7 +994,7 @@ public:
 class PowBinaryExpression : public BinaryExpression {
 public:
     PowBinaryExpression(Location loc, expression_ptr&& lhs, expression_ptr&& rhs)
-    :   BinaryExpression(loc, tok_pow, std::move(lhs), std::move(rhs))
+    :   BinaryExpression(loc, tok::pow, std::move(lhs), std::move(rhs))
     {}
 
     void accept(Visitor *v) override;
@@ -1002,7 +1002,7 @@ public:
 
 class ConditionalExpression : public BinaryExpression {
 public:
-    ConditionalExpression(Location loc, TOK op, expression_ptr&& lhs, expression_ptr&& rhs)
+    ConditionalExpression(Location loc, tok op, expression_ptr&& lhs, expression_ptr&& rhs)
     :   BinaryExpression(loc, op, std::move(lhs), std::move(rhs))
     {}
 

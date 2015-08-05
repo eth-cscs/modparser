@@ -48,7 +48,7 @@ private:
     void print_APIMethod(APIMethod* e);
 
     Module *module_ = nullptr;
-    TOK parent_op_ = tok_eq;
+    tok parent_op_ = tok::eq;
     TextBuffer text_;
     //bool optimize_ = false;
     bool on_lhs_ = false;

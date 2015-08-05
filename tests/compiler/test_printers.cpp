@@ -16,9 +16,9 @@ TEST(CPrinter, statement) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
 
     auto scope = std::make_shared<Scope<Symbol>>(globals);
 

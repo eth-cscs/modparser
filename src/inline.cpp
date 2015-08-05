@@ -56,7 +56,7 @@ inline_procedure(BlockExpression* block, const int recursion_level) {
                 if(exists) {
                     auto name_inl = impl::rename(name_base, locals);
                     locals[name_inl]
-                        = { k_symbol_local, new LocalDeclaration( proc->location(),
+                        = { symbolKind::local, new LocalDeclaration( proc->location(),
                                                           name_inl)};
                     // replace all instances of old name with new symbol
                     auto renamer = new VariableRenamer(name_base, name_inl);

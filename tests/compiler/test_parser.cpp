@@ -10,7 +10,7 @@ TEST(Parser, full_file) {
         return;
     }
     Parser p(m);
-    EXPECT_EQ(p.status(), k_compiler_happy);
+    EXPECT_EQ(p.status(), lexerStatus::happy);
 }
 
 TEST(Parser, procedure) {
@@ -43,10 +43,10 @@ TEST(Parser, procedure) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
-        if(p.status()==k_compiler_error) {
+        EXPECT_EQ(p.status(), lexerStatus::happy);
+        if(p.status()==lexerStatus::error) {
             std::cout << str << std::endl;
-            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+            std::cout << red("error ") << p.error_message() << std::endl;
         }
     }
 }
@@ -66,16 +66,16 @@ TEST(Parser, net_receive) {
     #endif
 
     EXPECT_NE(e, nullptr);
-    EXPECT_EQ(p.status(), k_compiler_happy);
+    EXPECT_EQ(p.status(), lexerStatus::happy);
 
     auto nr = e->is_symbol()->is_net_receive();
     EXPECT_NE(nr, nullptr);
     if(nr) {
         EXPECT_EQ(nr->args().size(), (unsigned)2);
     }
-    if(p.status()==k_compiler_error) {
+    if(p.status()==lexerStatus::error) {
         std::cout << str << std::endl;
-        std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+        std::cout << red("error ") << p.error_message() << std::endl;
     }
 }
 
@@ -97,10 +97,10 @@ TEST(Parser, function) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
-        if(p.status()==k_compiler_error) {
+        EXPECT_EQ(p.status(), lexerStatus::happy);
+        if(p.status()==lexerStatus::error) {
             std::cout << str << std::endl;
-            std::cout << colorize("error ", kRed) << p.error_message() << std::endl;
+            std::cout << red("error ") << p.error_message() << std::endl;
         }
     }
 }
@@ -114,7 +114,7 @@ TEST(Parser, parse_solve) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
 
         if(e) {
             SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
@@ -123,8 +123,8 @@ TEST(Parser, parse_solve) {
         }
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error) {
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error) {
+            std::cout << red("error") << p.error_message() << std::endl;
         }
     }
     {
@@ -135,7 +135,7 @@ TEST(Parser, parse_solve) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
 
         if(e) {
             SolveExpression* s = dynamic_cast<SolveExpression*>(e.get());
@@ -144,8 +144,8 @@ TEST(Parser, parse_solve) {
         }
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error) {
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error) {
+            std::cout << red("error") << p.error_message() << std::endl;
         }
     }
 }
@@ -239,12 +239,12 @@ TEST(Parser, parse_local) {
         EXPECT_NE(e, nullptr);
         if(e) {
             EXPECT_NE(e->is_local_declaration(), nullptr);
-            EXPECT_EQ(p.status(), k_compiler_happy);
+            EXPECT_EQ(p.status(), lexerStatus::happy);
         }
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error)
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << red("error") << p.error_message() << std::endl;
     }
 
     {
@@ -257,7 +257,7 @@ TEST(Parser, parse_local) {
         EXPECT_NE(e, nullptr);
         if(e) {
             EXPECT_NE(e->is_local_declaration(), nullptr);
-            EXPECT_EQ(p.status(), k_compiler_happy);
+            EXPECT_EQ(p.status(), lexerStatus::happy);
             auto vars = e->is_local_declaration()->variables();
             EXPECT_EQ(vars.size(), (unsigned)3);
             EXPECT_NE(vars.find("x"), vars.end());
@@ -266,8 +266,8 @@ TEST(Parser, parse_local) {
         }
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error)
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << red("error") << p.error_message() << std::endl;
     }
 
     ////////////////////// test for invalid expressions //////////////////////
@@ -276,11 +276,11 @@ TEST(Parser, parse_local) {
         auto e = p.parse_local();
 
         EXPECT_EQ(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_error);
+        EXPECT_EQ(p.status(), lexerStatus::error);
 
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
+        if(p.status()==lexerStatus::error)
             std::cout << "in " << cyan(bad_expression) << "\t" << p.error_message() << std::endl;
         #endif
     }
@@ -290,11 +290,11 @@ TEST(Parser, parse_local) {
         auto e = p.parse_local();
 
         EXPECT_EQ(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_error);
+        EXPECT_EQ(p.status(), lexerStatus::error);
 
         #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
+        if(p.status()==lexerStatus::error)
             std::cout << "in " << cyan(bad_expression) << "\t" << p.error_message() << std::endl;
         #endif
     }
@@ -319,11 +319,11 @@ TEST(Parser, parse_unary_expression) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error)
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << red("error") << p.error_message() << std::endl;
     }
 }
 
@@ -347,12 +347,12 @@ TEST(Parser, parse_parenthesis_expression) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error)
-            std::cout << colorize(expression,kCyan) << "\t"
-                      << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << cyan(expression) << "\t"
+                      << red("error") << p.error_message() << std::endl;
     }
 
     std::vector<const char*> bad_expressions =
@@ -369,12 +369,12 @@ TEST(Parser, parse_parenthesis_expression) {
         auto e = p.parse_parenthesis_expression();
 
         EXPECT_EQ(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_error);
+        EXPECT_EQ(p.status(), lexerStatus::error);
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
-            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << "in " << cyan(expression) << "\t" << p.error_message() << std::endl;
 #endif
     }
 }
@@ -406,11 +406,11 @@ TEST(Parser, parse_line_expression) {
         if(e) std::cout << e->to_string() << std::endl;
 #endif
         EXPECT_NE(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_happy);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
 
         // always print the compiler errors, because they are unexpected
-        if(p.status()==k_compiler_error)
-            std::cout << colorize("error", kRed) << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << red("error") << p.error_message() << std::endl;
     }
 
     std::vector<const char*> bad_expressions =
@@ -430,12 +430,12 @@ TEST(Parser, parse_line_expression) {
         auto e = p.parse_line_expression();
 
         EXPECT_EQ(e, nullptr);
-        EXPECT_EQ(p.status(), k_compiler_error);
+        EXPECT_EQ(p.status(), lexerStatus::error);
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
-            std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
+        if(p.status()==lexerStatus::error)
+            std::cout << "in " << cyan(expression) << "\t" << p.error_message() << std::endl;
 #endif
     }
 }

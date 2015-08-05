@@ -201,9 +201,9 @@ TEST(ClassificationVisitor, linear) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
     auto x = globals["x"].get();
 
     auto scope = std::make_shared<Scope<Symbol>>(globals);
@@ -221,7 +221,7 @@ TEST(ClassificationVisitor, linear) {
         //std::cout << "expression " << e->to_string() << std::endl;
         //std::cout << "linear     " << v->linear_coefficient()->to_string() << std::endl;
         //std::cout << "constant   " << v->constant_term()->to_string() << std::endl;
-        EXPECT_EQ(v->classify(), k_expression_lin);
+        EXPECT_EQ(v->classify(), expressionClassification::linear);
 
 #ifdef VERBOSE_TEST
         std::cout << "eq    "   << e->to_string()
@@ -245,9 +245,9 @@ TEST(ClassificationVisitor, constant) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
     auto scope = std::make_shared<Scope<Symbol>>(globals);
     auto x = globals["x"].get();
 
@@ -261,11 +261,11 @@ TEST(ClassificationVisitor, constant) {
         e->semantic(scope);
         auto v = new ExpressionClassifierVisitor(x);
         e->accept(v);
-        EXPECT_EQ(v->classify(), k_expression_const);
+        EXPECT_EQ(v->classify(), expressionClassification::constant);
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
+        if(p.status()==lexerStatus::error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
 #endif
         delete v;
@@ -292,9 +292,9 @@ TEST(ClassificationVisitor, nonlinear) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", k_symbol_local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", k_symbol_local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", k_symbol_local);
+    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
+    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
+    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
     auto scope = std::make_shared<Scope<Symbol>>(globals);
     auto x = globals["x"].get();
 
@@ -309,11 +309,11 @@ TEST(ClassificationVisitor, nonlinear) {
         e->semantic(scope);
         v->reset();
         e->accept(v);
-        EXPECT_EQ(v->classify(), k_expression_nonlin);
+        EXPECT_EQ(v->classify(), expressionClassification::nonlinear);
 
 #ifdef VERBOSE_TEST
         if(e) std::cout << e->to_string() << std::endl;
-        if(p.status()==k_compiler_error)
+        if(p.status()==lexerStatus::error)
             std::cout << "in " << colorize(expression, kCyan) << "\t" << p.error_message() << std::endl;
 #endif
     }

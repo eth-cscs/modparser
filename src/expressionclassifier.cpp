@@ -36,18 +36,18 @@ void ExpressionClassifierVisitor::visit(UnaryExpression *e) {
     if(found_symbol_) {
         switch(e->op()) {
             // plus or minus don't change linearity
-            case tok_minus :
+            case tok::minus :
                 coefficient_ = unary_expression(Location(),
                                                 e->op(),
                                                 std::move(coefficient_));
                 return;
-            case tok_plus :
+            case tok::plus :
                 return;
             // one of these applied to the symbol certainly isn't linear
-            case tok_exp :
-            case tok_cos :
-            case tok_sin :
-            case tok_log :
+            case tok::exp :
+            case tok::cos :
+            case tok::sin :
+            case tok::log :
                 is_linear_ = false;
                 return;
             default :
@@ -101,8 +101,8 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
             // non-computative operators
             switch(e->op()) {
                 // addition and subtraction are valid, nothing else is
-                case tok_plus :
-                case tok_minus :
+                case tok::plus :
+                case tok::minus :
                     coefficient_ =
                         binary_expression(Location(),
                                           e->op(),
@@ -110,9 +110,9 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                                           std::move(rhs_coefficient));
                     return;
                 // multiplying two expressions that depend on symbol is nonlinear
-                case tok_times :
-                case tok_pow   :
-                case tok_divide :
+                case tok::times :
+                case tok::pow   :
+                case tok::divide :
                 default         :
                     is_linear_ = false;
                     return;
@@ -129,7 +129,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         ////////////////////////////////////////////////////////////////////////
         else if(rhs_contains_symbol) {
             switch(e->op()) {
-                case tok_times  :
+                case tok::times  :
                     // determine the linear coefficient
                     if( rhs_coefficient->is_number() &&
                         rhs_coefficient->is_number()->value()==1) {
@@ -138,7 +138,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     else {
                         coefficient_ =
                             binary_expression(Location(),
-                                              tok_times,
+                                              tok::times,
                                               lhs_coefficient->clone(),
                                               rhs_coefficient->clone());
                     }
@@ -146,25 +146,25 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     if(rhs_constant) {
                         constant_ =
                             binary_expression(Location(),
-                                              tok_times,
+                                              tok::times,
                                               std::move(lhs_coefficient),
                                               std::move(rhs_constant));
                     } else {
                         constant_ = nullptr;
                     }
                     return;
-                case tok_plus :
+                case tok::plus :
                     // constant term
                     if(lhs_constant && rhs_constant) {
                         constant_ =
                             binary_expression(Location(),
-                                              tok_plus,
+                                              tok::plus,
                                               std::move(lhs_constant),
                                               std::move(rhs_constant));
                     }
                     else if(rhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_plus,
+                                                      tok::plus,
                                                       std::move(lhs_coefficient),
                                                       std::move(rhs_constant));
                     }
@@ -174,17 +174,17 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     // coefficient
                     coefficient_ = std::move(rhs_coefficient);
                     return;
-                case tok_minus :
+                case tok::minus :
                     // constant term
                     if(lhs_constant && rhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_minus,
+                                                      tok::minus,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_constant));
                     }
                     else if(rhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_minus,
+                                                      tok::minus,
                                                       std::move(lhs_coefficient),
                                                       std::move(rhs_constant));
                     }
@@ -196,13 +196,13 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                                                     e->op(),
                                                     std::move(rhs_coefficient));
                     return;
-                case tok_pow    :
-                case tok_divide :
-                case tok_lt     :
-                case tok_lte    :
-                case tok_gt     :
-                case tok_gte    :
-                case tok_EQ     :
+                case tok::pow    :
+                case tok::divide :
+                case tok::lt     :
+                case tok::lte    :
+                case tok::gt     :
+                case tok::gte    :
+                case tok::EQ     :
                     is_linear_ = false;
                     return;
                 default:
@@ -214,7 +214,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
         ////////////////////////////////////////////////////////////////////////
         else if(lhs_contains_symbol) {
             switch(e->op()) {
-                case tok_times  :
+                case tok::times  :
                     // check if the lhs is == 1
                     if( lhs_coefficient->is_number() &&
                         lhs_coefficient->is_number()->value()==1) {
@@ -223,32 +223,32 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                     else {
                         coefficient_ =
                             binary_expression(Location(),
-                                              tok_times,
+                                              tok::times,
                                               std::move(lhs_coefficient),
                                               std::move(rhs_coefficient));
                     }
                     // constant term
                     if(lhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_times,
+                                                      tok::times,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_coefficient));
                     } else {
                         constant_ = nullptr;
                     }
                     return;
-                case tok_plus  :
+                case tok::plus  :
                     coefficient_ = std::move(lhs_coefficient);
                     // constant term
                     if(lhs_constant && rhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_plus,
+                                                      tok::plus,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_constant));
                     }
                     else if(lhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_plus,
+                                                      tok::plus,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_coefficient));
                     }
@@ -256,45 +256,45 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                         constant_ = std::move(rhs_coefficient);
                     }
                     return;
-                case tok_minus :
+                case tok::minus :
                     coefficient_ = std::move(lhs_coefficient);
                     // constant term
                     if(lhs_constant && rhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_minus,
+                                                      tok::minus,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_constant));
                     }
                     else if(lhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_minus,
+                                                      tok::minus,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_coefficient));
                     }
                     else {
                         constant_ = unary_expression(Location(),
-                                                     tok_minus,
+                                                     tok::minus,
                                                      std::move(rhs_coefficient));
                     }
                     return;
-                case tok_divide:
+                case tok::divide:
                     coefficient_ = binary_expression(Location(),
-                                                     tok_divide,
+                                                     tok::divide,
                                                      std::move(lhs_coefficient),
                                                      rhs_coefficient->clone());
                     if(lhs_constant) {
                         constant_ = binary_expression(Location(),
-                                                      tok_divide,
+                                                      tok::divide,
                                                       std::move(lhs_constant),
                                                       std::move(rhs_coefficient));
                     }
                     return;
-                case tok_pow    :
-                case tok_lt     :
-                case tok_lte    :
-                case tok_gt     :
-                case tok_gte    :
-                case tok_EQ     :
+                case tok::pow    :
+                case tok::lt     :
+                case tok::lte    :
+                case tok::gt     :
+                case tok::gte    :
+                case tok::EQ     :
                     is_linear_ = false;
                     return;
                 default:

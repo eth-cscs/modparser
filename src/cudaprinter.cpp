@@ -13,7 +13,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     std::vector<VariableExpression*> scalar_variables;
     std::vector<VariableExpression*> array_variables;
     for(auto& sym: m.symbols()) {
-        if(sym.second->kind()==k_symbol_variable) {
+        if(sym.second->kind()==symbolKind::variable) {
             auto var = sym.second->is_variable();
             if(var->is_range()) {
                 array_variables.push_back(var);
@@ -90,8 +90,8 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
         increase_indentation();
         // forward declarations of procedures
         for(auto const &var : m.symbols()) {
-            if(   var.second->kind()==k_symbol_procedure
-            && var.second->is_procedure()->kind() == k_proc_normal)
+            if(   var.second->kind()==symbolKind::procedure
+            && var.second->is_procedure()->kind() == procedureKind::normal)
             {
                 print_procedure_prototype(var.second->is_procedure());
                 text_.end_line(";");
@@ -101,10 +101,10 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
 
         // print stubs that call API method kernels that are defined in the
         // imp::name namespace
-        auto proctest = [] (procedureKind k) {return k == k_proc_normal
-                                                  || k == k_proc_api;   };
+        auto proctest = [] (procedureKind k) {return k == procedureKind::normal
+                                                  || k == procedureKind::api;   };
         for(auto const &var : m.symbols()) {
-            if(   var.second->kind()==k_symbol_procedure
+            if(   var.second->kind()==symbolKind::procedure
             && proctest(var.second->is_procedure()->kind()))
             {
                 var.second->accept(this);
@@ -210,7 +210,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     text_ << "        return \"" << m.name() << "\";\n";
     text_ << "    }\n\n";
 
-    std::string kind_str = m.kind() == k_module_density
+    std::string kind_str = m.kind() == moduleKind::density
                             ? "mechanismKind::density"
                             : "mechanismKind::point_process";
     text_ << "    mechanismKind kind() const override {\n";
@@ -221,9 +221,9 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    auto proctest = [] (procedureKind k) {return k == k_proc_api;};
+    auto proctest = [] (procedureKind k) {return k == procedureKind::api;};
     for(auto const &var : m.symbols()) {
-        if(   var.second->kind()==k_symbol_procedure
+        if(   var.second->kind()==symbolKind::procedure
         && proctest(var.second->is_procedure()->kind()))
         {
             auto proc = var.second->is_api_method();
@@ -305,17 +305,17 @@ std::string CUDAPrinter::index_string(Symbol *s) {
     }
     else if(auto var = s->is_indexed_variable()) {
         switch(var->ion_channel()) {
-            case k_ion_none :
+            case ionKind::none :
                 return "gid_";
-            case k_ion_Ca   :
+            case ionKind::Ca   :
                 return "caid_";
-            case k_ion_Na   :
+            case ionKind::Na   :
                 return "naid_";
-            case k_ion_K    :
+            case ionKind::K    :
                 return "kid_";
             // a nonspecific ion current should never be indexed: it is
             // local to a mechanism
-            case k_ion_nonspecific:
+            case ionKind::nonspecific:
                 break;
             default :
                 throw compiler_exception(
@@ -332,28 +332,28 @@ void CUDAPrinter::visit(IndexedVariable *e) {
 
 void CUDAPrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             // place a space in front of minus sign to avoid invalid
             // expressions of the form : (v[i]--67)
             text_ << " -";
             e->expression()->accept(this);
             return;
-        case tok_exp :
+        case tok::exp :
             text_ << "exp(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_cos :
+        case tok::cos :
             text_ << "cos(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_sin :
+        case tok::sin :
             text_ << "sin(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_log :
+        case tok::log :
             text_ << "log(";
             e->expression()->accept(this);
             text_ << ")";
@@ -371,7 +371,7 @@ void CUDAPrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto& var : e->scope()->locals()) {
-            if(var.second->kind() == k_symbol_local) {
+            if(var.second->kind() == symbolKind::local) {
                 text_.add_line("auto " + var.first + " = T{0};");
             }
         }
@@ -476,14 +476,14 @@ void CUDAPrinter::visit(APIMethod *e) {
 
 void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    bool is_point_process = module_->kind() == k_module_point;
+    bool is_point_process = module_->kind() == moduleKind::point;
 
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
     std::vector<APIMethod::memop_type*> aliased_variables;
     if(is_point_process) {
         for(auto &out : e->outputs()) {
-            if(out.local->kind() == k_symbol_ghost) {
+            if(out.local->kind() == symbolKind::ghost) {
                 aliased_variables.push_back(&out);
             }
         }
@@ -501,11 +501,11 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     auto uses_ca = false;
     for(auto &in : e->inputs()) {
         auto ch = in.external->is_indexed_variable()->ion_channel();
-        if(!uses_k   && (uses_k  = (ch == k_ion_K)) )
+        if(!uses_k   && (uses_k  = (ch == ionKind::K)) )
             text_.add_line("auto kid_  = params_.ion_k_idx_[tid_];");
-        if(!uses_ca  && (uses_ca = (ch == k_ion_Ca)) )
+        if(!uses_ca  && (uses_ca = (ch == ionKind::Ca)) )
             text_.add_line("auto caid_ = params_.ion_ca_idx_[tid_];");
-        if(!uses_na  && (uses_na = (ch == k_ion_Na)) )
+        if(!uses_na  && (uses_na = (ch == ionKind::Na)) )
             text_.add_line("auto naid_ = params_.ion_na_idx_[tid_];");
     }
 
@@ -531,20 +531,20 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
         text_.add_gutter();
         if(!is_point_process) {
             out.external->accept(this);
-            text_ << (out.op==tok_plus ? " += " : " -= ");
+            text_ << (out.op==tok::plus ? " += " : " -= ");
             out.local->accept(this);
         }
         else {
             auto ext = out.external->is_indexed_variable();
             // for now we assume that only matrix variables are updated in this manner
-            if(ext->ion_channel() != k_ion_none) {
+            if(ext->ion_channel() != ionKind::none) {
                 throw compiler_exception(
                     "CUDAPrinter : don't know how to update an ion variable this way",
                     out.external->location()
                 );
             }
 
-            text_ << (out.op==tok_plus ? "atomicAdd" : "atomicSub") << "(&";
+            text_ << (out.op==tok::plus ? "atomicAdd" : "atomicSub") << "(&";
             ext->accept(this);
             text_ << ", ";
             out.local->accept(this);
@@ -592,31 +592,31 @@ void CUDAPrinter::visit(BinaryExpression *e) {
     }
     lhs->accept(this);
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             text_ << "-";
             break;
-        case tok_plus :
+        case tok::plus :
             text_ << "+";
             break;
-        case tok_times :
+        case tok::times :
             text_ << "*";
             break;
-        case tok_divide :
+        case tok::divide :
             text_ << "/";
             break;
-        case tok_lt     :
+        case tok::lt     :
             text_ << "<";
             break;
-        case tok_lte    :
+        case tok::lte    :
             text_ << "<=";
             break;
-        case tok_gt     :
+        case tok::gt     :
             text_ << ">";
             break;
-        case tok_gte    :
+        case tok::gte    :
             text_ << ">=";
             break;
-        case tok_EQ     :
+        case tok::EQ     :
             text_ << "==";
             break;
         default :

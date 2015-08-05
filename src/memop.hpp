@@ -19,14 +19,14 @@
 template <typename Symbol>
 struct MemOp {
     using symbol_type = Symbol;
-    TOK op;
+    tok op;
     Symbol *local;
     Symbol *external;
 
-    MemOp(TOK o, Symbol *loc, Symbol *ext)
+    MemOp(tok o, Symbol *loc, Symbol *ext)
     : op(o), local(loc), external(ext)
     {
-        const TOK valid_ops[] = {tok_plus, tok_minus, tok_eq};
+        const tok valid_ops[] = {tok::plus, tok::minus, tok::eq};
         if(!is_in(op, valid_ops)) {
             throw compiler_exception(
                 "invalid operation  for creating a MemOp : " +

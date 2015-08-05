@@ -7,37 +7,37 @@
 /// the distinction between write only and read only is required because
 /// if an external variable is to be written/updated, then it does not have
 /// to be loaded before applying a kernel.
-enum accessKind {
-    k_read,
-    k_write,
-    k_readwrite
+enum class accessKind {
+    read,
+    write,
+    readwrite
 };
 
 /// describes the scope of a variable
-enum visibilityKind {
-    k_local_visibility,
-    k_global_visibility
+enum class visibilityKind {
+    local,
+    global
 };
 
 /// describes the scope of a variable
-enum rangeKind {
-    k_range,
-    k_scalar
+enum class rangeKind {
+    range,
+    scalar
 };
 
 /// the whether the variable value is defined inside or outside of the module.
-enum linkageKind {
-    k_local_link,
-    k_extern_link
+enum class linkageKind {
+    local,
+    external
 };
 
 /// ion channel that the variable belongs to
-enum ionKind {
-    k_ion_none,     ///< not an ion variable
-    k_ion_nonspecific,  ///< nonspecific current
-    k_ion_Ca,       ///< calcium ion
-    k_ion_Na,       ///< sodium ion
-    k_ion_K         ///< potassium ion
+enum class ionKind {
+    none,     ///< not an ion variable
+    nonspecific,  ///< nonspecific current
+    Ca,       ///< calcium ion
+    Na,       ///< sodium ion
+    K         ///< potassium ion
 };
 
 static std::string yesno(bool val) {
@@ -47,27 +47,27 @@ static std::string yesno(bool val) {
 // to_string functions
 static std::string to_string(ionKind i) {
     switch(i) {
-        case k_ion_none : return std::string("none");
-        case k_ion_Ca   : return std::string("calcium");
-        case k_ion_Na   : return std::string("sodium");
-        case k_ion_K    : return std::string("potassium");
-        case k_ion_nonspecific : return std::string("nonspecific");
+        case ionKind::none : return std::string("none");
+        case ionKind::Ca   : return std::string("calcium");
+        case ionKind::Na   : return std::string("sodium");
+        case ionKind::K    : return std::string("potassium");
+        case ionKind::nonspecific : return std::string("nonspecific");
     }
     return std::string("<error : undefined ionKind>");
 }
 
 static std::string to_string(visibilityKind v) {
     switch(v) {
-        case k_local_visibility : return std::string("local");
-        case k_global_visibility: return std::string("global");
+        case visibilityKind::local : return std::string("local");
+        case visibilityKind::global: return std::string("global");
     }
     return std::string("<error : undefined visibilityKind>");
 }
 
 static std::string to_string(linkageKind v) {
     switch(v) {
-        case k_local_link : return std::string("local");
-        case k_extern_link: return std::string("external");
+        case linkageKind::local : return std::string("local");
+        case linkageKind::external: return std::string("external");
     }
     return std::string("<error : undefined visibilityKind>");
 }
@@ -90,24 +90,24 @@ static ionKind ion_kind_from_name(std::string field) {
         field = field.substr(4);
     }
     if(field=="ica" || field=="eca" || field=="cai" || field=="cao") {
-        return k_ion_Ca;
+        return ionKind::Ca;
     }
     if(field=="ik" || field=="ek" || field=="ki" || field=="ko") {
-        return k_ion_K;
+        return ionKind::K;
     }
     if(field=="ina" || field=="ena" || field=="nai" || field=="nao") {
-        return k_ion_Na;
+        return ionKind::Na;
     }
-    return k_ion_none;
+    return ionKind::none;
 }
 
 static std::string ion_store(ionKind k) {
     switch(k) {
-        case k_ion_Ca:
+        case ionKind::Ca:
             return "ion_ca";
-        case k_ion_Na:
+        case ionKind::Na:
             return "ion_na";
-        case k_ion_K:
+        case ionKind::K:
             return "ion_k";
         default:
             return "";

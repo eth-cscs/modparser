@@ -13,9 +13,9 @@
 #include "token.hpp"
 
 // status of the lexer
-enum LStat {
-    k_compiler_error,  // lexer has encounterd a problem
-    k_compiler_happy   // lexer is in a good place
+enum class lexerStatus {
+    error,  // lexer has encounterd a problem
+    happy   // lexer is in a good place
 };
 
 bool is_keyword(Token const& t);
@@ -78,13 +78,13 @@ public:
     Location location() {return location_;}
 
     // binary operator precedence
-    static std::map<TOK, int> binop_prec_;
+    static std::map<tok, int> binop_prec_;
 
-    LStat status() {return status_;}
+    lexerStatus status() {return status_;}
 
     const std::string& error_message() {return error_string_;};
 
-    static int binop_precedence(TOK tok);
+    static int binop_precedence(tok tok);
 protected:
     // buffer used for short-lived parsers
     std::vector<char> buffer_;
@@ -95,14 +95,14 @@ protected:
     void binop_prec_init();
 
     // helper for determining if an identifier string matches a keyword
-    TOK get_identifier_type(std::string const& identifier);
+    tok get_identifier_type(std::string const& identifier);
 
     const char *begin_, *end_;// pointer to start and 1 past the end of the buffer
     const char *current_;     // pointer to current character
     const char *line_;        // pointer to start of current line
     Location location_;  // current location (line,column) in buffer
 
-    LStat status_ = k_compiler_happy;
+    lexerStatus status_ = lexerStatus::happy;
     std::string error_string_;
 
     Token token_;

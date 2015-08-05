@@ -65,7 +65,7 @@ private:
     Parser();
     Parser(Parser const &);
 
-    bool expect(TOK, const char *str="");
-    bool expect(TOK, std::string const& str);
+    bool expect(tok, const char *str="");
+    bool expect(tok, std::string const& str);
 };
 

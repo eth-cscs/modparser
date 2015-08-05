@@ -8,7 +8,7 @@
 #include "constantfolder.hpp"
 
 // specialize on const char* for lazy evaluation of compile time strings
-bool Parser::expect(TOK tok, const char* str) {
+bool Parser::expect(tok tok, const char* str) {
     if(tok==token_.type) {
         return true;
     }
@@ -21,7 +21,7 @@ bool Parser::expect(TOK tok, const char* str) {
     return false;
 }
 
-bool Parser::expect(TOK tok, std::string const& str) {
+bool Parser::expect(tok tok, std::string const& str) {
     if(tok==token_.type) {
         return true;
     }
@@ -37,26 +37,26 @@ bool Parser::expect(TOK tok, std::string const& str) {
 void Parser::error(std::string msg) {
     std::string location_info = pprintf(
             "%:% ", module_ ? module_->file_name() : "", token_.location);
-    if(status_==k_compiler_error) {
+    if(status_==lexerStatus::error) {
         // append to current string
         error_string_ += "\n" + white(location_info) + "\n  " +msg;
     }
     else {
         error_string_ = white(location_info) + "\n  " + msg;
-        status_ = k_compiler_error;
+        status_ = lexerStatus::error;
     }
 }
 
 void Parser::error(std::string msg, Location loc) {
     std::string location_info = pprintf(
             "%:% ", module_ ? module_->file_name() : "", loc);
-    if(status_==k_compiler_error) {
+    if(status_==lexerStatus::error) {
         // append to current string
         error_string_ += "\n" + green(location_info) + msg;
     }
     else {
         error_string_ = green(location_info) + msg;
-        status_ = k_compiler_error;
+        status_ = lexerStatus::error;
     }
 }
 
@@ -83,40 +83,40 @@ Parser::Parser(std::string const& buf)
 bool Parser::parse() {
     // perform first pass to read the descriptive blocks and
     // record the location of the verb blocks
-    while(token_.type!=tok_eof) {
+    while(token_.type!=tok::eof) {
         switch(token_.type) {
-            case tok_title :
+            case tok::title :
                 parse_title();
                 break;
-            case tok_neuron :
+            case tok::neuron :
                 parse_neuron_block();
                 break;
-            case tok_state :
+            case tok::state :
                 parse_state_block();
                 break;
-            case tok_units :
+            case tok::units :
                 parse_units_block();
                 break;
-            case tok_parameter :
+            case tok::parameter :
                 parse_parameter_block();
                 break;
-            case tok_assigned :
+            case tok::assigned :
                 parse_assigned_block();
                 break;
             // INITIAL, DERIVATIVE, PROCEDURE, NET_RECEIVE and BREAKPOINT blocks
             // are all lowered to ProcedureExpression
-            case tok_net_receive:
-            case tok_breakpoint :
-            case tok_initial    :
-            case tok_derivative :
-            case tok_procedure  :
+            case tok::net_receive:
+            case tok::breakpoint :
+            case tok::initial    :
+            case tok::derivative :
+            case tok::procedure  :
                 {
                 auto p = parse_procedure();
                 if(!p) break;
                 module_->procedures().emplace_back(std::move(p));
                 }
                 break;
-            case tok_function  :
+            case tok::function  :
                 {
                 auto f = parse_function();
                 if(!f) break;
@@ -127,7 +127,7 @@ bool Parser::parse() {
                 error(pprintf("expected block type, found '%'", token_.spelling));
                 break;
         }
-        if(status() == k_compiler_error) {
+        if(status() == lexerStatus::error) {
             std::cerr << red("error: ") << error_string_ << std::endl;
             return false;
         }
@@ -161,14 +161,14 @@ std::vector<Token> Parser::comma_separated_identifiers() {
         if(location_.line > startline) {
             return tokens;
         }
-        else if(token_.type == tok_identifier) {
+        else if(token_.type == tok::identifier) {
             tokens.push_back(token_);
         }
         else if(is_keyword(token_)) {
             error(pprintf("found keyword '%', expected a variable name", token_.spelling));
             return tokens;
         }
-        else if(token_.type == tok_number) {
+        else if(token_.type == tok::number) {
             error(pprintf("found number '%', expected a variable name", token_.spelling));
             return tokens;
         }
@@ -179,7 +179,7 @@ std::vector<Token> Parser::comma_separated_identifiers() {
 
         // look ahead to check for a comma.  This approach ensures that the
         // first token after the end of the list is not consumed
-        if( peek().type == tok_comma ) {
+        if( peek().type == tok::comma ) {
             // load the comma
             get_token();
             // assert that the list can't run off the end of a line
@@ -212,7 +212,7 @@ void Parser::parse_neuron_block() {
     get_token();
 
     // assert that the block starts with a curly brace
-    if(token_.type != tok_lbrace) {
+    if(token_.type != tok::lbrace) {
         error(pprintf("NEURON block must start with a curly brace {, found '%'",
                       token_.spelling));
         return;
@@ -225,24 +225,24 @@ void Parser::parse_neuron_block() {
     // have to count them we have to get the next token before entering the loop
     // to handle the case of an empty block {}
     get_token();
-    while(token_.type!=tok_rbrace) {
+    while(token_.type!=tok::rbrace) {
         switch(token_.type) {
-            case tok_threadsafe :
+            case tok::threadsafe :
                 neuron_block.threadsafe = true;
                 get_token(); // consume THREADSAFE
                 break;
 
-            case tok_suffix :
-            case tok_point_process :
-                neuron_block.kind = (token_.type==tok_suffix) ? k_module_density
-                                                              : k_module_point;
+            case tok::suffix :
+            case tok::point_process :
+                neuron_block.kind = (token_.type==tok::suffix) ? moduleKind::density
+                                                              : moduleKind::point;
 
                 // set the modul kind
                 module_->kind(neuron_block.kind);
 
                 get_token(); // consume SUFFIX / POINT_PROCESS
                 // assert that a valid name for the Neuron has been specified
-                if(token_.type != tok_identifier) {
+                if(token_.type != tok::identifier) {
                     error(pprintf("invalid name for SUFFIX, found '%'", token_.spelling));
                     return;
                 }
@@ -252,12 +252,12 @@ void Parser::parse_neuron_block() {
                 break;
 
             // this will be a comma-separated list of identifiers
-            case tok_global :
+            case tok::global :
                 // the ranges are a comma-seperated list of identifiers
                 {
                     auto identifiers = comma_separated_identifiers();
                     // bail if there was an error reading the list
-                    if(status_==k_compiler_error) {
+                    if(status_==lexerStatus::error) {
                         return;
                     }
                     for(auto const &id : identifiers) {
@@ -267,11 +267,11 @@ void Parser::parse_neuron_block() {
                 break;
 
             // this will be a comma-separated list of identifiers
-            case tok_range  :
+            case tok::range  :
                 // the ranges are a comma-seperated list of identifiers
                 {
                     auto identifiers = comma_separated_identifiers();
-                    if(status_==k_compiler_error) { // bail if there was an error reading the list
+                    if(status_==lexerStatus::error) { // bail if there was an error reading the list
                         return;
                     }
                     for(auto const &id : identifiers) {
@@ -280,13 +280,13 @@ void Parser::parse_neuron_block() {
                 }
                 break;
 
-            case tok_useion :
+            case tok::useion :
                 {
                     IonDep ion;
                     // we have to parse the name of the ion first
                     get_token();
                     // check this is an identifier token
-                    if(token_.type != tok_identifier) {
+                    if(token_.type != tok::identifier) {
                         error(pprintf("invalid name for an ion chanel '%'",
                                       token_.spelling));
                         return;
@@ -302,13 +302,13 @@ void Parser::parse_neuron_block() {
 
                     // this loop ensures that we don't gobble any tokens past
                     // the end of the USEION clause
-                    while(token_.type == tok_read || token_.type == tok_write) {
-                        auto& target = (token_.type == tok_read) ? ion.read
+                    while(token_.type == tok::read || token_.type == tok::write) {
+                        auto& target = (token_.type == tok::read) ? ion.read
                                                                  : ion.write;
                         std::vector<Token> identifiers
                             = comma_separated_identifiers();
                         // bail if there was an error reading the list
-                        if(status_==k_compiler_error) {
+                        if(status_==lexerStatus::error) {
                             return;
                         }
                         for(auto const &id : identifiers) {
@@ -321,7 +321,7 @@ void Parser::parse_neuron_block() {
                 }
                 break;
 
-            case tok_nonspecific_current :
+            case tok::nonspecific_current :
                 // Assume that there is one non-specific current per mechanism.
                 // It would be easy to extend this to multiple currents,
                 // however there are no mechanisms in the CoreNeuron repository
@@ -333,7 +333,7 @@ void Parser::parse_neuron_block() {
 
                     // parse the current name and check for errors
                     auto id = parse_identifier();
-                    if(status_==k_compiler_error) {
+                    if(status_==lexerStatus::error) {
                         return;
                     }
 
@@ -363,7 +363,7 @@ void Parser::parse_state_block() {
     get_token();
 
     // assert that the block starts with a curly brace
-    if(token_.type != tok_lbrace) {
+    if(token_.type != tok::lbrace) {
         error(pprintf("STATE block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
@@ -372,8 +372,8 @@ void Parser::parse_state_block() {
     // we have to get the next token before entering the loop to handle the case of
     // an empty block {}
     get_token();
-    while(token_.type!=tok_rbrace) {
-        if(token_.type != tok_identifier) {
+    while(token_.type!=tok::rbrace) {
+        if(token_.type != tok::identifier) {
             error(pprintf("'%' is not a valid name for a state variable", token_.spelling));
             return;
         }
@@ -395,20 +395,20 @@ void Parser::parse_units_block() {
     get_token();
 
     // assert that the block starts with a curly brace
-    if(token_.type != tok_lbrace) {
+    if(token_.type != tok::lbrace) {
         error(pprintf("UNITS block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
     // there are no use cases for curly brace in a UNITS block, so we don't have to count them
     get_token();
-    while(token_.type!=tok_rbrace) {
+    while(token_.type!=tok::rbrace) {
         // get the alias
         std::vector<Token> lhs = unit_description();
-        if( status_!=k_compiler_happy ) return;
+        if( status_!=lexerStatus::happy ) return;
 
         // consume the '=' sign
-        if( token_.type!=tok_eq ) {
+        if( token_.type!=tok::eq ) {
             error(pprintf("expected '=', found '%'", token_.spelling));
             return;
         }
@@ -417,7 +417,7 @@ void Parser::parse_units_block() {
 
         // get the units
         std::vector<Token> rhs = unit_description();
-        if( status_!=k_compiler_happy ) return;
+        if( status_!=lexerStatus::happy ) return;
 
         // store the unit definition
         units_block.unit_aliases.push_back({lhs, rhs});
@@ -444,19 +444,19 @@ void Parser::parse_parameter_block() {
     get_token();
 
     // assert that the block starts with a curly brace
-    if(token_.type != tok_lbrace) {
+    if(token_.type != tok::lbrace) {
         error(pprintf("PARAMETER block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
     // there are no use cases for curly brace in a UNITS block, so we don't have to count them
     get_token();
-    while(token_.type!=tok_rbrace && token_.type!=tok_eof) {
+    while(token_.type!=tok::rbrace && token_.type!=tok::eof) {
         int line = location_.line;
         Id parm;
 
         // read the parameter name
-        if(token_.type != tok_identifier) {
+        if(token_.type != tok::identifier) {
             goto parm_error;
         }
         parm.token = token_; // save full token
@@ -464,13 +464,13 @@ void Parser::parse_parameter_block() {
         get_token();
 
         // look for equality
-        if(token_.type==tok_eq) {
+        if(token_.type==tok::eq) {
             get_token(); // consume '='
-            if(token_.type==tok_minus) {
+            if(token_.type==tok::minus) {
                 parm.value = "-";
                 get_token();
             }
-            if(token_.type != tok_number) {
+            if(token_.type != tok::number) {
                 goto parm_error;
             }
             parm.value += token_.spelling; // store value as a string
@@ -478,9 +478,9 @@ void Parser::parse_parameter_block() {
         }
 
         // get the parameters
-        if(line==location_.line && token_.type == tok_lparen) {
+        if(line==location_.line && token_.type == tok::lparen) {
             parm.units = unit_description();
-            if(status_ == k_compiler_error) {
+            if(status_ == lexerStatus::error) {
                 goto parm_error;
             }
         }
@@ -489,7 +489,7 @@ void Parser::parse_parameter_block() {
     }
 
     // errer if EOF before closeing curly brace
-    if(token_.type==tok_eof) {
+    if(token_.type==tok::eof) {
         error("PARAMETER block must have closing '}'");
         goto parm_error;
     }
@@ -501,7 +501,7 @@ void Parser::parse_parameter_block() {
     return;
 parm_error:
     // only write error message if one hasn't already been logged by the lexer
-    if(status_==k_compiler_happy) {
+    if(status_==lexerStatus::happy) {
         error(pprintf("PARAMETER block unexpected symbol '%'", token_.spelling));
     }
     return;
@@ -513,31 +513,31 @@ void Parser::parse_assigned_block() {
     get_token();
 
     // assert that the block starts with a curly brace
-    if(token_.type != tok_lbrace) {
+    if(token_.type != tok::lbrace) {
         error(pprintf("ASSIGNED block must start with a curly brace {, found '%'", token_.spelling));
         return;
     }
 
     // there are no use cases for curly brace in an ASSIGNED block, so we don't have to count them
     get_token();
-    while(token_.type!=tok_rbrace && token_.type!=tok_eof) {
+    while(token_.type!=tok::rbrace && token_.type!=tok::eof) {
         int line = location_.line;
         std::vector<Token> variables; // we can have more than one variable on a line
 
         // the first token must be ...
-        if(token_.type != tok_identifier) {
+        if(token_.type != tok::identifier) {
             goto ass_error;
         }
         // read all of the identifiers until we run out of identifiers or reach a new line
-        while(token_.type == tok_identifier && line == location_.line) {
+        while(token_.type == tok::identifier && line == location_.line) {
             variables.push_back(token_);
             get_token();
         }
 
         // there are some parameters at the end of the line
-        if(line==location_.line && token_.type == tok_lparen) {
+        if(line==location_.line && token_.type == tok::lparen) {
             auto u = unit_description();
-            if(status_ == k_compiler_error) {
+            if(status_ == lexerStatus::error) {
                 goto ass_error;
             }
             for(auto const& t : variables) {
@@ -552,7 +552,7 @@ void Parser::parse_assigned_block() {
     }
 
     // errer if EOF before closeing curly brace
-    if(token_.type==tok_eof) {
+    if(token_.type==tok::eof) {
         error("ASSIGNED block must have closing '}'");
         goto ass_error;
     }
@@ -564,23 +564,23 @@ void Parser::parse_assigned_block() {
     return;
 ass_error:
     // only write error message if one hasn't already been logged by the lexer
-    if(status_==k_compiler_happy) {
+    if(status_==lexerStatus::happy) {
         error(pprintf("ASSIGNED block unexpected symbol '%'", token_.spelling));
     }
     return;
 }
 
 std::vector<Token> Parser::unit_description() {
-    static const TOK legal_tokens[] = {tok_identifier, tok_divide, tok_number};
+    static const tok legal_tokens[] = {tok::identifier, tok::divide, tok::number};
     int startline = location_.line;
     std::vector<Token> tokens;
 
     // chec that we start with a left parenthesis
-    if(token_.type != tok_lparen)
+    if(token_.type != tok::lparen)
         goto unit_error;
     get_token();
 
-    while(token_.type != tok_rparen) {
+    while(token_.type != tok::rparen) {
         // check for illegal tokens or a new line
         if( !is_in(token_.type,legal_tokens) || startline < location_.line )
             goto unit_error;
@@ -609,7 +609,7 @@ expression_ptr Parser::parse_prototype(std::string name=std::string()) {
     if(name.size()) {
         // we assume that the current token_ is still pointing at
         // the keyword, i.e. INITIAL or BREAKPOINT
-        identifier.type = tok_identifier;
+        identifier.type = tok::identifier;
         identifier.spelling = name;
     }
 
@@ -618,16 +618,16 @@ expression_ptr Parser::parse_prototype(std::string name=std::string()) {
 
     // check for an argument list enclosed in parenthesis (...)
     // return a prototype with an empty argument list if not found
-    if( token_.type != tok_lparen ) {
+    if( token_.type != tok::lparen ) {
         //return make_expression<PrototypeExpression>(identifier.location, identifier.spelling, {});
         return expression_ptr{new PrototypeExpression(identifier.location, identifier.spelling, {})};
     }
 
     get_token(); // consume '('
     std::vector<Token> arg_tokens;
-    while(token_.type != tok_rparen) {
+    while(token_.type != tok::rparen) {
         // check identifier
-        if(token_.type != tok_identifier) {
+        if(token_.type != tok::identifier) {
             error(  "expected a valid identifier, found '"
                   + yellow(token_.spelling) + "'");
             return nullptr;
@@ -638,18 +638,18 @@ expression_ptr Parser::parse_prototype(std::string name=std::string()) {
         get_token(); // consume the identifier
 
         // look for a comma
-        if(!(token_.type == tok_comma || token_.type==tok_rparen)) {
+        if(!(token_.type == tok::comma || token_.type==tok::rparen)) {
             error(  "expected a comma or closing parenthesis, found '"
                   + yellow(token_.spelling) + "'");
             return nullptr;
         }
 
-        if(token_.type == tok_comma) {
+        if(token_.type == tok::comma) {
             get_token(); // consume ','
         }
     }
 
-    if(token_.type != tok_rparen) {
+    if(token_.type != tok::rparen) {
         error("procedure argument list must have closing parenthesis ')'");
         return nullptr;
     }
@@ -671,8 +671,8 @@ void Parser::parse_title() {
 
     Token tok = peek();
     while(   tok.location.line==this_line
-          && tok.type!=tok_eof
-          && status_==k_compiler_happy)
+          && tok.type!=tok::eof
+          && status_==lexerStatus::happy)
     {
         get_token();
         title += token_.spelling;
@@ -691,31 +691,31 @@ void Parser::parse_title() {
 /// an initial block is stored as a procedure with name 'initial' and empty argument list
 symbol_ptr Parser::parse_procedure() {
     expression_ptr p;
-    procedureKind kind = k_proc_normal;
+    procedureKind kind = procedureKind::normal;
 
     switch( token_.type ) {
-        case tok_derivative:
-            kind = k_proc_derivative;
+        case tok::derivative:
+            kind = procedureKind::derivative;
             get_token(); // consume keyword token
-            if( !expect( tok_identifier ) ) return nullptr;
+            if( !expect( tok::identifier ) ) return nullptr;
             p = std::move(parse_prototype());
             break;
-        case tok_procedure:
-            kind = k_proc_normal;
+        case tok::procedure:
+            kind = procedureKind::normal;
             get_token(); // consume keyword token
-            if( !expect( tok_identifier ) ) return nullptr;
+            if( !expect( tok::identifier ) ) return nullptr;
             p = std::move(parse_prototype());
             break;
-        case tok_initial:
-            kind = k_proc_initial;
+        case tok::initial:
+            kind = procedureKind::initial;
             p = std::move(parse_prototype("initial"));
             break;
-        case tok_breakpoint:
-            kind = k_proc_breakpoint;
+        case tok::breakpoint:
+            kind = procedureKind::breakpoint;
             p = std::move(parse_prototype("breakpoint"));
             break;
-        case tok_net_receive:
-            kind = k_proc_net_receive;
+        case tok::net_receive:
+            kind = procedureKind::net_receive;
             p = std::move(parse_prototype("net_receive"));
             break;
         default:
@@ -728,14 +728,14 @@ symbol_ptr Parser::parse_procedure() {
     if(p==nullptr) return nullptr;
 
     // check for opening left brace {
-    if(!expect(tok_lbrace)) return nullptr;
+    if(!expect(tok::lbrace)) return nullptr;
 
     // parse the body of the function
     expression_ptr body = parse_block(false);
     if(body==nullptr) return nullptr;
 
     auto proto = p->is_prototype();
-    if(kind != k_proc_net_receive) {
+    if(kind != procedureKind::net_receive) {
         return make_symbol<ProcedureExpression>
             (proto->location(), proto->name(), std::move(proto->args()), std::move(body), kind);
     }
@@ -749,14 +749,14 @@ symbol_ptr Parser::parse_function() {
     get_token(); // consume FUNCTION token
 
     // check that a valid identifier name was specified by the user
-    if( !expect( tok_identifier ) ) return nullptr;
+    if( !expect( tok::identifier ) ) return nullptr;
 
     // parse the prototype
     auto p = parse_prototype();
     if(p==nullptr) return nullptr;
 
     // check for opening left brace {
-    if(!expect(tok_lbrace)) return nullptr;
+    if(!expect(tok::lbrace)) return nullptr;
 
     // parse the body of the function
     auto body = parse_block(false);
@@ -773,16 +773,16 @@ symbol_ptr Parser::parse_function() {
 //      :: expression
 expression_ptr Parser::parse_statement() {
     switch(token_.type) {
-        case tok_if :
+        case tok::if_stmt :
             return parse_if();
             break;
-        case tok_solve :
+        case tok::solve :
             return parse_solve();
-        case tok_local :
+        case tok::local :
             return parse_local();
-        case tok_identifier :
+        case tok::identifier :
             return parse_line_expression();
-        case tok_initial :
+        case tok::initial :
             // only used for INITIAL block in NET_RECEIVE
             return parse_initial();
         default:
@@ -812,7 +812,7 @@ expression_ptr Parser::parse_call() {
 
     // check for a function call
     // assert this is so
-    if(token_.type != tok_lparen) {
+    if(token_.type != tok::lparen) {
         throw compiler_exception(
             "should not be parsing parse_call without trailing '('",
             location_);
@@ -823,23 +823,23 @@ expression_ptr Parser::parse_call() {
     // parse a function call
     get_token(); // consume '('
 
-    while(token_.type != tok_rparen) {
+    while(token_.type != tok::rparen) {
         auto e = parse_expression();
         if(!e) return e;
 
         args.emplace_back(std::move(e));
 
         // reached the end of the argument list
-        if(token_.type == tok_rparen) break;
+        if(token_.type == tok::rparen) break;
 
         // insist on a comma between arguments
-        if( !expect(tok_comma, "call arguments must be separated by ','") )
+        if( !expect(tok::comma, "call arguments must be separated by ','") )
             return expression_ptr();
         get_token(); // consume ','
     }
 
     // check that we have a closing parenthesis
-    if(!expect(tok_rparen, "function call missing closing ')'") ) {
+    if(!expect(tok::rparen, "function call missing closing ')'") ) {
         return expression_ptr();
     }
     get_token(); // consume ')'
@@ -859,7 +859,7 @@ expression_ptr Parser::parse_line_expression() {
     int line = location_.line;
     expression_ptr lhs;
     Token next = peek();
-    if(next.type == tok_lparen) {
+    if(next.type == tok::lparen) {
         lhs = parse_call();
         // we have to ensure that a procedure call is alone on the line
         // to avoid :
@@ -869,20 +869,20 @@ expression_ptr Parser::parse_line_expression() {
         // function call this has to be caught in the second pass.
         // or optimized away with a warning
         if(!lhs) return lhs;
-        if(location_.line == line && token_.type != tok_eof) {
+        if(location_.line == line && token_.type != tok::eof) {
             error(pprintf(
                 "expected a new line after call expression, found '%'",
                 yellow(token_.spelling)));
             return expression_ptr();
         }
         return lhs  ;
-    } else if(next.type == tok_prime) {
+    } else if(next.type == tok::prime) {
         lhs = make_expression<DerivativeExpression>(location_, token_.spelling);
         // consume both name and derivative operator
         get_token();
         get_token();
         // a derivative statement must be followed by '='
-        if(token_.type!=tok_eq) {
+        if(token_.type!=tok::eq) {
             error("a derivative declaration must have an assignment of the "\
                   "form\n  x' = expression\n  where x is a state variable");
             return expression_ptr();
@@ -896,11 +896,11 @@ expression_ptr Parser::parse_line_expression() {
     }
 
     // we parse a binary expression if followed by an operator
-    if(token_.type == tok_eq) {
+    if(token_.type == tok::eq) {
         Token op = token_;  // save the '=' operator with location
         get_token();        // consume the '=' operator
         return parse_binop(std::move(lhs), op);
-    } else if(line == location_.line && token_.type != tok_eof){
+    } else if(line == location_.line && token_.type != tok::eof){
         error(pprintf("expected an assignment '%' or new line, found '%'",
                       yellow("="),
                       yellow(token_.spelling)));
@@ -919,7 +919,7 @@ expression_ptr Parser::parse_expression() {
 
     // we parse a binary expression if followed by an operator
     if( binop_precedence(token_.type)>0 ) {
-        if(token_.type==tok_eq) {
+        if(token_.type==tok::eq) {
             error("assignment '"+yellow("=")+"' not allowed in sub-expression");
             return nullptr;
         }
@@ -941,21 +941,21 @@ expression_ptr Parser::parse_unaryop() {
     expression_ptr e;
     Token op = token_;
     switch(token_.type) {
-        case tok_plus  :
+        case tok::plus  :
             // plus sign is simply ignored
             get_token(); // consume '+'
             return parse_unaryop();
-        case tok_minus :
+        case tok::minus :
             get_token();       // consume '-'
             e = parse_unaryop(); // handle recursive unary
             if(!e) return nullptr;
             return unary_expression(token_.location, op.type, std::move(e));
-        case tok_exp   :
-        case tok_sin   :
-        case tok_cos   :
-        case tok_log   :
+        case tok::exp   :
+        case tok::sin   :
+        case tok::cos   :
+        case tok::log   :
             get_token();        // consume operator (exp, sin, cos or log)
-            if(token_.type!=tok_lparen) {
+            if(token_.type!=tok::lparen) {
                 error(  "missing parenthesis after call to "
                       + yellow(op.spelling) );
                 return nullptr;
@@ -977,14 +977,14 @@ expression_ptr Parser::parse_unaryop() {
 ///  ::  parenthesis expression (parsed recursively)
 expression_ptr Parser::parse_primary() {
     switch(token_.type) {
-        case tok_number:
+        case tok::number:
             return parse_number();
-        case tok_identifier:
-            if( peek().type == tok_lparen ) {
+        case tok::identifier:
+            if( peek().type == tok::lparen ) {
                 return parse_call();
             }
             return parse_identifier();
-        case tok_lparen:
+        case tok::lparen:
             return parse_parenthesis_expression();
         default: // fall through to return nullptr at end of function
             error( pprintf( "unexpected token '%' in expression",
@@ -997,7 +997,7 @@ expression_ptr Parser::parse_primary() {
 expression_ptr Parser::parse_parenthesis_expression() {
     // never call unless at start of parenthesis
 
-    if(token_.type!=tok_lparen) {
+    if(token_.type!=tok::lparen) {
         throw compiler_exception(
             "attempt to parse a parenthesis_expression() without opening parenthesis",
             location_);
@@ -1008,7 +1008,7 @@ expression_ptr Parser::parse_parenthesis_expression() {
     auto e = parse_expression();
 
     // check for closing parenthesis ')'
-    if( !e || !expect(tok_rparen) ) return nullptr;
+    if( !e || !expect(tok::rparen) ) return nullptr;
 
     get_token(); // consume ')'
 
@@ -1076,7 +1076,7 @@ expression_ptr Parser::parse_local() {
 
     // add symbols
     while(1) {
-        if(!expect(tok_identifier)) return nullptr;
+        if(!expect(tok::identifier)) return nullptr;
 
         // try adding variable name to list
         if(!e->is_local_declaration()->add_variable(token_)) {
@@ -1086,7 +1086,7 @@ expression_ptr Parser::parse_local() {
         get_token(); // consume identifier
 
         // look for comma that indicates continuation of the variable list
-        if(token_.type == tok_comma) {
+        if(token_.type == tok::comma) {
             get_token();
         } else {
             break;
@@ -1110,24 +1110,24 @@ expression_ptr Parser::parse_solve() {
 
     get_token(); // consume the SOLVE keyword
 
-    if(token_.type != tok_identifier) goto solve_statment_error;
+    if(token_.type != tok::identifier) goto solve_statment_error;
 
     name = token_.spelling; // save name of procedure
     get_token(); // consume the procedure identifier
 
-    if(token_.type != tok_method) { // no method was provided
+    if(token_.type != tok::method) { // no method was provided
         method = solverMethod::none;
     }
     else {
         get_token(); // consume the METHOD keyword
-        if(token_.type != tok_cnexp) goto solve_statment_error;
+        if(token_.type != tok::cnexp) goto solve_statment_error;
         method = solverMethod::cnexp;
 
         get_token(); // consume the method description
     }
     // check that the rest of the line was empty
     if(line == location_.line) {
-        if(token_.type != tok_eof) goto solve_statment_error;
+        if(token_.type != tok::eof) goto solve_statment_error;
     }
 
     return make_expression<SolveExpression>(loc, name, method);
@@ -1145,7 +1145,7 @@ expression_ptr Parser::parse_if() {
     Token if_token = token_;
     get_token(); // consume 'if'
 
-    if(!expect(tok_lparen)) return nullptr;
+    if(!expect(tok::lparen)) return nullptr;
 
     // parse the conditional
     auto cond = parse_parenthesis_expression();
@@ -1157,15 +1157,15 @@ expression_ptr Parser::parse_if() {
 
     // parse the false branch if there is an else
     expression_ptr false_branch;
-    if(token_.type == tok_else) {
+    if(token_.type == tok::else_stmt) {
         get_token(); // consume else
 
         // handle 'else if {}' case recursively
-        if(token_.type == tok_if) {
+        if(token_.type == tok::if_stmt) {
             false_branch = parse_if();
         }
         // we have a closing 'else {}'
-        else if(token_.type == tok_lbrace) {
+        else if(token_.type == tok::lbrace) {
             false_branch = parse_block(true);
         }
         else {
@@ -1182,7 +1182,7 @@ expression_ptr Parser::parse_if() {
 // e.g. LOCAL declarations.
 expression_ptr Parser::parse_block(bool is_nested) {
     // blocks have to be enclosed in curly braces {}
-    expect(tok_lbrace);
+    expect(tok::lbrace);
 
     get_token(); // consume '{'
 
@@ -1190,7 +1190,7 @@ expression_ptr Parser::parse_block(bool is_nested) {
     Location block_location = token_.location;
 
     std::list<expression_ptr> body;
-    while(token_.type != tok_rbrace) {
+    while(token_.type != tok::rbrace) {
         auto e = parse_statement();
         if(!e) return e;
 
@@ -1204,7 +1204,7 @@ expression_ptr Parser::parse_block(bool is_nested) {
         body.emplace_back(std::move(e));
     }
 
-    if(token_.type != tok_rbrace) {
+    if(token_.type != tok::rbrace) {
         error("could not find closing '" + yellow("}")
               + "' for else statement that started at "
               + ::to_string(block_location));
@@ -1217,18 +1217,18 @@ expression_ptr Parser::parse_block(bool is_nested) {
 
 expression_ptr Parser::parse_initial() {
     // has to start with INITIAL: error in compiler implementaion otherwise
-    expect(tok_initial);
+    expect(tok::initial);
 
     // save the location of the first statement as the starting point for the block
     Location block_location = token_.location;
 
     get_token(); // consume 'INITIAL'
 
-    if(!expect(tok_lbrace)) return nullptr;
+    if(!expect(tok::lbrace)) return nullptr;
     get_token(); // consume '{'
 
     std::list<expression_ptr> body;
-    while(token_.type != tok_rbrace) {
+    while(token_.type != tok::rbrace) {
         auto e = parse_statement();
         if(!e) return e;
 
@@ -1241,7 +1241,7 @@ expression_ptr Parser::parse_initial() {
         body.emplace_back(std::move(e));
     }
 
-    if(token_.type != tok_rbrace) {
+    if(token_.type != tok::rbrace) {
         error("could not find closing '" + yellow("}")
               + "' for else statement that started at "
               + ::to_string(block_location));

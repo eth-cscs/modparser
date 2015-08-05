@@ -46,7 +46,7 @@ Token Lexer::parse() {
             case 0      :       // end of string
             case EOF    :       // end of file
                 t.spelling = "eof";
-                t.type = tok_eof;
+                t.type = tok::eof;
                 return t;
 
             // white space
@@ -69,8 +69,8 @@ Token Lexer::parse() {
                 current_++;
                 if(*current_ != '\n') {
                     error_string_ = pprintf("bad line ending: \\n must follow \\r");
-                    status_ = k_compiler_error;
-                    t.type = tok_reserved;
+                    status_ = lexerStatus::error;
+                    t.type = tok::reserved;
                     return t;
                 }
                 current_++;
@@ -93,7 +93,7 @@ Token Lexer::parse() {
                 t.spelling = number();
 
                 // test for error when reading number
-                t.type = (status_==k_compiler_error) ? tok_reserved : tok_number;
+                t.type = (status_==lexerStatus::error) ? tok::reserved : tok::number;
                 return t;
 
             // identifier or keyword
@@ -109,34 +109,34 @@ Token Lexer::parse() {
                 // get std::string of the identifier
                 t.spelling = identifier();
                 t.type
-                    = status_==k_compiler_error
-                    ? tok_reserved
+                    = status_==lexerStatus::error
+                    ? tok::reserved
                     : get_identifier_type(t.spelling);
                 return t;
             case '(':
-                t.type = tok_lparen;
+                t.type = tok::lparen;
                 t.spelling += character();
                 return t;
             case ')':
-                t.type = tok_rparen;
+                t.type = tok::rparen;
                 t.spelling += character();
                 return t;
             case '{':
-                t.type = tok_lbrace;
+                t.type = tok::lbrace;
                 t.spelling += character();
                 return t;
             case '}':
-                t.type = tok_rbrace;
+                t.type = tok::rbrace;
                 t.spelling += character();
                 return t;
             case '=': {
                 t.spelling += character();
                 if(*current_=='=') {
                     t.spelling += character();
-                    t.type=tok_EQ;
+                    t.type=tok::EQ;
                 }
                 else {
-                    t.type = tok_eq;
+                    t.type = tok::eq;
                 }
                 return t;
             }
@@ -144,31 +144,31 @@ Token Lexer::parse() {
                 t.spelling += character();
                 if(*current_=='=') {
                     t.spelling += character();
-                    t.type=tok_ne;
+                    t.type=tok::ne;
                 }
                 else {
-                    t.type = tok_not;
+                    t.type = tok::lnot;
                 }
                 return t;
             }
             case '+':
-                t.type = tok_plus;
+                t.type = tok::plus;
                 t.spelling += character();
                 return t;
             case '-':
-                t.type = tok_minus;
+                t.type = tok::minus;
                 t.spelling += character();
                 return t;
             case '/':
-                t.type = tok_divide;
+                t.type = tok::divide;
                 t.spelling += character();
                 return t;
             case '*':
-                t.type = tok_times;
+                t.type = tok::times;
                 t.spelling += character();
                 return t;
             case '^':
-                t.type = tok_pow;
+                t.type = tok::pow;
                 t.spelling += character();
                 return t;
             // comparison binary operators
@@ -176,10 +176,10 @@ Token Lexer::parse() {
                 t.spelling += character();
                 if(*current_=='=') {
                     t.spelling += character();
-                    t.type = tok_lte;
+                    t.type = tok::lte;
                 }
                 else {
-                    t.type = tok_lt;
+                    t.type = tok::lt;
                 }
                 return t;
             }
@@ -187,26 +187,26 @@ Token Lexer::parse() {
                 t.spelling += character();
                 if(*current_=='=') {
                     t.spelling += character();
-                    t.type = tok_gte;
+                    t.type = tok::gte;
                 }
                 else {
-                    t.type = tok_gt;
+                    t.type = tok::gt;
                 }
                 return t;
             }
             case '\'':
-                t.type = tok_prime;
+                t.type = tok::prime;
                 t.spelling += character();
                 return t;
             case ',':
-                t.type = tok_comma;
+                t.type = tok::comma;
                 t.spelling += character();
                 return t;
             default:
                 error_string_ = pprintf("found unexpected character '%' when trying to find next token", *current_);
-                status_ = k_compiler_error;
+                status_ = lexerStatus::error;
                 t.spelling += character();
-                t.type = tok_reserved;
+                t.type = tok::reserved;
                 return t;
         }
     }
@@ -261,8 +261,8 @@ std::string Lexer::number() {
     // check that there is at most one decimal point
     // i.e. disallow values like 2.2324.323
     if(num_point>1) {
-        error_string_ = pprintf("too many .'s when reading the number '%'", colorize(str, kYellow));
-        status_ = k_compiler_error;
+        error_string_ = pprintf("too many .'s when reading the number '%'", yellow(str));
+        status_ = lexerStatus::error;
     }
 
     return str;
@@ -307,28 +307,28 @@ char Lexer::character() {
     return *current_++;
 }
 
-std::map<TOK, int> Lexer::binop_prec_;
+std::map<tok, int> Lexer::binop_prec_;
 
 void Lexer::binop_prec_init() {
     if(binop_prec_.size()>0)
         return;
 
     // I have taken the operator precedence from C++
-    binop_prec_[tok_eq]     = 2;
-    binop_prec_[tok_EQ]     = 4;
-    binop_prec_[tok_ne]     = 4;
-    binop_prec_[tok_lt]     = 5;
-    binop_prec_[tok_lte]    = 5;
-    binop_prec_[tok_gt]     = 5;
-    binop_prec_[tok_gte]    = 5;
-    binop_prec_[tok_plus]   = 10;
-    binop_prec_[tok_minus]  = 10;
-    binop_prec_[tok_times]  = 20;
-    binop_prec_[tok_divide] = 20;
-    binop_prec_[tok_pow]    = 30;
+    binop_prec_[tok::eq]     = 2;
+    binop_prec_[tok::EQ]     = 4;
+    binop_prec_[tok::ne]     = 4;
+    binop_prec_[tok::lt]     = 5;
+    binop_prec_[tok::lte]    = 5;
+    binop_prec_[tok::gt]     = 5;
+    binop_prec_[tok::gte]    = 5;
+    binop_prec_[tok::plus]   = 10;
+    binop_prec_[tok::minus]  = 10;
+    binop_prec_[tok::times]  = 20;
+    binop_prec_[tok::divide] = 20;
+    binop_prec_[tok::pow]    = 30;
 }
 
-int Lexer::binop_precedence(TOK tok) {
+int Lexer::binop_precedence(tok tok) {
     auto r = binop_prec_.find(tok);
     if(r==binop_prec_.end())
         return -1;
@@ -336,10 +336,10 @@ int Lexer::binop_precedence(TOK tok) {
 }
 
 // pre  : identifier is a valid identifier ([_a-zA-Z][_a-zA-Z0-9]*)
-// post : if(identifier is a keyword) return tok_<keyword>
-//        else                        return tok_identifier
-TOK Lexer::get_identifier_type(std::string const& identifier) {
+// post : if(identifier is a keyword) return tok::<keyword>
+//        else                        return tok::identifier
+tok Lexer::get_identifier_type(std::string const& identifier) {
     auto pos = keyword_map.find(identifier);
-    return pos==keyword_map.end() ? tok_identifier : pos->second;
+    return pos==keyword_map.end() ? tok::identifier : pos->second;
 }
 

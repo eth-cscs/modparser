@@ -6,10 +6,10 @@
 #include "scope.hpp"
 #include "visitor.hpp"
 
-enum expressionClassification {
-    k_expression_const,
-    k_expression_lin,
-    k_expression_nonlin
+enum class expressionClassification {
+    constant,
+    linear,
+    nonlinear
 };
 
 class ExpressionClassifierVisitor : public Visitor {
@@ -42,12 +42,12 @@ public:
 
     expressionClassification classify() const {
         if(!found_symbol_) {
-            return k_expression_const;
+            return expressionClassification::constant;
         }
         if(is_linear_) {
-            return k_expression_lin;
+            return expressionClassification::linear;
         }
-        return k_expression_nonlin;
+        return expressionClassification::nonlinear;
     }
 
     Expression *linear_coefficient() {
@@ -75,7 +75,7 @@ private:
         // update the constant_ and coefficient_ terms if they have not already
         // been set
         if(!configured_) {
-            if(classify() == k_expression_lin) {
+            if(classify() == expressionClassification::linear) {
                 // if constat_ was never set, it must be zero
                 if(!constant_) {
                     constant_ =
@@ -92,7 +92,7 @@ private:
                                       );
                 }
             }
-            else if(classify() == k_expression_const) {
+            else if(classify() == expressionClassification::constant) {
                 coefficient_.reset(new NumberExpression(
                                         Location(),
                                         0.)

@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
     // parse
     p.parse();
-    if(p.status() == k_compiler_error) return 1;
+    if(p.status() == lexerStatus::error) return 1;
 
     ////////////////////////////////////////////////////////////
     // semantic analysis
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     if( m.semantic() == false ) {
         std::cout << m.error_string() << std::endl;
     }
-    if(m.status() == k_compiler_error) return 1;
+    if(m.status() == lexerStatus::error) return 1;
 
     ////////////////////////////////////////////////////////////
     // optimize
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
     if(options.optimize) {
         if(options.verbose) std::cout << green("[") + "optimize" + green("]") << std::endl;
         m.optimize();
-        if(m.status() == k_compiler_error) return 1;
+        if(m.status() == lexerStatus::error) return 1;
     }
 
     ////////////////////////////////////////////////////////////

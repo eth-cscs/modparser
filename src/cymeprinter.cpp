@@ -13,7 +13,7 @@ CymePrinter::CymePrinter(Module &m, bool o)
     std::vector<VariableExpression*> scalar_variables;
     std::vector<VariableExpression*> array_variables;
     for(auto& sym: module_->symbols()) {
-        if(sym.second->kind()==k_symbol_variable) {
+        if(sym.second->kind()==symbolKind::variable) {
             auto var = sym.second->is_variable();
             if(var->is_range()) {
                 array_variables.push_back(var);
@@ -124,7 +124,7 @@ CymePrinter::CymePrinter(Module &m, bool o)
     text_ << "        return \"" << m.name() << "\";\n";
     text_ << "    }\n\n";
 
-    std::string kind_str = m.kind() == k_module_density
+    std::string kind_str = m.kind() == moduleKind::density
                             ? "mechanismKind::density"
                             : "mechanismKind::point_process";
     text_ << "    mechanismKind kind() const override {\n";
@@ -136,9 +136,9 @@ CymePrinter::CymePrinter(Module &m, bool o)
     //////////////////////////////////////////////
 
     increase_indentation();
-    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    auto proctest = [] (procedureKind k) {return k == procedureKind::normal || k == procedureKind::api;};
     for(auto const &var : m.symbols()) {
-        if(   var.second->kind()==k_symbol_procedure
+        if(   var.second->kind()==symbolKind::procedure
            && proctest(var.second->is_procedure()->kind()))
         {
             var.second->accept(this);
@@ -223,28 +223,28 @@ void CymePrinter::visit(IndexedVariable *e) {
 
 void CymePrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             // place a space in front of minus sign to avoid invalid
             // expressions of the form : (v[i]--67)
             text_ << " -";
             e->expression()->accept(this);
             return;
-        case tok_exp :
+        case tok::exp :
             text_ << "exp(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_cos :
+        case tok::cos :
             text_ << "cos(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_sin :
+        case tok::sin :
             text_ << "sin(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_log :
+        case tok::log :
             text_ << "log(";
             e->expression()->accept(this);
             text_ << ")";
@@ -262,7 +262,7 @@ void CymePrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto& var : e->scope()->locals()) {
-            if(var.second->kind() == k_symbol_local || var.second->kind() == k_symbol_ghost)
+            if(var.second->kind() == symbolKind::local || var.second->kind() == symbolKind::ghost)
                 names.push_back(var.first);
         }
         if(names.size()>0) {
@@ -434,7 +434,7 @@ void CymePrinter::print_APIMethod(APIMethod* e) {
             on_lhs_ = false;
             out.external->accept(this);
             on_lhs_ = true;
-            text_ << (out.op==tok_plus ? " += " : " -= ");
+            text_ << (out.op==tok::plus ? " += " : " -= ");
             out.local->accept(this);
             text_.end_line(";");
         }
@@ -491,31 +491,31 @@ void CymePrinter::visit(BinaryExpression *e) {
     }
     lhs->accept(this);
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             text_ << "-";
             break;
-        case tok_plus :
+        case tok::plus :
             text_ << "+";
             break;
-        case tok_times :
+        case tok::times :
             text_ << "*";
             break;
-        case tok_divide :
+        case tok::divide :
             text_ << "/";
             break;
-        case tok_lt     :
+        case tok::lt     :
             text_ << "<";
             break;
-        case tok_lte    :
+        case tok::lte    :
             text_ << "<=";
             break;
-        case tok_gt     :
+        case tok::gt     :
             text_ << ">";
             break;
-        case tok_gte    :
+        case tok::gte    :
             text_ << ">=";
             break;
-        case tok_EQ     :
+        case tok::EQ     :
             text_ << "==";
             break;
         default :

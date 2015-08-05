@@ -53,7 +53,7 @@ public:
     // any missed specializations
     ////////////////////////////////////////////////////
     void visit(NegUnaryExpression *e) override {
-        std::cout << colorize("unary neg", kGreen) << std::endl;
+        std::cout << green("unary neg") << std::endl;
         // this is a simplification
         // we would have to perform analysis of parent nodes to ensure that
         // the negation actually translates into an operation

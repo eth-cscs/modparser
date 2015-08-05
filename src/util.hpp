@@ -66,25 +66,25 @@ std::string to_string(T val) {
 //'\e[1;35m' # Purple
 //'\e[1;36m' # Cyan
 //'\e[1;37m' # White
-enum stringColor {kWhite, kRed, kGreen, kBlue, kYellow, kPurple, kCyan};
+enum class stringColor {white, red, green, blue, yellow, purple, cyan};
 
 #define COLOR_PRINTING
 #ifdef COLOR_PRINTING
 static std::string colorize(std::string const& s, stringColor c) {
     switch(c) {
-        case kWhite :
+        case stringColor::white :
             return "\033[1;37m"  + s + "\033[0m";
-        case kRed   :
+        case stringColor::red   :
             return "\033[1;31m" + s + "\033[0m";
-        case kGreen :
+        case stringColor::green :
             return "\033[1;32m" + s + "\033[0m";
-        case kBlue  :
+        case stringColor::blue  :
             return "\033[1;34m" + s + "\033[0m";
-        case kYellow:
+        case stringColor::yellow:
             return "\033[1;33m" + s + "\033[0m";
-        case kPurple:
+        case stringColor::purple:
             return "\033[1;35m" + s + "\033[0m";
-        case kCyan  :
+        case stringColor::cyan  :
             return "\033[1;36m" + s + "\033[0m";
     }
     return s;
@@ -97,25 +97,25 @@ static std::string colorize(std::string const& s, stringColor c) {
 
 // helpers for inline printing
 static std::string red(std::string const& s) {
-    return colorize(s, kRed);
+    return colorize(s, stringColor::red);
 }
 static std::string green(std::string const& s) {
-    return colorize(s, kGreen);
+    return colorize(s, stringColor::green);
 }
 static std::string yellow(std::string const& s) {
-    return colorize(s, kYellow);
+    return colorize(s, stringColor::yellow);
 }
 static std::string blue(std::string const& s) {
-    return colorize(s, kBlue);
+    return colorize(s, stringColor::blue);
 }
 static std::string purple(std::string const& s) {
-    return colorize(s, kPurple);
+    return colorize(s, stringColor::purple);
 }
 static std::string cyan(std::string const& s) {
-    return colorize(s, kCyan);
+    return colorize(s, stringColor::cyan);
 }
 static std::string white(std::string const& s) {
-    return colorize(s, kWhite);
+    return colorize(s, stringColor::white);
 }
 
 template <typename T>

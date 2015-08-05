@@ -4,17 +4,17 @@
 
 std::string to_string(symbolKind k) {
     switch (k) {
-        case k_symbol_variable:
+        case symbolKind::variable:
             return std::string("variable");
-        case k_symbol_indexed_variable:
+        case symbolKind::indexed_variable:
             return std::string("indexed variable");
-        case k_symbol_local:
+        case symbolKind::local:
             return std::string("local");
-        case k_symbol_argument:
+        case symbolKind::argument:
             return std::string("argument");
-        case k_symbol_procedure:
+        case symbolKind::procedure:
             return std::string("procedure");
-        case k_symbol_function:
+        case symbolKind::function:
             return std::string("function");
         default:
             return std::string("none");
@@ -24,17 +24,17 @@ std::string to_string(symbolKind k) {
 
 std::string to_string(procedureKind k) {
     switch(k) {
-        case k_proc_normal             :
+        case procedureKind::normal             :
             return "procedure";
-        case k_proc_api             :
+        case procedureKind::api             :
             return "APIprocedure";
-        case k_proc_initial     :
+        case procedureKind::initial     :
             return "initial";
-        case k_proc_net_receive :
+        case procedureKind::net_receive :
             return "net_receive";
-        case k_proc_breakpoint  :
+        case procedureKind::breakpoint  :
             return "breakpoint";
-        case k_proc_derivative  :
+        case procedureKind::derivative  :
             return "derivative";
         default :
             return "undefined";
@@ -79,7 +79,7 @@ void IdentifierExpression::semantic(std::shared_ptr<scope_type> scp) {
                     yellow(spelling_), location_);
         return;
     }
-    if(s->kind() == k_symbol_procedure || s->kind() == k_symbol_function) {
+    if(s->kind() == symbolKind::procedure || s->kind() == symbolKind::function) {
         error_ = true;
         error_string_ =
             pprintf("the symbol '%' is a function/procedure, not a variable",
@@ -101,7 +101,7 @@ bool IdentifierExpression::is_lvalue() {
     if(var) return var->is_writeable();
 
     // else look for local symbol
-    if(symbol_->kind() == k_symbol_local || symbol_->kind() == k_symbol_argument ) return true;
+    if(symbol_->kind() == symbolKind::local || symbol_->kind() == symbolKind::argument ) return true;
 
     return false;
 }
@@ -157,8 +157,8 @@ void LocalDeclaration::semantic(std::shared_ptr<scope_type> scp) {
         // Note that we allow for local variables with the same name as
         // class scope variables (globals), in which case the local variable
         // name will be used for lookup
-        if(s==nullptr || (s && s->kind()==k_symbol_variable)) {
-            scope_type::symbol_ptr symbol(new Symbol(location_, name, k_symbol_local));
+        if(s==nullptr || (s && s->kind()==symbolKind::variable)) {
+            scope_type::symbol_ptr symbol(new Symbol(location_, name, symbolKind::local));
             symbols_.push_back( scope_->add_local_symbol( name, std::move(symbol)) );
         }
         else {
@@ -181,8 +181,8 @@ void ArgumentExpression::semantic(std::shared_ptr<scope_type> scp) {
 
     auto s = scope_->find(name_);
 
-    if(s==nullptr || (s && s->kind()==k_symbol_variable)) {
-        scope_type::symbol_ptr symbol(new Symbol(location_, name_, k_symbol_argument));
+    if(s==nullptr || (s && s->kind()==symbolKind::variable)) {
+        scope_type::symbol_ptr symbol(new Symbol(location_, name_, symbolKind::argument));
         scope_->add_local_symbol(name_, std::move(symbol));
     }
     else {
@@ -201,14 +201,14 @@ std::string VariableExpression::to_string() const {
     snprintf(n, 17, "%-10s", name().c_str());
     std::string
         s = blue("variable") + " " + yellow(n) + "("
-          + colorize("write", is_writeable() ? kGreen : kRed) + ", "
-          + colorize("read", is_readable() ? kGreen : kRed)   + ", "
+          + colorize("write", is_writeable() ? stringColor::green : stringColor::red) + ", "
+          + colorize("read", is_readable() ? stringColor::green : stringColor::red)   + ", "
           + (is_range() ? "range" : "scalar")                 + ", "
           + "ion" + colorize(::to_string(ion_channel()),
-                             (ion_channel()==k_ion_none) ? kRed : kGreen) + ", "
+                             (ion_channel()==ionKind::none) ? stringColor::red : stringColor::green) + ", "
           + "vis "  + ::to_string(visibility()) + ", "
           + "link " + ::to_string(linkage())    + ", "
-          + colorize("state", is_state() ? kGreen : kRed) + ")";
+          + colorize("state", is_state() ? stringColor::green : stringColor::red) + ")";
     return s;
 }
 
@@ -224,7 +224,7 @@ std::string IndexedVariable::to_string() const {
           + (is_writeable() ? green("write") : red("write")) + ", "
           + (is_readable()  ? green("read")  : red("read")) + ", "
           + "ion" + colorize(::to_string(ion_channel()),
-                             (ion_channel()==k_ion_none) ? kRed : kGreen) + ") ";
+                             (ion_channel()==ionKind::none) ? stringColor::red : stringColor::green) + ") ";
     return s;
 }
 
@@ -255,7 +255,7 @@ void CallExpression::semantic(std::shared_ptr<scope_type> scp) {
             pprintf("there is no function or procedure named '%' ",
                     yellow(spelling_));
     }
-    if(s->kind()==k_symbol_local || s->kind()==k_symbol_variable) {
+    if(s->kind()==symbolKind::local || s->kind()==symbolKind::variable) {
         error_ = true;
         error_string_ = 
             pprintf("the symbol '%' refers to a variable, but it is being called like a function",
@@ -364,7 +364,7 @@ std::string APIMethod::to_string() const {
     str += blue("  locals") + " : ";
     for(auto& var : scope_->locals()) {
         str += namestr(var.second.get());
-        if(var.second->kind() == k_symbol_ghost) str += green("(ghost)");
+        if(var.second->kind() == symbolKind::ghost) str += green("(ghost)");
         str += ", ";
     }
     str += "\n";
@@ -465,7 +465,7 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
     auto return_var = scope_type::symbol_ptr(
-        new Symbol(body_->location(), name(), k_symbol_local)
+        new Symbol(body_->location(), name(), symbolKind::local)
     );
     scope_->add_local_symbol(name(), std::move(return_var));
 
@@ -759,7 +759,7 @@ void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
 
-expression_ptr unary_expression( TOK op,
+expression_ptr unary_expression( tok op,
                                  expression_ptr&& e
                                )
 {
@@ -767,20 +767,20 @@ expression_ptr unary_expression( TOK op,
 }
 
 expression_ptr unary_expression( Location loc,
-                                 TOK op,
+                                 tok op,
                                  expression_ptr&& e
                                )
 {
     switch(op) {
-        case tok_minus :
+        case tok::minus :
             return make_expression<NegUnaryExpression>(loc, std::move(e));
-        case tok_exp :
+        case tok::exp :
             return make_expression<ExpUnaryExpression>(loc, std::move(e));
-        case tok_cos :
+        case tok::cos :
             return make_expression<CosUnaryExpression>(loc, std::move(e));
-        case tok_sin :
+        case tok::sin :
             return make_expression<SinUnaryExpression>(loc, std::move(e));
-        case tok_log :
+        case tok::log :
             return make_expression<LogUnaryExpression>(loc, std::move(e));
        default :
             std::cerr << yellow(token_string(op))
@@ -791,7 +791,7 @@ expression_ptr unary_expression( Location loc,
     return nullptr;
 }
 
-expression_ptr binary_expression( TOK op,
+expression_ptr binary_expression( tok op,
                                   expression_ptr&& lhs,
                                   expression_ptr&& rhs
                                 )
@@ -800,29 +800,29 @@ expression_ptr binary_expression( TOK op,
 }
 
 expression_ptr binary_expression(Location loc,
-                                 TOK op,
+                                 tok op,
                                  expression_ptr&& lhs,
                                  expression_ptr&& rhs
                                 )
 {
     switch(op) {
-        case tok_eq     :
+        case tok::eq     :
             return make_expression<AssignmentExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_plus   :
+        case tok::plus   :
             return make_expression<AddBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_minus  :
+        case tok::minus  :
             return make_expression<SubBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_times  :
+        case tok::times  :
             return make_expression<MulBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_divide :
+        case tok::divide :
             return make_expression<DivBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_pow    :
+        case tok::pow    :
             return make_expression<PowBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok_lt     :
-        case tok_lte    :
-        case tok_gt     :
-        case tok_gte    :
-        case tok_EQ     :
+        case tok::lt     :
+        case tok::lte    :
+        case tok::gt     :
+        case tok::gte    :
+        case tok::EQ     :
             return make_expression<ConditionalExpression>(loc, op, std::move(lhs), std::move(rhs));
         default         :
             std::cerr << yellow(token_string(op))

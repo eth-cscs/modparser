@@ -120,7 +120,7 @@ CPrinter::CPrinter(Module &m, bool o)
     text_ << "        return \"" << m.name() << "\";\n";
     text_ << "    }\n\n";
 
-    std::string kind_str = m.kind() == k_module_density
+    std::string kind_str = m.kind() == moduleKind::density
                             ? "mechanismKind::density"
                             : "mechanismKind::point_process";
     text_ << "    mechanismKind kind() const override {\n";
@@ -132,9 +132,9 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
 
     increase_indentation();
-    auto proctest = [] (procedureKind k) {return k == k_proc_normal || k == k_proc_api;};
+    auto proctest = [] (procedureKind k) {return k == procedureKind::normal || k == procedureKind::api;};
     for(auto &var : m.symbols()) {
-        if(   var.second->kind()==k_symbol_procedure
+        if(   var.second->kind()==symbolKind::procedure
            && proctest(var.second->is_procedure()->kind()))
         {
             var.second->accept(this);
@@ -186,7 +186,7 @@ void CPrinter::visit(Symbol *e) {
     std::string const& name = e->name();
     text_ << name;
     auto k = e->kind();
-    if(k==k_symbol_ghost) {
+    if(k==symbolKind::ghost) {
         text_ << "[j_]";
     }
 }
@@ -212,28 +212,28 @@ void CPrinter::visit(IndexedVariable *e) {
 
 void CPrinter::visit(UnaryExpression *e) {
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             // place a space in front of minus sign to avoid invalid
             // expressions of the form : (v[i]--67)
             text_ << " -";
             e->expression()->accept(this);
             return;
-        case tok_exp :
+        case tok::exp :
             text_ << "exp(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_cos :
+        case tok::cos :
             text_ << "cos(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_sin :
+        case tok::sin :
             text_ << "sin(";
             e->expression()->accept(this);
             text_ << ")";
             return;
-        case tok_log :
+        case tok::log :
             text_ << "log(";
             e->expression()->accept(this);
             text_ << ")";
@@ -251,7 +251,7 @@ void CPrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto& var : e->scope()->locals()) {
-            if(var.second->kind() == k_symbol_local)
+            if(var.second->kind() == symbolKind::local)
                 names.push_back(var.first);
         }
         if(names.size()>0) {
@@ -381,7 +381,7 @@ void CPrinter::visit(APIMethod *e) {
 
 void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    //bool is_density = module_->kind() == k_module_density;
+    //bool is_density = module_->kind() == moduleKind::density;
 
     text_.add_line("START_PROFILE");
     // there can not be more than 1 instance of a density chanel per grid point,
@@ -409,7 +409,7 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     for(auto &out : e->outputs()) {
         text_.add_gutter();
         out.external->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
+        text_ << (out.op==tok::plus ? " += " : " -= ");
         out.local->accept(this);
         text_.end_line(";");
     }
@@ -428,14 +428,14 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
 
 void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    bool is_point_process = module_->kind() == k_module_point;
+    bool is_point_process = module_->kind() == moduleKind::point;
 
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
     std::vector<APIMethod::memop_type*> aliased_variables;
     if(is_point_process) {
         for(auto &out : e->outputs()) {
-            if(out.local->kind() == k_symbol_ghost) {
+            if(out.local->kind() == symbolKind::ghost) {
                 aliased_variables.push_back(&out);
             }
         }
@@ -497,7 +497,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     for(auto &out : e->outputs()) {
         text_.add_gutter();
         out.external->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
+        text_ << (out.op==tok::plus ? " += " : " -= ");
         out.local->accept(this);
         text_.end_line(";");
     }
@@ -541,7 +541,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     for(auto &out : e->outputs()) {
         text_.add_gutter();
         out.external->accept(this);
-        text_ << (out.op==tok_plus ? " += " : " -= ");
+        text_ << (out.op==tok::plus ? " += " : " -= ");
         out.local->accept(this);
         text_.end_line(";");
     }
@@ -594,31 +594,31 @@ void CPrinter::visit(BinaryExpression *e) {
     }
     lhs->accept(this);
     switch(e->op()) {
-        case tok_minus :
+        case tok::minus :
             text_ << "-";
             break;
-        case tok_plus :
+        case tok::plus :
             text_ << "+";
             break;
-        case tok_times :
+        case tok::times :
             text_ << "*";
             break;
-        case tok_divide :
+        case tok::divide :
             text_ << "/";
             break;
-        case tok_lt     :
+        case tok::lt     :
             text_ << "<";
             break;
-        case tok_lte    :
+        case tok::lte    :
             text_ << "<=";
             break;
-        case tok_gt     :
+        case tok::gt     :
             text_ << ">";
             break;
-        case tok_gte    :
+        case tok::gte    :
             text_ << ">=";
             break;
-        case tok_EQ     :
+        case tok::EQ     :
             text_ << "==";
             break;
         default :

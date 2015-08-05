@@ -34,19 +34,19 @@ void ConstantFolderVisitor::visit(UnaryExpression *e) {
             e->replace_expression(make_expression<NumberExpression>(e->location(), value));
         }
         switch(e->op()) {
-            case tok_minus :
+            case tok::minus :
                 value = -value;
                 return;
-            case tok_exp :
+            case tok::exp :
                 value = std::exp(value);
                 return;
-            case tok_cos :
+            case tok::cos :
                 value = std::cos(value);
                 return;
-            case tok_sin :
+            case tok::sin :
                 value = std::sin(value);
                 return;
-            case tok_log :
+            case tok::log :
                 value = std::log(value);
                 return;
             default :
@@ -99,30 +99,30 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
         // be careful to get the order of operation right for
         // non-computative operators
         switch(e->op()) {
-            case tok_plus :
+            case tok::plus :
                 value = lhs_value + value;
                 return;
-            case tok_minus :
+            case tok::minus :
                 value = lhs_value - value;
                 return;
-            case tok_times :
+            case tok::times :
                 value = lhs_value * value;
                 return;
-            case tok_divide :
+            case tok::divide :
                 value = lhs_value / value;
                 return;
-            case tok_pow :
+            case tok::pow :
                 value = std::pow(lhs_value, value);
                 return;
             // don't fold comparison operators (we have no internal support
             // for boolean values in nodes). leave for the back end compiler.
             // not a big deal, because these are not counted when estimating
             // flops with the FLOP visitor
-            case tok_lt     :
-            case tok_lte    :
-            case tok_gt     :
-            case tok_gte    :
-            case tok_EQ     :
+            case tok::lt     :
+            case tok::lte    :
+            case tok::gt     :
+            case tok::gte    :
+            case tok::EQ     :
                 is_number = false;
                 return;
             default         :

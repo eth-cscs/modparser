@@ -9,9 +9,9 @@ TEST(Module, open) {
     }
     Lexer lexer(m.buffer());
     auto t = lexer.parse();
-    while(t.type != tok_eof) {
+    while(t.type != tok::eof) {
         t = lexer.parse();
-        EXPECT_NE(t.type, tok_reserved);
+        EXPECT_NE(t.type, tok::reserved);
     }
 }
 
