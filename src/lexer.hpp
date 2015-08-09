@@ -18,6 +18,12 @@ enum class lexerStatus {
     happy   // lexer is in a good place
 };
 
+// associativity of an operator
+enum class associativityKind {
+    left,
+    right
+};
+
 bool is_keyword(Token const& t);
 
 
@@ -85,6 +91,7 @@ public:
     const std::string& error_message() {return error_string_;};
 
     static int binop_precedence(tok tok);
+    static associativityKind operator_associativity(tok token);
 protected:
     // buffer used for short-lived parsers
     std::vector<char> buffer_;

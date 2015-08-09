@@ -69,3 +69,4 @@ To use the compiler to generate the mechanism headers for the benchmark example 
 cd bin
 export PATH=`pwd`:$PATH
 ```
+

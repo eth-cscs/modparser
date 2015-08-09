@@ -335,6 +335,13 @@ int Lexer::binop_precedence(tok tok) {
     return r->second;
 }
 
+associativityKind Lexer::operator_associativity(tok token) {
+    if(token==tok::pow) {
+        return associativityKind::right;
+    }
+    return associativityKind::left;
+}
+
 // pre  : identifier is a valid identifier ([_a-zA-Z][_a-zA-Z0-9]*)
 // post : if(identifier is a keyword) return tok::<keyword>
 //        else                        return tok::identifier
