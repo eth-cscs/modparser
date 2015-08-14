@@ -150,6 +150,50 @@ TEST(Parser, parse_solve) {
     }
 }
 
+TEST(Parser, parse_conductance) {
+    {
+        Parser p("CONDUCTANCE g USEION na");
+        auto e = p.parse_conductance();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
+
+        if(e) {
+            ConductanceExpression* s = dynamic_cast<ConductanceExpression*>(e.get());
+            EXPECT_EQ(s->ion_channel(), ionKind::Na);
+            EXPECT_EQ(s->name(), "g");
+        }
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==lexerStatus::error) {
+            std::cout << red("error") << p.error_message() << std::endl;
+        }
+    }
+    {
+        Parser p("CONDUCTANCE gnda");
+        auto e = p.parse_conductance();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
+
+        if(e) {
+            ConductanceExpression* s = dynamic_cast<ConductanceExpression*>(e.get());
+            EXPECT_EQ(s->ion_channel(), ionKind::nonspecific);
+            EXPECT_EQ(s->name(), "gnda");
+        }
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==lexerStatus::error) {
+            std::cout << red("error") << p.error_message() << std::endl;
+        }
+    }
+}
 
 TEST(Parser, parse_if) {
     {

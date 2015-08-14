@@ -183,10 +183,26 @@ void CPrinter::visit(LocalDeclaration *e) {
 }
 
 void CPrinter::visit(Symbol *e) {
+    /*
     std::string const& name = e->name();
     text_ << name;
     auto k = e->kind();
     if(k==symbolKind::ghost) {
+        text_ << "[j_]";
+    }
+    */
+    throw compiler_exception("I don't know how to print raw Symbol " + e->to_string(),
+                             e->location());
+}
+
+void CPrinter::visit(LocalVariable *e) {
+    std::string const& name = e->name();
+    text_ << name;
+    // TODO : this is wrong: only use index if
+    //  a) has indexed
+    //  b) is write only
+    //  c) is in a point process
+    if(e->is_indexed() && is_point_process() && e->external_variable()->is_read()) {
         text_ << "[j_]";
     }
 }
@@ -250,16 +266,21 @@ void CPrinter::visit(BlockExpression *e) {
     // only if this is the outer block
     if(!e->is_nested()) {
         std::vector<std::string> names;
-        for(auto& var : e->scope()->locals()) {
-            if(var.second->kind() == symbolKind::local)
-                names.push_back(var.first);
+        for(auto& symbol : e->scope()->locals()) {
+            auto var = symbol.second->is_local_variable();
+            // only print definition if variable is local or a
+            // write-only indexed variable
+            //if(var->is_local() || (!var->is_read())) {
+            if(!(var->is_indexed() && var->is_read()) && !var->is_arg()) {
+                names.push_back(symbol.first);
+            }
         }
         if(names.size()>0) {
             text_.add_gutter() << "value_type " << names[0];
             for(auto it=names.begin()+1; it!=names.end(); ++it) {
-                    text_ <<  "(0), " << *it;
+                    text_ <<  "{0}, " << *it;
             }
-            text_.end_line("(0);");
+            text_.end_line("{0};");
         }
     }
 
@@ -329,41 +350,22 @@ void CPrinter::visit(APIMethod *e) {
     increase_indentation();
 
     // create local indexed views
-    for(auto& in : e->inputs()) {
-        auto const& name =
-            in.external->is_indexed_variable()->name();
-        text_.add_gutter();
-        text_ << "const indexed_view " + name;
-        if(name.substr(0,3) == "vec") {
-            text_ << "(matrix_." + name + "(), node_indices_);\n";
-        }
-        else if(name.substr(0,3) == "ion") {
-            auto iname = ion_store(ion_kind_from_name(name));
-            text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
-        }
-        else {
-            throw compiler_exception(
-                "what to do with indexed view `" + name
-                + "`, which doesn't start with vec_ or ion_?",
-                e->location());
-        }
-    }
-    for(auto &in : e->outputs()) {
-        auto const& name =
-            in.external->is_indexed_variable()->name();
-        text_.add_gutter() << "indexed_view " + name;
-        if(name.substr(0,3) == "vec") {
-            text_ << "(matrix_." + name + "(), node_indices_);\n";
-        }
-        else if(name.substr(0,3) == "ion") {
-            auto iname = ion_store(ion_kind_from_name(name));
-            text_ << "(" + iname + "." + name.substr(4) + ", " + iname + ".index);\n";
-        }
-        else {
-            throw compiler_exception(
-                "what to do with indexed view `" + name
-                + "`, which doesn't start with vec_ or ion_?",
-                e->location());
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(var->is_indexed()) {
+            auto const& name = var->name();
+            text_.add_gutter();
+            if(var->is_read()) text_ << "const ";
+            text_ << "indexed_view " + var->external_variable()->index_name();
+            auto channel = var->external_variable()->ion_channel();
+            if(channel==ionKind::none) {
+                text_ << "(matrix_.vec_" + name + "(), node_indices_);\n";
+            }
+            else {
+                auto iname = ion_store(channel);
+                text_ << "(" << iname << "." << name << ", "
+                      << ion_store(channel) << ".index);\n";
+            }
         }
     }
 
@@ -380,38 +382,40 @@ void CPrinter::visit(APIMethod *e) {
 }
 
 void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
-    // ------------- get mechanism properties ------------- //
-    //bool is_density = module_->kind() == moduleKind::density;
-
     text_.add_line("START_PROFILE");
-    // there can not be more than 1 instance of a density chanel per grid point,
-    // so we can assert that aliasing will not occur for 
-    // if this is a point process, then we were redirected here as there
-    // is no aliased output
-    //if(is_density || optimize_) text_.add_line("#pragma ivdep");
+
+    // there can not be more than 1 instance of a density channel per grid point,
+    // so we can assert that aliasing will not occur.
     if(optimize_) text_.add_line("#pragma ivdep");
 
     text_.add_line("for(int i_=0; i_<n_; ++i_) {");
     text_.increase_indentation();
 
-    // insert loads from external state here
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local->accept(this);
-        text_ << " = ";
-        in.external->accept(this);
-        text_.end_line(";");
+    // loads from external indexed arrays
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(var->is_local()) {
+            if(var->is_indexed() && var->is_read()) {
+                auto ext = var->external_variable();
+                text_.add_line("value_type " + ext->name() + " = "
+                               + ext->index_name() + "[i];");
+            }
+        }
     }
 
+    // print the body of the funtor
     e->body()->accept(this);
 
-    // insert stores here
-    for(auto &out : e->outputs()) {
-        text_.add_gutter();
-        out.external->accept(this);
-        text_ << (out.op==tok::plus ? " += " : " -= ");
-        out.local->accept(this);
-        text_.end_line(";");
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(var->is_indexed() && var->is_write()) {
+            //std::cout << "indexed output " << var->external_variable()->to_string() << std::endl;
+            auto ext = var->external_variable();
+            text_.add_gutter();
+            text_ << ext->index_name() + "[i]";
+            text_ << (ext->op() == tok::plus ? " += " : " -= ");
+            text_ << ext->name() << ";\n";
+        }
     }
 
     text_.decrease_indentation();
@@ -428,11 +432,11 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
 
 void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
-    bool is_point_process = module_->kind() == moduleKind::point;
 
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
     std::vector<APIMethod::memop_type*> aliased_variables;
+    /*
     if(is_point_process) {
         for(auto &out : e->outputs()) {
             if(out.local->kind() == symbolKind::ghost) {
@@ -440,9 +444,12 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
             }
         }
     }
+    */
     bool aliased_output = aliased_variables.size()>0;
 
-    // only proceed with optimized output if required
+    // only proceed with optimized output if the ouputs are aliased
+    // because all optimizations are for using ghost buffers to avoid
+    // race conditions in vectorized code
     if(!aliased_output) {
         print_APIMethod_unoptimized(e);
         return;
@@ -476,6 +483,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     }
 
     // insert loads from external state here
+    /*
     for(auto &in : e->inputs()) {
         text_.add_gutter();
         in.local->accept(this);
@@ -483,6 +491,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
         in.external->accept(this);
         text_.end_line(";");
     }
+    */
 
     e->body()->accept(this);
 
@@ -494,6 +503,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.increase_indentation();
 
     // insert stores here
+    /*
     for(auto &out : e->outputs()) {
         text_.add_gutter();
         out.external->accept(this);
@@ -501,6 +511,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
         out.local->accept(this);
         text_.end_line(";");
     }
+    */
 
     text_.decrease_indentation();
     text_.add_line("}"); // end inner write loop
@@ -521,6 +532,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
 
     // insert loads from external state here
+    /*
     for(auto &in : e->inputs()) {
         text_.add_gutter();
         in.local->accept(this);
@@ -528,6 +540,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
         in.external->accept(this);
         text_.end_line(";");
     }
+    */
 
     e->body()->accept(this);
 
@@ -537,6 +550,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
     text_.increase_indentation();
 
+    /*
     // insert stores here
     for(auto &out : e->outputs()) {
         text_.add_gutter();
@@ -545,6 +559,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
         out.local->accept(this);
         text_.end_line(";");
     }
+    */
 
     text_.decrease_indentation();
     text_.add_line("}"); // end block tail loop

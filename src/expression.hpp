@@ -47,7 +47,9 @@ class DivBinaryExpression;
 class PowBinaryExpression;
 class ConditionalExpression;
 class SolveExpression;
+class ConductanceExpression;
 class Symbol;
+class LocalVariable;
 
 using expression_ptr = std::unique_ptr<Expression>;
 using symbol_ptr = std::unique_ptr<Symbol>;
@@ -81,14 +83,11 @@ std::string to_string(procedureKind k);
 
 /// classification of different symbol kinds
 enum class symbolKind {
-    function,     ///< function call
-    procedure,    ///< procedure call
-    variable,     ///< variable at module scope
+    function,         ///< function call
+    procedure,        ///< procedure call
+    variable,         ///< variable at module scope
     indexed_variable, ///< a variable that is indexed
-    local,        ///< variable at local scope
-    argument,     ///< argument variable
-    ghost,        ///< variable used as ghost buffer
-    none,         ///< no symbol kind (placeholder)
+    local_variable,   ///< variable at local scope
 };
 std::string to_string(symbolKind k);
 
@@ -126,7 +125,11 @@ public:
 
     void error(std::string const& str) {
         error_        = true;
-        error_string_ = str;
+        error_string_ += str;
+    }
+    void warning(std::string const& str) {
+        warning_        = true;
+        warning_string_ += str;
     }
     bool has_error()   { return error_; }
     bool has_warning() { return warning_; }
@@ -161,6 +164,7 @@ public:
     virtual InitialBlock*          is_initial_block()     {return nullptr;}
     virtual SolveExpression*       is_solve_statement()   {return nullptr;}
     virtual Symbol*                is_symbol()            {return nullptr;}
+    virtual ConductanceExpression* is_conductance_statement() {return nullptr;}
 
     virtual bool is_lvalue() {return false;}
 
@@ -170,6 +174,8 @@ public:
 
 protected:
     // these are used to flag errors when performing semantic analysis
+    // we might want to extend these to an additional "contaminated" flag
+    // which marks whether an error was found in a subnode of a node.
     bool error_=false;
     bool warning_=false;
     std::string error_string_;
@@ -196,10 +202,6 @@ public :
         return kind_;
     }
 
-    void set_kind(symbolKind k) {
-        kind_ = k;
-    }
-
     Symbol* is_symbol() override {
         return this;
     }
@@ -207,16 +209,21 @@ public :
     std::string to_string() const override;
     void accept(Visitor *v) override;
 
-    virtual IndexedVariable*      is_indexed_variable()  {return nullptr;}
     virtual VariableExpression*   is_variable()          {return nullptr;}
     virtual ProcedureExpression*  is_procedure()         {return nullptr;}
     virtual NetReceiveExpression* is_net_receive()       {return nullptr;}
     virtual APIMethod*            is_api_method()        {return nullptr;}
+    virtual IndexedVariable*      is_indexed_variable()  {return nullptr;}
+    virtual LocalVariable*        is_local_variable()    {return nullptr;}
 
 private :
     std::string name_;
 
     symbolKind kind_;
+};
+
+enum class localVariableKind {
+    local, argument
 };
 
 // an identifier
@@ -418,8 +425,12 @@ public:
     bool is_state()     const {return is_state_;}
     bool is_range()     const {return range_kind_  == rangeKind::range;}
     bool is_scalar()    const {return !is_range();}
-    bool is_readable()  const {return access_==accessKind::read  || access_==accessKind::readwrite;}
-    bool is_writeable() const {return access_==accessKind::write || access_==accessKind::readwrite;}
+
+    bool is_readable()  const {return    access_==accessKind::read
+                                      || access_==accessKind::readwrite;}
+
+    bool is_writeable() const {return    access_==accessKind::write
+                                      || access_==accessKind::readwrite;}
 
     double value()       const {return value_;}
     void value(double v) {value_ = v;}
@@ -442,18 +453,45 @@ protected:
 // an indexed variable
 class IndexedVariable : public Symbol {
 public:
-    IndexedVariable(Location loc, std::string name)
-    :   Symbol(loc, std::move(name), symbolKind::indexed_variable)
-    {}
+    IndexedVariable(Location loc,
+                    std::string lookup_name,
+                    std::string index_name,
+                    accessKind acc,
+                    tok o=tok::eq,
+                    ionKind channel=ionKind::none)
+    :   Symbol(loc, std::move(lookup_name), symbolKind::indexed_variable),
+        access_(acc),
+        ion_channel_(channel),
+        index_name_(index_name),
+        op_(o)
+    {
+        std::string msg;
+        // external symbols are either read or write only
+        if(access()==accessKind::readwrite) {
+            msg = pprintf("attempt to generate an index % with readwrite access",
+                          yellow(lookup_name));
+            goto compiler_error;
+        }
+        // read only variables must be assigned via equality
+        if(is_read() && op()!=tok::eq) {
+            msg = pprintf("read only indexes % must use assignment",
+                            yellow(lookup_name));
+            goto compiler_error;
+        }
+        // write only variables must be update via addition/subtraction
+        if(is_write() && (op()!=tok::plus && op()!=tok::minus)) {
+            msg = pprintf("write only index %  must use addition or subtraction",
+                          yellow(lookup_name));
+            goto compiler_error;
+        }
+
+        return;
+
+compiler_error:
+        throw(compiler_exception(msg, location_));
+    }
 
     std::string to_string() const override;
-
-    void access(accessKind a) {
-        access_ = a;
-    }
-    void ion_channel(ionKind i) {
-        ion_channel_ = i;
-    }
 
     accessKind access() const {
         return access_;
@@ -461,19 +499,89 @@ public:
     ionKind ion_channel() const {
         return ion_channel_;
     }
+    tok op() const {
+        return op_;
+    }
 
-    bool is_ion()       const {return ion_channel_ != ionKind::none;}
-    bool is_readable()  const {return access_==accessKind::read  || access_==accessKind::readwrite;}
-    bool is_writeable() const {return access_==accessKind::write || access_==accessKind::readwrite;}
+    std::string const& index_name() const {
+        return index_name_;
+    }
+
+    bool is_ion()   const {return ion_channel_ != ionKind::none;}
+    bool is_read()  const {return access_ == accessKind::read;  }
+    bool is_write() const {return access_ == accessKind::write; }
 
     void accept(Visitor *v) override;
     IndexedVariable* is_indexed_variable() override {return this;}
 
     ~IndexedVariable() {}
 protected:
-    accessKind     access_      = accessKind::readwrite;
-    ionKind        ion_channel_ = ionKind::none;
+    accessKind  access_;
+    ionKind     ion_channel_;
+    std::string index_name_;
+    tok op_;
 };
+
+class LocalVariable : public Symbol {
+public :
+    LocalVariable(Location loc,
+                  std::string name,
+                  localVariableKind kind=localVariableKind::local)
+    :   Symbol(std::move(loc), std::move(name), symbolKind::local_variable),
+        kind_(kind)
+    {}
+
+    LocalVariable* is_local_variable() override {
+        return this;
+    }
+
+    localVariableKind kind() const {
+        return kind_;
+    }
+
+    bool is_indexed() const {
+        return external_!=nullptr;
+    }
+
+    ionKind ion_channel() const {
+        if(is_indexed()) return external_->ion_channel();
+        return ionKind::none;
+    }
+
+    bool is_read() const {
+        if(is_indexed()) return external_->is_read();
+        return true;
+    }
+
+    bool is_write() const {
+        if(is_indexed()) return external_->is_write();
+        return true;
+    }
+
+    bool is_local() const {
+        return kind_==localVariableKind::local;
+    }
+
+    bool is_arg() const {
+        return kind_==localVariableKind::argument;
+    }
+
+    const IndexedVariable* external_variable() const {
+        return external_;
+    }
+
+    void external_variable(IndexedVariable *i) {
+        external_ = i;
+    }
+
+    std::string to_string() const override;
+    void accept(Visitor *v) override;
+
+private :
+    IndexedVariable *external_=nullptr;
+    localVariableKind kind_;
+};
+
 
 // a SOLVE statement
 class SolveExpression : public Expression {
@@ -522,6 +630,45 @@ private:
     solverMethod method_;
 
     ProcedureExpression* procedure_;
+};
+
+// a CONDUCTANCE statement
+class ConductanceExpression : public Expression {
+public:
+    ConductanceExpression(
+            Location loc,
+            std::string name,
+            ionKind channel)
+    :   Expression(loc), name_(std::move(name)), ion_channel_(channel)
+    {}
+
+    std::string to_string() const override {
+        return blue("conductance") + "(" + yellow(name_) + ", "
+            + green(::to_string(ion_channel_)) + ")";
+    }
+
+    std::string const& name() const {
+        return name_;
+    }
+
+    ionKind ion_channel() const {
+        return ion_channel_;
+    }
+
+    ConductanceExpression* is_conductance_statement() override {
+        return this;
+    }
+
+    expression_ptr clone() const override;
+
+    void semantic(std::shared_ptr<scope_type> scp) override;
+    void accept(Visitor *v) override;
+
+    ~ConductanceExpression() {}
+private:
+    /// pointer to the variable symbol for the state variable to be solved for
+    std::string name_;
+    ionKind ion_channel_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -726,25 +873,7 @@ public:
     APIMethod* is_api_method() override {return this;}
     void accept(Visitor *v) override;
 
-    std::vector<memop_type>& inputs() {
-        return in_;
-    }
-
-    std::vector<memop_type>& outputs() {
-        return out_;
-    }
     std::string to_string() const override;
-
-protected:
-    /// lists the fields that have to be read in from an
-    /// indexed array before the kernel can be executed
-    /// e.g. voltage values from global voltage vector
-    std::vector<memop_type> in_;
-
-    /// lists the fields that have to be written via an
-    /// indexed array after the kernel has been executed
-    /// e.g. current update for RHS vector
-    std::vector<memop_type> out_;
 };
 
 /// stores the INITIAL block in a NET_RECEIVE block, if there is one

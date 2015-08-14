@@ -44,7 +44,10 @@ static std::string yesno(bool val) {
     return std::string(val ? "yes" : "no");
 };
 
-// to_string functions
+////////////////////////////////////////////
+// to_string functions convert types
+// to strings for printing diagnostics
+////////////////////////////////////////////
 static std::string to_string(ionKind i) {
     switch(i) {
         case ionKind::none : return std::string("none");

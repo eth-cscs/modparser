@@ -8,16 +8,12 @@ std::string to_string(symbolKind k) {
             return std::string("variable");
         case symbolKind::indexed_variable:
             return std::string("indexed variable");
-        case symbolKind::local:
+        case symbolKind::local_variable:
             return std::string("local");
-        case symbolKind::argument:
-            return std::string("argument");
         case symbolKind::procedure:
             return std::string("procedure");
         case symbolKind::function:
             return std::string("function");
-        default:
-            return std::string("none");
     }
 }
 
@@ -46,8 +42,7 @@ std::string to_string(procedureKind k) {
 *******************************************************************************/
 
 void Expression::semantic(std::shared_ptr<scope_type>) {
-    error_ = true;
-    error_string_ = "semantic() has not been implemented for this expression";
+    error("semantic() has not been implemented for this expression");
 }
 
 expression_ptr Expression::clone() const {
@@ -59,8 +54,21 @@ expression_ptr Expression::clone() const {
 /*******************************************************************************
   Symbol
 *******************************************************************************/
+
 std::string Symbol::to_string() const {
     return blue("Symbol") + " " + yellow(name_);
+}
+
+/*******************************************************************************
+  LocalVariable
+*******************************************************************************/
+
+std::string LocalVariable::to_string() const {
+    std::string s = blue("Local Variable") + " " + yellow(name());
+    if(is_indexed()) {
+        s += " ->(" + token_string(external_->op()) + ") " + yellow(external_->index_name());
+    }
+    return s;
 }
 
 /*******************************************************************************
@@ -73,18 +81,23 @@ void IdentifierExpression::semantic(std::shared_ptr<scope_type> scp) {
     auto s = scope_->find(spelling_);
 
     if(s==nullptr) {
-        error_ = true;
-        error_string_ =
-            pprintf("the variable '%' is undefined",
-                    yellow(spelling_), location_);
+        error( pprintf("the variable '%' is undefined",
+                        yellow(spelling_), location_));
         return;
     }
     if(s->kind() == symbolKind::procedure || s->kind() == symbolKind::function) {
-        error_ = true;
-        error_string_ =
-            pprintf("the symbol '%' is a function/procedure, not a variable",
-                    yellow(spelling_));
+        error( pprintf("the symbol '%' is a function/procedure, not a variable",
+                       yellow(spelling_)));
         return;
+    }
+    // if the symbol is an indexed variable, this is the first time that the
+    // indexed variable is used in this procedure. In which case, we create
+    // a local variable which refers to the indexed variable, which will be
+    // found for any subsequent variable lookup inside the procedure
+    if(auto sym = s->is_indexed_variable()) {
+        auto var = new LocalVariable(location_, spelling_);
+        var->external_variable(sym);
+        s = scope_->add_local_symbol(spelling_, scope_type::symbol_ptr{var});
     }
 
     // save the symbol
@@ -101,7 +114,9 @@ bool IdentifierExpression::is_lvalue() {
     if(var) return var->is_writeable();
 
     // else look for local symbol
-    if(symbol_->kind() == symbolKind::local || symbol_->kind() == symbolKind::argument ) return true;
+    if( symbol_->kind() == symbolKind::local_variable ) {
+        return true;
+    }
 
     return false;
 }
@@ -136,8 +151,7 @@ expression_ptr LocalDeclaration::clone() const {
 
 bool LocalDeclaration::add_variable(Token tok) {
     if(vars_.find(tok.spelling)!=vars_.end()) {
-        error_ = true;
-        error_string_ = "the variable '" + yellow(tok.spelling) + "' is defined more than once";
+        error( "the variable '" + yellow(tok.spelling) + "' is defined more than once");
         return false;
     }
 
@@ -157,14 +171,13 @@ void LocalDeclaration::semantic(std::shared_ptr<scope_type> scp) {
         // Note that we allow for local variables with the same name as
         // class scope variables (globals), in which case the local variable
         // name will be used for lookup
-        if(s==nullptr || (s && s->kind()==symbolKind::variable)) {
-            scope_type::symbol_ptr symbol(new Symbol(location_, name, symbolKind::local));
-            symbols_.push_back( scope_->add_local_symbol( name, std::move(symbol)) );
+        if(s==nullptr || s->kind()==symbolKind::variable || s->kind()==symbolKind::indexed_variable) {
+            auto symbol = make_symbol<LocalVariable>(location_, name);
+            symbols_.push_back( scope_->add_local_symbol(name, std::move(symbol)) );
         }
         else {
-            error_ = true;
-            error_string_ =
-                pprintf("the symbol '%' @ '%' is already defined", yellow(name), location());
+            error(pprintf("the symbol '%' has already been defined at %",
+                          yellow(name), s->location() ));
         }
     }
 }
@@ -181,16 +194,16 @@ void ArgumentExpression::semantic(std::shared_ptr<scope_type> scp) {
 
     auto s = scope_->find(name_);
 
-    if(s==nullptr || (s && s->kind()==symbolKind::variable)) {
-        scope_type::symbol_ptr symbol(new Symbol(location_, name_, symbolKind::argument));
+    if(s==nullptr || s->kind()==symbolKind::variable || s->kind()==symbolKind::indexed_variable) {
+        auto symbol = make_symbol<LocalVariable>( location_, name_, localVariableKind::argument );
         scope_->add_local_symbol(name_, std::move(symbol));
     }
     else {
-        error_ = true;
-        error_string_ =
-            pprintf("the symbol '%' @ '%' is already defined", yellow(name_), location());
+        error(pprintf("the symbol '%' has already been defined at %",
+                      yellow(name_), s->location() ));
     }
 }
+
 
 /*******************************************************************************
   VariableExpression
@@ -217,15 +230,11 @@ std::string VariableExpression::to_string() const {
 *******************************************************************************/
 
 std::string IndexedVariable::to_string() const {
-    char n[17];
-    snprintf(n, 17, "%-10s", name().c_str());
-    std::string
-        s = blue("indexed") + "  " + yellow(n) + "("
-          + (is_writeable() ? green("write") : red("write")) + ", "
-          + (is_readable()  ? green("read")  : red("read")) + ", "
-          + "ion" + colorize(::to_string(ion_channel()),
-                             (ion_channel()==ionKind::none) ? stringColor::red : stringColor::green) + ") ";
-    return s;
+    auto ch = ::to_string(ion_channel());
+    return
+        blue("indexed") + " " + yellow(name()) + "->" + yellow(index_name()) + "("
+        + (is_write() ? " write-only" : " read-only")
+        + ", ion" + (ion_channel()==ionKind::none ? red(ch) : green(ch)) + ") ";
 }
 
 /*******************************************************************************
@@ -250,23 +259,19 @@ void CallExpression::semantic(std::shared_ptr<scope_type> scp) {
 
     // either undefined or refers to a variable
     if(!s) {
-        error_ = true;
-        error_string_ = 
-            pprintf("there is no function or procedure named '%' ",
-                    yellow(spelling_));
+        error(pprintf("there is no function or procedure named '%' ",
+                      yellow(spelling_)));
     }
-    if(s->kind()==symbolKind::local || s->kind()==symbolKind::variable) {
-        error_ = true;
-        error_string_ = 
-            pprintf("the symbol '%' refers to a variable, but it is being called like a function",
-                    yellow(spelling_));
+    if(s->kind()==symbolKind::local_variable || s->kind()==symbolKind::variable) {
+        error(pprintf("the symbol '%' refers to a variable, but it is being"
+                      " called like a function", yellow(spelling_) ));
     }
 
     // save the symbol
     symbol_ = s;
 
     // TODO: check that the number of arguments matches
-    if( !error_ ) {
+    if( !has_error() ) {
         // only analyze if the call was found
     }
 
@@ -321,7 +326,6 @@ void ProcedureExpression::semantic(scope_type::symbol_map &global_symbols) {
     }
 
     // this loop could be used to then check the types of statements in the body
-    // TODO : this could be making a mess
     for(auto& e : *(body_->is_block())) {
         if(e->is_initial_block())
             error("INITIAL block not allowed inside "+::to_string(kind_)+" definition");
@@ -345,26 +349,9 @@ std::string APIMethod::to_string() const {
     };
     std::string str = blue("API method") + " " + yellow(name()) + "\n";
 
-    str += blue("  loads ") + " : ";
-    for(auto& in : in_) {
-        str += namestr(in.local) + " <- ";
-        str += namestr(in.external);
-        str += ", ";
-    }
-    str += "\n";
-
-    str += blue("  stores") + " : ";
-    for(auto& out : out_) {
-        str += namestr(out.local) + " -> ";
-        str += namestr(out.external);
-        str += ", ";
-    }
-    str += "\n";
-
     str += blue("  locals") + " : ";
     for(auto& var : scope_->locals()) {
         str += namestr(var.second.get());
-        if(var.second->kind() == symbolKind::ghost) str += green("(ghost)");
         str += ", ";
     }
     str += "\n";
@@ -465,7 +452,7 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
     // Make its location correspond to that of the first line of the function,
     // for want of a better location
     auto return_var = scope_type::symbol_ptr(
-        new Symbol(body_->location(), name(), symbolKind::local)
+        new Symbol(body_->location(), name(), symbolKind::local_variable)
     );
     scope_->add_local_symbol(name(), std::move(return_var));
 
@@ -489,10 +476,9 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
         }
     }
     if(!last_expr_is_assign) {
-        warning_ = true;
-        warning_string_ = "the last expression in function '"
-                        + yellow(name())
-                        + "' does not set the return value";
+        warning("the last expression in function '"
+                + yellow(name())
+                + "' does not set the return value");
     }
 
     // the symbol for this expression is itself
@@ -507,8 +493,7 @@ void UnaryExpression::semantic(std::shared_ptr<scope_type> scp) {
     expression_->semantic(scp);
 
     if(expression_->is_procedure_call()) {
-        error_ = true;
-        error_string_ = "a procedure call can't be part of an expression";
+        error("a procedure call can't be part of an expression");
     }
 }
 
@@ -524,12 +509,12 @@ expression_ptr UnaryExpression::clone() const {
   BinaryExpression
 *******************************************************************************/
 void BinaryExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
     if(rhs_->is_procedure_call() || lhs_->is_procedure_call()) {
-        error_ = true;
-        error_string_ = "procedure calls can't be made in an expression";
+        error("procedure calls can't be made in an expression");
     }
 }
 
@@ -555,21 +540,18 @@ std::string BinaryExpression::to_string() const {
 *******************************************************************************/
 
 void AssignmentExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
     lhs_->semantic(scp);
     rhs_->semantic(scp);
 
-    if(!lhs_->is_lvalue()) {
-        // only flag an lvalue error if there was no error in the lhs expression
-        // this ensures that we don't print redundant error messages when trying
-        // to write to an undeclared variable
-        if(!lhs_->has_error()) {
-            error_ = true;
-            error_string_ = "the left hand side of an assignment must be an lvalue";
-        }
+    // only flag an lvalue error if there was no error in the lhs expression
+    // this ensures that we don't print redundant error messages when trying
+    // to write to an undeclared variable
+    if(!lhs_->has_error() && !lhs_->is_lvalue()) {
+        error("the left hand side of an assignment must be an lvalue");
     }
     if(rhs_->is_procedure_call()) {
-        error_ = true;
-        error_string_ = "procedure calls can't be made in an expression";
+        error("procedure calls can't be made in an expression");
     }
 }
 
@@ -583,13 +565,13 @@ void SolveExpression::semantic(std::shared_ptr<scope_type> scp) {
 
     // this is optimistic: it simply looks for a procedure,
     // it should also evaluate the procedure to see whether it contains the derivatives
+    // if an integration method has been specified (i.e. cnexp)
     if(proc) {
         procedure_ = proc;
     }
     else {
-        error_ = true;
-        error_string_ = "'" + yellow(name_) + "' is not a valid procedure name"
-                        " for computing the derivatives in a SOLVE statement";
+        error( "'" + yellow(name_) + "' is not a valid procedure name"
+                        " for computing the derivatives in a SOLVE statement");
     }
 }
 
@@ -598,6 +580,30 @@ expression_ptr SolveExpression::clone() const {
     s->procedure(procedure_);
     return expression_ptr{s};
 }
+
+/*******************************************************************************
+  ConductanceExpression
+*******************************************************************************/
+
+void ConductanceExpression::semantic(std::shared_ptr<scope_type> scp) {
+    // For now do nothing with the CONDUCTANCE statement, because it is not needed
+    // to optimize conductance calculation.
+    // Semantic analysis would involve
+    //   -  check that name identifies a valid variable
+    //   -  check that the ion channel is an ion channel for which current
+    //      is to be updated
+    /*
+    auto e = scp->find(name());
+    auto var = e ? e->is_variable() : nullptr;
+    */
+}
+
+expression_ptr ConductanceExpression::clone() const {
+    auto s = new ConductanceExpression(location_, name_, ion_channel_);
+    //s->procedure(procedure_);
+    return expression_ptr{s};
+}
+
 /*******************************************************************************
   BlockExpression
 *******************************************************************************/
@@ -644,8 +650,7 @@ void IfExpression::semantic(std::shared_ptr<scope_type> scp) {
 
     auto cond = condition_->is_conditional();
     if(!cond) {
-        error_ = true;
-        error_string_ = "not a valid conditional expression";
+        error("not a valid conditional expression");
     }
 
     true_branch_->semantic(scp);
@@ -665,6 +670,9 @@ void Expression::accept(Visitor *v) {
 void Symbol::accept(Visitor *v) {
     v->visit(this);
 }
+void LocalVariable::accept(Visitor *v) {
+    v->visit(this);
+}
 void IdentifierExpression::accept(Visitor *v) {
     v->visit(this);
 }
@@ -678,6 +686,9 @@ void IfExpression::accept(Visitor *v) {
     v->visit(this);
 }
 void SolveExpression::accept(Visitor *v) {
+    v->visit(this);
+}
+void ConductanceExpression::accept(Visitor *v) {
     v->visit(this);
 }
 void DerivativeExpression::accept(Visitor *v) {

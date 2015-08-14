@@ -776,6 +776,8 @@ expression_ptr Parser::parse_statement() {
         case tok::if_stmt :
             return parse_if();
             break;
+        case tok::conductance :
+            return parse_conductance();
         case tok::solve :
             return parse_solve();
         case tok::local :
@@ -1110,7 +1112,7 @@ expression_ptr Parser::parse_solve() {
 
     get_token(); // consume the SOLVE keyword
 
-    if(token_.type != tok::identifier) goto solve_statment_error;
+    if(token_.type != tok::identifier) goto solve_statement_error;
 
     name = token_.spelling; // save name of procedure
     get_token(); // consume the procedure identifier
@@ -1120,24 +1122,74 @@ expression_ptr Parser::parse_solve() {
     }
     else {
         get_token(); // consume the METHOD keyword
-        if(token_.type != tok::cnexp) goto solve_statment_error;
+        if(token_.type != tok::cnexp) goto solve_statement_error;
         method = solverMethod::cnexp;
 
         get_token(); // consume the method description
     }
     // check that the rest of the line was empty
     if(line == location_.line) {
-        if(token_.type != tok::eof) goto solve_statment_error;
+        if(token_.type != tok::eof) goto solve_statement_error;
     }
 
     return make_expression<SolveExpression>(loc, name, method);
 
-solve_statment_error:
+solve_statement_error:
     error( "SOLVE statements must have the form\n"
            "  SOLVE x METHOD cnexp\n"
            "    or\n"
            "  SOLVE x\n"
            "where 'x' is the name of a DERIVATIVE block", loc);
+    return nullptr;
+}
+
+/// parse a CONDUCTANCE statement
+/// a CONDUCTANCE statement specifies a variable and a channel
+/// where the channel is optional
+///     CONDUCTANCE name USEION channel
+///     CONDUCTANCE name
+expression_ptr Parser::parse_conductance() {
+    int line = location_.line;
+    Location loc = location_; // solve location for expression
+    std::string name;
+    ionKind channel;
+
+    get_token(); // consume the CONDUCTANCE keyword
+
+    if(token_.type != tok::identifier) goto conductance_statement_error;
+
+    name = token_.spelling; // save name of variable
+    get_token(); // consume the variable identifier
+
+    if(token_.type != tok::useion) { // no ion channel was provided
+        // we set nonspecific not none because ionKind::none marks
+        // any variable that is not associated with an ion channel
+        channel = ionKind::nonspecific;
+    }
+    else {
+        get_token(); // consume the USEION keyword
+        if(token_.type!=tok::identifier) goto conductance_statement_error;
+
+        if     (token_.spelling == "na") channel = ionKind::Na;
+        else if(token_.spelling == "ca") channel = ionKind::Ca;
+        else if(token_.spelling == "k")  channel = ionKind::K;
+        else goto conductance_statement_error;
+
+        get_token(); // consume the ion channel type
+    }
+    // check that the rest of the line was empty
+    if(line == location_.line) {
+        if(token_.type != tok::eof) goto conductance_statement_error;
+    }
+
+    return make_expression<ConductanceExpression>(loc, name, channel);
+
+conductance_statement_error:
+    error( "CONDUCTANCE statements must have the form\n"
+           "  CONDUCTANCE g USEION channel\n"
+           "    or\n"
+           "  CONDUCTANCE g\n"
+           "where 'g' is the name of a variable, and 'channel' is the type of ion channel", loc);
     return nullptr;
 }
 

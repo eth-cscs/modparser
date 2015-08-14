@@ -11,22 +11,6 @@
 /**************************************************************
  * visitors
  **************************************************************/
-// just visually inspect for the time being
-/*
-TEST(VariableRenamer, line_expressions) {
-    auto visitor = make_unique<VariableRenamer>("_", "z");
-
-    {
-    auto e = parse_line_expression("y = _ + y");
-    e->accept(visitor.get());
-    }
-
-    {
-    auto e = parse_line_expression("y = foo(_+2, exp(_))");
-    e->accept(visitor.get());
-    }
-}
-*/
 
 TEST(FlopVisitor, basic) {
     {
@@ -201,9 +185,9 @@ TEST(ClassificationVisitor, linear) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
+    globals["x"] = make_symbol<LocalVariable>(Location(), "x");
+    globals["y"] = make_symbol<LocalVariable>(Location(), "y");
+    globals["z"] = make_symbol<LocalVariable>(Location(), "z");
     auto x = globals["x"].get();
 
     auto scope = std::make_shared<Scope<Symbol>>(globals);
@@ -245,9 +229,9 @@ TEST(ClassificationVisitor, constant) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
+    globals["x"] = make_symbol<LocalVariable>(Location(), "x");
+    globals["y"] = make_symbol<LocalVariable>(Location(), "y");
+    globals["z"] = make_symbol<LocalVariable>(Location(), "z");
     auto scope = std::make_shared<Scope<Symbol>>(globals);
     auto x = globals["x"].get();
 
@@ -292,9 +276,9 @@ TEST(ClassificationVisitor, nonlinear) {
 
     // create a scope that contains the symbols used in the tests
     Scope<Symbol>::symbol_map globals;
-    globals["x"] = make_symbol<Symbol>(Location(), "x", symbolKind::local);
-    globals["y"] = make_symbol<Symbol>(Location(), "y", symbolKind::local);
-    globals["z"] = make_symbol<Symbol>(Location(), "z", symbolKind::local);
+    globals["x"] = make_symbol<LocalVariable>(Location(), "x");
+    globals["y"] = make_symbol<LocalVariable>(Location(), "y");
+    globals["z"] = make_symbol<LocalVariable>(Location(), "z");
     auto scope = std::make_shared<Scope<Symbol>>(globals);
     auto x = globals["x"].get();
 

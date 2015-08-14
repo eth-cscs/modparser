@@ -6,13 +6,18 @@
 #include <string>
 #include <unordered_map>
 
-// forward declarations
+// Scope is templated to avoid circular compilation issues.
+// When performing semantic analysis of expressions via traversal of the AST
+// each node in the AST has a reference to a Scope. This leads to circular
+// dependencies, where Symbol nodes refer to Scopes which contain Symbols.
+// Using a template means that we can defer Scope definition until after
+// the Symbol type defined in expression.h has been defined.
 template <typename Symbol>
 class Scope {
 public:
     using symbol_type = Symbol;
-    using symbol_map = std::unordered_map<std::string, std::unique_ptr<Symbol>>;
-    using symbol_ptr = std::unique_ptr<Symbol>;
+    using symbol_ptr  = std::unique_ptr<Symbol>;
+    using symbol_map  = std::unordered_map<std::string, symbol_ptr>;
 
     Scope(symbol_map& s);
     ~Scope() {};

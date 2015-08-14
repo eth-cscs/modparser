@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -6,6 +7,7 @@
 #include "errorvisitor.hpp"
 #include "expressionclassifier.hpp"
 #include "inline.hpp"
+#include "functioninliner.hpp"
 #include "module.hpp"
 #include "parser.hpp"
 
@@ -70,14 +72,20 @@ Module::symbols() const {
 
 void Module::error(std::string const& msg, Location loc) {
     std::string location_info = pprintf("%:% ", file_name(), loc);
-    if(status_==lexerStatus::error) {
-        // append to current string
-        error_string_ += "\n" + white(location_info) + msg;
+    if(error_string_.size()) {// append to current string
+        error_string_ += "\n";
     }
-    else {
-        error_string_ = white(location_info) + msg;
-        status_ = lexerStatus::error;
+    error_string_ += red("error   ") + white(location_info) + msg;
+    status_ = lexerStatus::error;
+}
+
+void Module::warning(std::string const& msg, Location loc) {
+    std::string location_info = pprintf("%:% ", file_name(), loc);
+    if(error_string_.size()) {// append to current string
+        error_string_ += "\n";
     }
+    error_string_ += purple("warning ") + white(location_info) + msg;
+    has_warning_ = true;
 }
 
 bool Module::semantic() {
@@ -91,19 +99,13 @@ bool Module::semantic() {
     // that all symbols are correctly used
     ////////////////////////////////////////////////////////////////////////////
 
-    // first add variables
+    // first add variables defined in the NEURON, ASSIGNED and PARAMETER
+    // blocks these symbols have "global" scope, i.e. they are visible to all
+    // functions and procedurs in the mechanism
     add_variables_to_symbols();
 
-    // Check for errors when adding variables to the symbol table
-    // Don't quit if there is an error, instead continue with the
-    // semantic analysis so that error messages for other errors can
-    // be displayed
-    if(status() == lexerStatus::error) {
-        std::cerr << red("error: ") << error_string_ << std::endl;
-    }
-
     // Helper which iterates over a vector of Symbols, inserting them into the
-    // symbol table if they have not already been inserted.
+    // symbol table.
     // Returns false if the list contains a symbol that is already in the
     // symbol table.
     auto add_symbols = [this] (std::vector<symbol_ptr>& symbol_list) {
@@ -142,10 +144,9 @@ bool Module::semantic() {
             s->semantic(symbols_);
 
             // then use an error visitor to print out all the semantic errors
-            ErrorVisitor* v = new ErrorVisitor(file_name());
-            s->accept(v);
+            auto v = make_unique<ErrorVisitor>(file_name());
+            s->accept(v.get());
             errors += v->num_errors();
-            delete v;
         }
     }
 
@@ -156,93 +157,70 @@ bool Module::semantic() {
         return false;
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-    //  generate the metadata required to make the init block
-    //
-    //  we want to create a new procedure expression by
-    //      - remove all local declarations
-    //      - clone all expressions
-    //      - generate new scope
-    //          - keep global symbols
-    //          - generate new local symbols
-    //      - inline procedures
-    //          - localize variables
-    ////////////////////////////////////////////////////////////////////////////
-
-    // add_output and add_input are helpers for adding a MemOp to the output or
-    // input lists respectively for an APIMethod.
-    // The output and input lists are a tuple of variables, one local and one
-    // global, where the local variable is mapped onto the global variable using
-    // an index.
-    // An example is the voltage, v, which is a local variable read from the
-    // global array of voltages.
-    auto add_output = []
-        (APIMethod* p, tok op, std::string const& local, std::string const& global)
+    // All API methods are generated from statements in one of the special procedures
+    // defined in NMODL, e.g. the nrn_init() API call is based on the INITIAL block.
+    // When creating an API method, the first task is to look up the source procedure,
+    // i.e. the INITIAL block for nrn_init(). This lambda takes care of this repetative
+    // lookup work, with error checking.
+    auto make_empty_api_method = [this]
+            (std::string const& name, std::string const& source_name)
+            -> std::pair<APIMethod*, ProcedureExpression*>
     {
-        auto l = p->scope()->find(local);
-        auto g = p->scope()->find_global(global);
-        if(!l || !g) {
-            throw compiler_exception(
-                  "unable to add store operation "
-                  + yellow(local) + " -> " + yellow(global) + " to " + yellow(p->name())
-                  + (l ? "" : " : " + yellow(local)  + " is not a variable")
-                  + (g ? "" : " : " + yellow(global) + " is not a global variable"),
-                  p->location());
+        if( !has_symbol(source_name, symbolKind::procedure) ) {
+            error(pprintf("unable to find symbol '%'", yellow(source_name)),
+                   Location());
+            return std::make_pair(nullptr, nullptr);
         }
-        p->outputs().push_back({op, l, g});
-    };
 
-    auto add_input = []
-        (APIMethod* p, tok op, std::string const& local, std::string const& global)
-    {
-        auto l = p->scope()->find(local);
-        auto g = p->scope()->find_global(global);
-        if(!l || !g) {
-            throw compiler_exception(
-                    "unable to add load operation "
-                    + yellow(local) + " <- " + yellow(global) + " to " + yellow(p->name())
-                    + (l ? "" : " : " + yellow(local)  + " is not a variable")
-                    + (g ? "" : " : " + yellow(global) + " is not a global variable"),
-                    p->location());
+        auto source = symbols_[source_name]->is_procedure();
+        auto loc = source->location();
+
+        if( symbols_.find(name)!=symbols_.end() ) {
+            error(pprintf("'%' clashes with reserved name, please rename it",
+                          yellow(name)),
+                  symbols_.find(name)->second->location());
+            return std::make_pair(nullptr, source);
         }
-        p->inputs().push_back({op, l, g});
-    };
 
-    // Look in the symbol table for a procedure with the name "initial".
-    // This symbol corresponds to the INITIAL block in the .mod file
-    if( has_symbol("initial", symbolKind::procedure) ) {
-        // clone the initial procedure
-        auto initial = symbols_["initial"]->is_procedure();
-        auto loc = initial->location();
-        auto proc_init =
-            new APIMethod(initial->location(),
-                          "nrn_init",
+        symbols_[name] = make_symbol<APIMethod>(
+                          loc, name,
                           std::vector<expression_ptr>(), // no arguments
-                          make_expression<BlockExpression>(loc,
-                                                           std::list<expression_ptr>(),
-                                                           false)
+                          make_expression<BlockExpression>
+                            (loc, std::list<expression_ptr>(), false)
                          );
 
-        if( symbols_.find("nrn_init")!=symbols_.end() ) {
-            error("'nrn_init' clashes with reserved name, please rename it",
-                  loc);
-            return false;
-        }
-        symbols_["nrn_init"] = symbol_ptr(proc_init);
+        auto proc = symbols_[name]->is_api_method();
+        return std::make_pair(proc, source);
+    };
 
-        // get a reference to the empty body of the init function
-        auto& body = proc_init->body()->body();
-        for(auto& e : *(initial->body())) {
+    //.........................................................................
+    // nrn_init : based on the INITIAL block (i.e. the 'initial' procedure
+    //.........................................................................
+    auto initial_api = make_empty_api_method("nrn_init", "initial");
+    auto api_init  = initial_api.first;
+    auto proc_init = initial_api.second;
+
+    if(proc_init) {
+        auto &b = proc_init->body()->body();
+        for(auto e=b.begin(); e!=b.end(); ++e) {
+            auto new_expressions = expand_function_calls((*e).get());
+            b.splice(e, std::move(new_expressions));
+        }
+    }
+    if(api_init)
+    {
+        auto& body = api_init->body()->body();
+
+        for(auto& e : *proc_init->body()) {
             body.emplace_back(e->clone());
         }
-        // perform semantic analysis for init
-        proc_init->semantic(symbols_);
 
-        // set input vec_v
-        proc_init->inputs().push_back({tok::eq, proc_init->scope()->find("v"), symbols_["vec_v"].get()});
+        api_init->semantic(symbols_);
     }
     else {
-        error("an INITIAL block is required", Location());
+        if(!proc_init) {
+            error("an INITIAL block is required", Location());
+        }
         return false;
     }
 
@@ -251,10 +229,11 @@ bool Module::semantic() {
     // There are two APIMethods generated from BREAKPOINT.
     // The first is nrn_state, which is the first case handled below.
     // The second is nrn_current, which is handled after this block
-    if( has_symbol("breakpoint", symbolKind::procedure) ) {
-        auto breakpoint = symbols_["breakpoint"]->is_procedure();
-        auto loc = breakpoint->location();
+    auto state_api = make_empty_api_method("nrn_state", "breakpoint");
+    auto api_state  = state_api.first;
+    auto breakpoint = state_api.second;
 
+    if( breakpoint ) {
         // helper for making identifiers on the fly
         auto id = [] (std::string const& name) {
             return make_expression<IdentifierExpression>(Location(), name);
@@ -272,43 +251,17 @@ bool Module::semantic() {
 
         // handle the case where there is no SOLVE in BREAKPOINT
         if( solve_expression==nullptr ) {
-            std::cout << purple("warning:")
-                      << " there is no SOLVE statement, required to update the"
-                      << " state variables, in the BREAKPOINT block"
-                      << std::endl;
-            // create an empty nrn_state method
-            auto proc_state = new APIMethod(
-                        loc,
-                        "nrn_state",
-                        {},
-                        make_expression<BlockExpression>
-                            (loc, std::list<expression_ptr>(), false)
-                    );
-            proc_state->semantic(symbols_);
-            symbols_["nrn_state"] = symbol_ptr{proc_state};
+            warning( " there is no SOLVE statement, required to update the"
+                     " state variables, in the BREAKPOINT block",
+                     Location());
         }
         else {
             // get the DERIVATIVE block
             auto dblock = solve_expression->procedure();
-            auto proc_state =
-                new APIMethod(
-                        dblock->location(),
-                        "nrn_state",
-                        {},
-                        make_expression<BlockExpression>
-                            (loc, std::list<expression_ptr>(), false)
-                    );
-            // check that nrn_state has not already been defined as a function
-            // or procedure name elsewhere in the mod file
-            if( symbols_.find("nrn_state")!=symbols_.end() ) {
-                error("'nrn_state' clashes with reserved name, please rename it",
-                      loc);
-                return false;
-            }
 
             // body refers to the currently empty body of the APIMethod that
             // will hold the AST for the nrn_state function.
-            auto& body = proc_state->body()->body();
+            auto& body = api_state->body()->body();
 
             auto has_provided_integration_method =
                 solve_expression->method() == solverMethod::cnexp;
@@ -395,15 +348,8 @@ bool Module::semantic() {
                 body.push_back(e->clone());
             }
 
-            // add the nrn_state APIMethod to the symbol table
-            symbols_["nrn_state"] = symbol_ptr{proc_state};
-            // semantic analysis is required, because this procedure was just
-            // created, so semantic analysis was not performed for it in the
-            // earlier semantic analysis phase
-            proc_state->semantic(symbols_);
-
-            // set input vec_v
-            add_input(proc_state, tok::eq, "v", "vec_v");
+            // perform semantic analysis
+            api_state->semantic(symbols_);
         }
 
         //..........................................................
@@ -413,44 +359,46 @@ bool Module::semantic() {
 
         // helper which tests a statement to see if it updates an ion
         // channel variable.
-        auto is_ion_update = [] (Expression* e) -> VariableExpression* {
+        auto is_ion_update = [] (Expression* e) {
             if(auto a = e->is_assignment()) {
                 // semantic analysis has been performed on the original expression
                 // which ensures that the lhs is an identifier and a variable
-                if(auto var = a->lhs()->is_identifier()->symbol()->is_variable()) {
-                    return var ? (var->is_ion() ? var : nullptr)
-                               : nullptr;
+                if(auto sym = a->lhs()->is_identifier()->symbol()) {
+                    // assume that a scalar stack variable is being used for
+                    // the indexed value: i.e. the value is not cached
+                    if(auto var = sym->is_local_variable()) {
+                        return var->ion_channel();
+                    }
                 }
             }
-            return nullptr;
+            return ionKind::none;
         };
 
         // add statements that initialize the reduction variables
-        bool update_current = false;
-        std::list<std::string> outputs;
         for(auto& e: *(breakpoint->body())) {
-            // ignore solve statements
-            if(e->is_solve_statement()) continue;
+            // ignore solve and conductance statements
+            if(e->is_solve_statement())       continue;
+            if(e->is_conductance_statement()) continue;
 
             // add the expression
             block.emplace_back(e->clone());
 
             // we are updating an ionic current
             // so keep track of current and conductance accumulation
-            if(auto var = is_ion_update(e.get())) {
+            auto channel = is_ion_update(e.get());
+            if(channel != ionKind::none) {
                 auto lhs = e->is_assignment()->lhs()->is_identifier();
                 auto rhs = e->is_assignment()->rhs();
 
                 // analyze the expression for linear terms
-                auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
+                //auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
+                auto v_symbol = breakpoint->scope()->find("v");
+                auto v = make_unique<ExpressionClassifierVisitor>(v_symbol);
                 rhs->accept(v.get());
 
                 if(v->classify()==expressionClassification::linear) {
-                    block.emplace_back(Parser("LOCAL current_").parse_local());
-                    block.emplace_back(Parser("LOCAL conductance_").parse_local());
-
                     // add current update
-                    std::string e_string = "current_ = current_ + " + var->name();
+                    std::string e_string = "current_ = current_ + " + lhs->name();
                     block.emplace_back(Parser(e_string).parse_line_expression());
 
                     auto g_stmt =
@@ -462,16 +410,10 @@ bool Module::semantic() {
                     block.emplace_back(std::move(g_stmt));
                 }
                 else {
-                    error("current update functions must be a linear function of v : " + rhs->to_string(),
-                          e->location());
+                    error("current update functions must be a linear"
+                          " function of v : " + rhs->to_string(), e->location());
                     return false;
                 }
-                // nonspecific currents are not written out to an external
-                // ion channel
-                if(var->ion_channel()!=ionKind::nonspecific) {
-                    outputs.push_back(lhs->name());
-                }
-                update_current = true;
             }
         }
         auto v = make_unique<ConstantFolderVisitor>();
@@ -479,65 +421,18 @@ bool Module::semantic() {
             e->accept(v.get());
         }
 
-        auto proc_current =
-            new APIMethod(
-                    breakpoint->location(),
-                    "nrn_current",
-                    {},
-                    make_expression<BlockExpression>(loc, std::move(block), false)
-                );
-
-        symbols_["nrn_current"] = symbol_ptr(proc_current);
-        proc_current->semantic(symbols_);
-
-        auto scp = proc_current->scope();
-        // now set up the input/output tables with full semantic information
-        for(auto &var: outputs) {
-            add_output(proc_current, tok::plus, var, "ion_"+var);
-        }
-
-        // only output contribution to RHS if there is one to make
-        if(update_current) {
-            add_output(proc_current, tok::minus, "current_",     "vec_rhs");
-            add_output(proc_current, tok::plus,  "conductance_", "vec_d");
-            if(outputs.size()>0) {
-                // only need input ionic values if external ion channel dependency
-                // assume that all input ion variables are used
-                for(auto& var: symbols_) {
-                    auto e = var.second->is_variable();
-                    if( e && e->is_ion() && e->is_readable()) {
-                        add_input(proc_current, tok::eq, e->name(), "ion_"+e->name());
-                    }
-                }
-            }
-        }
-        // set input vec_v
-        proc_current->inputs().push_back({tok::eq, scp->find("v"), symbols_["vec_v"].get()});
+        symbols_["nrn_current"] =
+            make_symbol<APIMethod>(
+                    breakpoint->location(), "nrn_current",
+                    std::vector<expression_ptr>(),
+                    make_expression<BlockExpression>(breakpoint->location(),
+                                                     std::move(block), false)
+            );
+        symbols_["nrn_current"]->semantic(symbols_);
     }
     else {
         error("a BREAKPOINT block is required", Location());
         return false;
-    }
-    //..........................................................
-    //..........................................................
-    // nrn_jacob : add conductance g to diagonal VEC_D
-    //..........................................................
-    //..........................................................
-    // remove, because we fold the rhs update into nrn_current
-
-    // apply semantic analysis to the entries in the output and input indexes
-    for(auto &s : symbols_) {
-        if(auto method = s.second->is_api_method()) {
-            auto scope = method->scope();
-            for(auto &in: method->inputs()) {
-                in.local->semantic(scope);
-                in.external->semantic(scope);
-            }
-            for(auto &out: method->outputs()) {
-                out.local->semantic(scope);
-                out.external->semantic(scope);
-            }
-        }
     }
 
     return status() == lexerStatus::happy;
@@ -547,39 +442,35 @@ bool Module::semantic() {
 void Module::add_variables_to_symbols() {
     // add reserved symbols (not v, because for some reason it has to be added
     // by the user)
-    auto t = new VariableExpression(Location(), "t");
-    t->state(false);            t->linkage(linkageKind::local);
-    t->ion_channel(ionKind::none); t->range(rangeKind::scalar);
-    t->access(accessKind::read);          t->visibility(visibilityKind::global);
-    symbols_["t"]    = symbol_ptr{t};
+    auto create_variable = [this] (const char* name, rangeKind rng, accessKind acc) {
+        auto t = new VariableExpression(Location(), name);
+        t->state(false);
+        t->linkage(linkageKind::local);
+        t->ion_channel(ionKind::none);
+        t->range(rng);
+        t->access(acc);
+        t->visibility(visibilityKind::global);
+        symbols_[name] = symbol_ptr{t};
+    };
 
-    auto dt = new VariableExpression(Location(), "dt");
-    dt->state(false);            dt->linkage(linkageKind::local);
-    dt->ion_channel(ionKind::none); dt->range(rangeKind::scalar);
-    dt->access(accessKind::read);          dt->visibility(visibilityKind::global);
-    symbols_["dt"]    = symbol_ptr{dt};
-
-    auto g_ = new VariableExpression(Location(), "g_");
-    g_->state(false);            g_->linkage(linkageKind::local);
-    g_->ion_channel(ionKind::none); g_->range(rangeKind::range);
-    g_->access(accessKind::readwrite);     g_->visibility(visibilityKind::global);
-    symbols_["g_"]    = symbol_ptr{g_};
+    create_variable("t",  rangeKind::scalar, accessKind::read);
+    create_variable("dt", rangeKind::scalar, accessKind::read);
 
     // add indexed variables to the table
-    auto vec_rhs = new IndexedVariable(Location(), "vec_rhs");
-    vec_rhs->access(accessKind::write);
-    vec_rhs->ion_channel(ionKind::none);
-    symbols_["vec_rhs"] = symbol_ptr{vec_rhs};
+    auto create_indexed_variable = [this]
+        (std::string const& name, std::string const& indexed_name,
+         tok op, accessKind acc, ionKind ch)
+    {
+        symbols_[name] =
+            make_symbol<IndexedVariable>(Location(), name, indexed_name, acc, op, ch);
+    };
 
-    auto vec_d = new IndexedVariable(Location(), "vec_d");
-    vec_d->access(accessKind::write);
-    vec_d->ion_channel(ionKind::none);
-    symbols_["vec_d"] = symbol_ptr{vec_d};
-
-    auto vec_v = new IndexedVariable(Location(), "vec_v");
-    vec_v->access(accessKind::read);
-    vec_v->ion_channel(ionKind::none);
-    symbols_["vec_v"] = symbol_ptr{vec_v};
+    create_indexed_variable("current_", "vec_rhs", tok::minus,
+                            accessKind::write, ionKind::none);
+    create_indexed_variable("conductance_", "vec_d", tok::plus,
+                            accessKind::write, ionKind::none);
+    create_indexed_variable("v", "vec_v", tok::eq,
+                            accessKind::read,  ionKind::none);
 
     // add state variables
     for(auto const &var : state_block()) {
@@ -591,7 +482,7 @@ void Module::add_variables_to_symbols() {
         id->linkage(linkageKind::local);
         id->visibility(visibilityKind::local);
         id->ion_channel(ionKind::none);    // no ion channel
-        id->range(rangeKind::range);             // always a range
+        id->range(rangeKind::range);       // always a range
         id->access(accessKind::readwrite);
 
         symbols_[var] = symbol_ptr{id};
@@ -600,6 +491,10 @@ void Module::add_variables_to_symbols() {
     // add the parameters
     for(auto const& var : parameter_block()) {
         auto name = var.name();
+        if(name == "v") { // global voltage values
+            // ignore voltage, which is added as an indexed variable by default
+            continue;
+        }
         VariableExpression *id = new VariableExpression(Location(), name);
 
         id->state(false);           // never a state variable
@@ -612,14 +507,7 @@ void Module::add_variables_to_symbols() {
         id->access(accessKind::read);
 
         // check for 'special' variables
-        if(name == "v") { // global voltage values
-            id->linkage(linkageKind::external);
-            id->range(rangeKind::range);
-            // argh, the global version cannot be modified, however
-            // the local ghost is sometimes modified
-            // make this illegal, because it is probably sloppy programming
-            id->access(accessKind::read);
-        } else if(name == "celcius") { // global celcius parameter
+        if(name == "celcius") { // global celcius parameter
             id->linkage(linkageKind::external);
         }
 
@@ -634,6 +522,10 @@ void Module::add_variables_to_symbols() {
     // add the assigned variables
     for(auto const& var : assigned_block()) {
         auto name = var.name();
+        if(name == "v") { // global voltage values
+            // ignore voltage, which is added as an indexed variable by default
+            continue;
+        }
         VariableExpression *id = new VariableExpression(Location(), name);
 
         id->state(false);           // never a state variable
@@ -653,76 +545,47 @@ void Module::add_variables_to_symbols() {
     // the variables in symbols_
     ////////////////////////////////////////////////////
     // first the ION channels
+    // add ion channel variables
+    auto update_ion_symbols = [this, create_indexed_variable]
+            (std::string const& var, accessKind acc, ionKind channel)
+    {
+        // add the ion variable's indexed shadow
+        if(has_symbol(var)) {
+            auto sym = symbols_[var].get();
+
+            // has the user declared a range/parameter with the same name?
+            if(sym->kind()!=symbolKind::indexed_variable) {
+                warning(
+                    pprintf("the symbol % clashes with the ion channel variable,"
+                            " and will be ignored", yellow(var)),
+                    sym->location()
+                );
+                // erase symbol
+                symbols_.erase(var);
+            }
+        }
+
+        create_indexed_variable(var, "ion_"+var,
+                                acc==accessKind::read ? tok::eq : tok::plus,
+                                acc, channel);
+    };
+
     // check for nonspecific current
     if( neuron_block().has_nonspecific_current() ) {
         auto const& i = neuron_block().nonspecific_current;
-        auto id = symbols_[i.spelling]->is_variable();
-        if(id==nullptr) {
-            error( pprintf(
-                        "nonspecific current % must be declared as "
-                        " declared as PARAMETER or ASSIGNED",
-                        yellow(i.spelling)),
-                    i.location); // location of definition
-        }
-        std::string name = id->name();
-        if(name[0] != 'i') {
-            error( pprintf(
-                       "nonspecific current % does not start with 'i'",
-                       yellow(i.spelling)),
-                   i.location); // location of definition
-        }
-        id->access(accessKind::readwrite);
-        id->visibility(visibilityKind::global);
-        id->ion_channel(ionKind::nonspecific);
+        update_ion_symbols(i.spelling, accessKind::write, ionKind::nonspecific);
     }
-    for(auto const& ion : neuron_block().ions) {
-        // assume that the ion channel variable has already been declared
-        // we check for this, and throw an error if not
-        for(auto const& var : ion.read) {
-            auto id = symbols_[var]->is_variable();
-            if(id==nullptr) { // assert that variable is already set
-                error( pprintf(
-                        "variable % from ion channel % has to be"
-                        " declared as PARAMETER or ASSIGNED",
-                         yellow(var), yellow(ion.name)
-                        ),
-                        Location() // empty location
-                );
-                return;
-            }
-            id->access(accessKind::read);
-            id->visibility(visibilityKind::global);
-            id->ion_channel(ion.kind());
 
-            // add the ion variable's indexed shadow
-            auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
-            shadow_id->access(accessKind::read);
-            shadow_id->ion_channel(ion.kind());
-            symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
+
+    for(auto const& ion : neuron_block().ions) {
+        for(auto const& var : ion.read) {
+            update_ion_symbols(var, accessKind::read, ion.kind());
         }
         for(auto const& var : ion.write) {
-            auto id = symbols_[var]->is_variable();
-            if(id==nullptr) { // assert that variable is already set
-                error( pprintf(
-                        "variable % from ion channel % has to be"
-                        " declared as PARAMETER or ASSIGNED",
-                         yellow(var), yellow(ion.name)
-                        ),
-                        Location() // empty location
-                );
-                return;
-            }
-            id->access(accessKind::write);
-            id->visibility(visibilityKind::global);
-            id->ion_channel(ion.kind());
-
-            // add the ion variable's indexed shadow
-            auto shadow_id = new IndexedVariable(Location(), "ion_"+id->name());
-            shadow_id->access(accessKind::write);
-            shadow_id->ion_channel(ion.kind());
-            symbols_[shadow_id->name()] = symbol_ptr{shadow_id};
+            update_ion_symbols(var, accessKind::write, ion.kind());
         }
     }
+
     // then GLOBAL variables
     for(auto const& var : neuron_block().globals) {
         if(!symbols_[var.spelling]) {
@@ -732,13 +595,15 @@ void Module::add_variables_to_symbols() {
                    var.location);
             return;
         }
-        auto id = symbols_[var.spelling]->is_variable();
-        if(!id) {
+        auto& sym = symbols_[var.spelling];
+        if(auto id = sym->is_variable()) {
+            id->visibility(visibilityKind::global);
+        }
+        else if (!sym->is_indexed_variable()){
             throw compiler_exception(
-                "unable to find symbol '" + var.spelling + "' in symbols",
+                "unable to find symbol " + yellow(var.spelling) + " in symbols",
                 Location());
         }
-        id->visibility(visibilityKind::global);
     }
 
     // then RANGE variables
@@ -750,13 +615,15 @@ void Module::add_variables_to_symbols() {
                    var.location);
             return;
         }
-        auto id = symbols_[var.spelling]->is_variable();
-        if(!id) {
+        auto& sym = symbols_[var.spelling];
+        if(auto id = sym->is_variable()) {
+            id->range(rangeKind::range);
+        }
+        else if (!sym->is_indexed_variable()){
             throw compiler_exception(
-                "unable to find symbol '" + var.spelling + "' in symbols",
+                "unable to find symbol " + yellow(var.spelling) + " in symbols",
                 Location());
         }
-        id->range(rangeKind::range);
     }
 }
 
@@ -802,22 +669,6 @@ bool Module::optimize() {
         /////////////////////////////////////////////////////////////////////
         // remove dead local variables
         /////////////////////////////////////////////////////////////////////
-
-        /////////////////////////////////////////////////////////////////////
-        // tag ghost fields in APIMethods
-        /////////////////////////////////////////////////////////////////////
-        if(kind == symbolKind::procedure) {
-            auto proc = symbol.second->is_api_method();
-            if(proc && this->kind()==moduleKind::point) {
-                for(auto &out: proc->outputs()) {
-                    // by definition the output has to be an indexed variable
-                    if(out.local->kind() == symbolKind::local) {
-                        out.local->set_kind(symbolKind::ghost);
-                    }
-                }
-            }
-        }
-
     }
 
     return true;

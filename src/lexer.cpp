@@ -237,9 +237,10 @@ std::string Lexer::number() {
     char c = *current_;
 
     // start counting the number of points in the number
-    uint8_t num_point = (c=='.' ? 1 : 0);
+    auto num_point = (c=='.' ? 1 : 0);
+    auto uses_scientific_notation = 0;
+    bool incorrectly_formed_mantisa = false;
 
-    // shouldn't we return a string too?
     str += c;
     current_++;
     while(1) {
@@ -252,16 +253,34 @@ std::string Lexer::number() {
             num_point++;
             str += c;
             current_++;
+            if(uses_scientific_notation) {
+                incorrectly_formed_mantisa = true;
+            }
+        }
+        else if(c=='e' || c=='E') {
+            uses_scientific_notation++;
+            str += c;
+            current_++;
         }
         else {
             break;
         }
     }
 
+    // check that the mantisa is an integer
+    if(incorrectly_formed_mantisa) {
+        error_string_ = pprintf("the exponent/mantissa must be an integer '%'", yellow(str));
+        status_ = lexerStatus::error;
+    }
     // check that there is at most one decimal point
     // i.e. disallow values like 2.2324.323
     if(num_point>1) {
         error_string_ = pprintf("too many .'s when reading the number '%'", yellow(str));
+        status_ = lexerStatus::error;
+    }
+    // check that e or E is not used more than once in the number
+    if(uses_scientific_notation>1) {
+        error_string_ = pprintf("can't parse the number '%'", yellow(str));
         status_ = lexerStatus::error;
     }
 

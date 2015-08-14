@@ -5,8 +5,8 @@
 #include <tclap/include/CmdLine.h>
 
 #include "cprinter.hpp"
-#include "cudaprinter.hpp"
-#include "cymeprinter.hpp"
+//#include "cudaprinter.hpp"
+//#include "cymeprinter.hpp"
 #include "lexer.hpp"
 #include "module.hpp"
 #include "parser.hpp"
@@ -91,82 +91,125 @@ int main(int argc, char **argv) {
                   << std::endl;
     }
 
-    // load the module from file passed as first argument
-    Module m(options.filename.c_str());
+    try {
+        // load the module from file passed as first argument
+        Module m(options.filename.c_str());
 
-    // check that the module is not empty
-    if(m.buffer().size()==0) {
-        std::cout << red("error: ") << white(argv[1])
-                  << " invalid or empty file" << std::endl;
-        return 1;
+        // check that the module is not empty
+        if(m.buffer().size()==0) {
+            std::cout << red("error: ") << white(argv[1])
+                      << " invalid or empty file" << std::endl;
+            return 1;
+        }
+
+        if(options.verbose) {
+            options.print();
+        }
+
+        ////////////////////////////////////////////////////////////
+        // parsing
+        ////////////////////////////////////////////////////////////
+        if(options.verbose) std::cout << green("[") + "parsing" + green("]") << std::endl;
+
+        // initialize the parser
+        Parser p(m, false);
+
+        // parse
+        p.parse();
+        if(p.status() == lexerStatus::error) return 1;
+
+        ////////////////////////////////////////////////////////////
+        // semantic analysis
+        ////////////////////////////////////////////////////////////
+        if(options.verbose) std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
+        m.semantic();
+
+        if( m.has_error() || m.has_warning() ) {
+            std::cout << m.error_string() << std::endl;
+        }
+        if(m.status() == lexerStatus::error) {
+            return 1;
+        }
+
+        for(auto &symbol : m.symbols()) {
+            if(symbol.second->kind()==symbolKind::procedure)
+                std::cout << symbol.second->to_string() << std::endl;
+        }
+
+        ////////////////////////////////////////////////////////////
+        // optimize
+        ////////////////////////////////////////////////////////////
+        if(options.optimize) {
+            if(options.verbose) std::cout << green("[") + "optimize" + green("]") << std::endl;
+            m.optimize();
+            if(m.status() == lexerStatus::error) {
+                return 1;
+            }
+        }
+
+        ////////////////////////////////////////////////////////////
+        // generate output
+        ////////////////////////////////////////////////////////////
+        if(options.verbose) {
+            std::cout << green("[") + "code generation"
+                      << green("]") << std::endl;
+        }
+
+        std::string text;
+        switch(options.target) {
+            case targetKind::cpu  :
+                text = CPrinter(m, options.optimize).text();
+                break;
+                /*
+            case targetKind::cyme :
+                text = CymePrinter(m, options.optimize).text();
+                break;
+            case targetKind::gpu  :
+                text = CUDAPrinter(m, options.optimize).text();
+                break;
+                */
+            default :
+                std::cerr << red("error") << ": gpu and cyme printing has been turned off" << std::endl;
+                exit(1);
+        }
+
+        if(options.has_output) {
+            std::ofstream fout(options.outputname);
+            fout << text;
+            fout.close();
+        }
+        else {
+            std::cout << cyan("--------------------------------------") << std::endl;
+            std::cout << text;
+            std::cout << cyan("--------------------------------------") << std::endl;
+        }
+
+        std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
     }
 
-    if(options.verbose) {
-        options.print();
+    catch(compiler_exception e) {
+        std::cerr << red("internal compiler error: ")
+                  << white("this means a bug in the compiler,"
+                           " please report to modcc developers")
+                  << std::endl
+                  << e.what() << " @ " << e.location() << std::endl;
+        exit(1);
+    }
+    catch(std::exception e) {
+        std::cerr << red("internal compiler error: ")
+                  << white("this means a bug in the compiler,"
+                           " please report to modcc developers")
+                  << std::endl
+                  << e.what() << std::endl;
+        exit(1);
+    }
+    catch(...) {
+        std::cerr << red("internal compiler error: ")
+                  << white("this means a bug in the compiler,"
+                           " please report to modcc developers")
+                  << std::endl;
+        exit(1);
     }
 
-    ////////////////////////////////////////////////////////////
-    // parsing
-    ////////////////////////////////////////////////////////////
-    if(options.verbose) std::cout << green("[") + "parsing" + green("]") << std::endl;
-
-    // initialize the parser
-    Parser p(m, false);
-
-    // parse
-    p.parse();
-    if(p.status() == lexerStatus::error) return 1;
-
-    ////////////////////////////////////////////////////////////
-    // semantic analysis
-    ////////////////////////////////////////////////////////////
-    if(options.verbose) std::cout << green("[") + "semantic analysis" + green("]") << std::endl;
-    if( m.semantic() == false ) {
-        std::cout << m.error_string() << std::endl;
-    }
-    if(m.status() == lexerStatus::error) return 1;
-
-    ////////////////////////////////////////////////////////////
-    // optimize
-    ////////////////////////////////////////////////////////////
-    if(options.optimize) {
-        if(options.verbose) std::cout << green("[") + "optimize" + green("]") << std::endl;
-        m.optimize();
-        if(m.status() == lexerStatus::error) return 1;
-    }
-
-    ////////////////////////////////////////////////////////////
-    // generate output
-    ////////////////////////////////////////////////////////////
-    if(options.verbose) {
-        std::cout << green("[") + "code generation"
-                  << green("]") << std::endl;
-    }
-
-    std::string text;
-    switch(options.target) {
-        case targetKind::cpu  :
-            text = CPrinter(m, options.optimize).text();
-            break;
-        case targetKind::cyme :
-            text = CymePrinter(m, options.optimize).text();
-            break;
-        case targetKind::gpu  :
-            text = CUDAPrinter(m, options.optimize).text();
-            break;
-    }
-
-    if(options.has_output) {
-        std::ofstream fout(options.outputname);
-        fout << text;
-        fout.close();
-    }
-    else {
-        std::cout << cyan("--------------------------------------") << std::endl;
-        std::cout << text;
-        std::cout << cyan("--------------------------------------") << std::endl;
-    }
-
-    std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
     return 0;
 }

@@ -42,7 +42,7 @@ TEST(Lexer, identifiers) {
 
 // test keywords
 TEST(Lexer, keywords) {
-    char string[] = "NEURON UNITS SOLVE else TITLE";
+    char string[] = "NEURON UNITS SOLVE else TITLE CONDUCTANCE";
     PRINT_LEX_STRING
     Lexer lexer(string, string+sizeof(string));
 
@@ -65,9 +65,12 @@ TEST(Lexer, keywords) {
     EXPECT_EQ(t4.spelling, "else");
 
     auto t5 = lexer.parse();
-    //EXPECT_EQ(t5.type, tok::title);
     EXPECT_NE(t5.type, tok::identifier);
     EXPECT_EQ(t5.spelling, "TITLE");
+
+    auto t7 = lexer.parse();
+    EXPECT_EQ(t7.type, tok::conductance);
+    EXPECT_EQ(t7.spelling, "CONDUCTANCE");
 
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok::eof);

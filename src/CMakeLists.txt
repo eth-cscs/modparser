@@ -7,8 +7,9 @@ set(BASE_SOURCES
     parser.cpp
     textbuffer.cpp
     cprinter.cpp
-    cudaprinter.cpp
-    cymeprinter.cpp
+    functioninliner.cpp
+    #cudaprinter.cpp
+    #cymeprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp

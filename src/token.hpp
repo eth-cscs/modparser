@@ -65,6 +65,8 @@ enum class tok {
     // solver methods
     cnexp,
 
+    conductance,
+
     reserved, // placeholder for generating keyword lookup
 };
 

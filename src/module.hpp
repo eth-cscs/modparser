@@ -62,9 +62,20 @@ public :
     std::string const& error_string() {
         return error_string_;
     }
+
     lexerStatus status() const {
         return status_;
     }
+
+    // warnings
+    void warning(std::string const& msg, Location loc);
+    bool has_warning() const {
+        return has_warning_;
+    }
+    bool has_error() const {
+        return status()==lexerStatus::error;
+    }
+
     moduleKind kind() const {
         return kind_;
     }
@@ -82,9 +93,14 @@ private :
     std::string fname_;
     std::vector<char> buffer_; // character buffer loaded from file
 
+    bool generate_initial_api();
+    bool generate_current_api();
+    bool generate_state_api();
+
     // error handling
     std::string error_string_;
     lexerStatus status_ = lexerStatus::happy;
+    bool has_warning_ = false;
 
     // AST storage
     std::vector<symbol_ptr> procedures_;
