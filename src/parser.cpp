@@ -1041,6 +1041,9 @@ expression_ptr Parser::parse_binop(expression_ptr&& lhs, Token op_left) {
 
         auto op = token_;
         auto p_op = binop_precedence(op.type);
+        if(operator_associativity(op.type)==associativityKind::right) {
+            p_op += 1;
+        }
 
         //  if no binop, parsing of expression is finished with (op_left lhs e)
         if(p_op < 0) {

@@ -484,3 +484,80 @@ TEST(Parser, parse_line_expression) {
     }
 }
 
+long double eval(Expression *e) {
+    if(auto n = e->is_number()) {
+        return n->value();
+    }
+    if(auto b = e->is_binary()) {
+        auto lhs = eval(b->lhs());
+        auto rhs = eval(b->rhs());
+        switch(b->op()) {
+            case tok::plus  : return lhs+rhs;
+            case tok::minus : return lhs-rhs;
+            case tok::times : return lhs*rhs;
+            case tok::divide: return lhs/rhs;
+            case tok::pow   : return std::pow(lhs,rhs);
+            default:;
+        }
+    }
+    if(auto u = e->is_unary()) {
+        auto val = eval(u->expression());
+        switch(u->op()) {
+            case tok::plus  : return  val;
+            case tok::minus : return -val;
+            default:;
+        }
+    }
+    return std::numeric_limits<long double>::quiet_NaN();
+}
+
+// test parsing of expressions for correctness
+// by parsing rvalue expressions with numeric atoms, which can be evalutated using eval
+TEST(Parser, parse_binop) {
+    std::vector<std::pair<const char*, double>> tests =
+    {
+        // simple
+        {"2+3", 2.+3.},
+        {"2-3", 2.-3.},
+        {"2*3", 2.*3.},
+        {"2/3", 2./3.},
+        {"2^3", std::pow(2., 3.)},
+
+        // more complicated
+        {"2+3*2", 2.+(3*2)},
+        {"2*3-5", (2.*3)-5.},
+        {"2+3*(-2)", 2.+(3*-2)},
+        {"2+3*(-+2)", 2.+(3*-+2)},
+        {"2/3*4", (2./3.)*4.},
+
+        // right associative
+        {"2^3^1.5", std::pow(2.,std::pow(3.,1.5))},
+        {"2^3^1.5^2", std::pow(2.,std::pow(3.,std::pow(1.5,2.)))},
+        {"2^2^3", std::pow(2.,std::pow(2.,3.))},
+        {"(2^2)^3", std::pow(std::pow(2.,2.),3.)},
+        {"3./2^7.", 3./std::pow(2.,7.)},
+        {"3^2*5.", std::pow(3.,2.)*5.},
+    };
+
+    for(auto const& test_case : tests) {
+        Parser p(test_case.first);
+        auto e = p.parse_expression();
+
+#ifdef VERBOSE_TEST
+        if(e) std::cout << e->to_string() << std::endl;
+#endif
+        EXPECT_NE(e, nullptr);
+        EXPECT_EQ(p.status(), lexerStatus::happy);
+
+        // A loose tolerance of 1d-10 is required here because the eval() function uses long double
+        // for intermediate results (like constant folding in modparser).
+        // For expressions with transcendental operations this can see relatively large divergence between
+        // the double and long double results.
+        EXPECT_NEAR(eval(e.get()), test_case.second, 1e-10);
+
+        // always print the compiler errors, because they are unexpected
+        if(p.status()==lexerStatus::error)
+            std::cout << red("error") << p.error_message() << std::endl;
+    }
+}
+
