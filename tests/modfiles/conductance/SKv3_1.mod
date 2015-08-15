@@ -35,7 +35,7 @@ DERIVATIVE states   {
 }
 
 INITIAL{
-    m = mInf(v) + mTau(v)
+    m = mInf(v)
 }
 
 FUNCTION mInf(v) {

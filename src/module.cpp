@@ -6,8 +6,7 @@
 
 #include "errorvisitor.hpp"
 #include "expressionclassifier.hpp"
-#include "inline.hpp"
-#include "functioninliner.hpp"
+#include "functionexpander.hpp"
 #include "module.hpp"
 #include "parser.hpp"
 
@@ -147,6 +146,18 @@ bool Module::semantic() {
             auto v = make_unique<ErrorVisitor>(file_name());
             s->accept(v.get());
             errors += v->num_errors();
+
+            // inline function calls
+            // this requires that the symbol table has already been built
+            if(v->num_errors()==0) {
+                auto &b =  s->kind()==symbolKind::function ?
+                    s->is_function()->body()->body() :
+                    s->is_procedure()->body()->body();
+                for(auto e=b.begin(); e!=b.end(); ++e) {
+                    auto new_expressions = expand_function_calls((*e).get());
+                    b.splice(e, std::move(new_expressions));
+                }
+            }
         }
     }
 
@@ -200,13 +211,6 @@ bool Module::semantic() {
     auto api_init  = initial_api.first;
     auto proc_init = initial_api.second;
 
-    if(proc_init) {
-        auto &b = proc_init->body()->body();
-        for(auto e=b.begin(); e!=b.end(); ++e) {
-            auto new_expressions = expand_function_calls((*e).get());
-            b.splice(e, std::move(new_expressions));
-        }
-    }
     if(api_init)
     {
         auto& body = api_init->body()->body();

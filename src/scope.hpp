@@ -103,6 +103,7 @@ Scope<Symbol>::to_string() const {
         snprintf(buffer, 16, "%-15s", sym.first.c_str());
         s += "    " + yellow(buffer);
     }
+    s += "\n";
     s += blue("  local  :\n");
     for(auto& sym : local_symbols_) {
         snprintf(buffer, 16, "%-15s", sym.first.c_str());

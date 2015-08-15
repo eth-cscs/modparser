@@ -7,7 +7,7 @@ set(BASE_SOURCES
     parser.cpp
     textbuffer.cpp
     cprinter.cpp
-    functioninliner.cpp
+    functionexpander.cpp
     #cudaprinter.cpp
     #cymeprinter.cpp
     expressionclassifier.cpp
