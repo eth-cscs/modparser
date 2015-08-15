@@ -131,10 +131,12 @@ int main(int argc, char **argv) {
             return 1;
         }
 
+        /*
         for(auto &symbol : m.symbols()) {
             if(symbol.second->kind()==symbolKind::procedure)
                 std::cout << symbol.second->to_string() << std::endl;
         }
+        */
 
         ////////////////////////////////////////////////////////////
         // optimize

@@ -202,7 +202,7 @@ void CPrinter::visit(LocalVariable *e) {
     //  a) has indexed
     //  b) is write only
     //  c) is in a point process
-    if(e->is_indexed() && is_point_process() && e->external_variable()->is_read()) {
+    if(e->is_indexed() && is_point_process() && e->external_variable()->is_write()) {
         text_ << "[j_]";
     }
 }

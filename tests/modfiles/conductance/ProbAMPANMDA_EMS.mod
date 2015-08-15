@@ -6,7 +6,6 @@ NEURON {
     RANGE e, NMDA_ratio
     RANGE A_AMPA_step, B_AMPA_step, A_NMDA_step, B_NMDA_step
     NONSPECIFIC_CURRENT i
-    BBCOREPOINTER rng
     RANGE synapseID
 }
 
