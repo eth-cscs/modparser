@@ -156,14 +156,14 @@ bool Module::semantic() {
                     s->is_procedure()->body()->body();
                 for(auto e=b.begin(); e!=b.end(); ++e) {
                     auto new_expressions = expand_function_calls((*e).get());
-                    for(auto &statement : new_expressions) {
-                        if(auto ass = statement->is_assignment()) {
-                            if(ass->rhs()->is_function_call()) {
-                                ass->replace_rhs(inline_function_call(ass->rhs()));
-                            }
+                    b.splice(e, std::move(new_expressions));
+                }
+                for(auto e=b.begin(); e!=b.end(); ++e) {
+                    if(auto ass = (*e)->is_assignment()) {
+                        if(ass->rhs()->is_function_call()) {
+                            ass->replace_rhs(inline_function_call(ass->rhs()));
                         }
                     }
-                    b.splice(e, std::move(new_expressions));
                 }
             }
         }
@@ -236,6 +236,45 @@ bool Module::semantic() {
         return false;
     }
 
+
+    // evaluate whether an expression has the form
+    // (b - x)/a
+    // where x is a state variable with name state_variable
+    // this test is used to detect ODEs with the signature
+    // dx/dt = (xinf - x)/xtau
+    // so that we can integrate them efficiently using the cnexp integrator
+    //
+    // this is messy, but ok for a once off. If this pattern is
+    // repeated, it will be worth finding a more sophisticated solution
+    auto is_gating = [] (Expression* e, std::string const& state_variable) {
+        IdentifierExpression* a = nullptr;
+        IdentifierExpression* b = nullptr;
+        BinaryExpression* other = nullptr;
+        if(auto binop = e->is_binary()) {
+            if(binop->op()==tok::divide) {
+                if((a = binop->rhs()->is_identifier())) {
+                    other = binop->lhs()->is_binary();
+                }
+            }
+        }
+        if(other) {
+            if(other->op()==tok::minus) {
+                if(auto rhs = other->rhs()->is_identifier()) {
+                    if(rhs->name() == state_variable) {
+                        if(auto lhs = other->lhs()->is_identifier()) {
+                            if(lhs->name() != state_variable) {
+                                b = lhs;
+                                return std::make_pair(a, b);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        a = b = nullptr;
+        return std::make_pair(a, b);
+    };
+
     // Look in the symbol table for a procedure with the name "breakpoint".
     // This symbol corresponds to the BREAKPOINT block in the .mod file
     // There are two APIMethods generated from BREAKPOINT.
@@ -300,57 +339,68 @@ bool Module::semantic() {
                         auto sym  = deriv->symbol();
                         auto name = deriv->name();
 
-                        // create visitor for linear analysis
-                        auto v = make_unique<ExpressionClassifierVisitor>(sym);
-
-                        // analyse the rhs
-                        rhs->accept(v.get());
-
-                        // quit if ODE is not linear
-                        if( v->classify() != expressionClassification::linear ) {
-                            error("unable to integrate nonlinear state ODEs",
-                                  rhs->location());
-                            return false;
+                        auto gating_vars = is_gating(rhs, name);
+                        if(gating_vars.first && gating_vars.second) {
+                            auto const& inf = gating_vars.second->spelling();
+                            auto const& rate = gating_vars.first->spelling();
+                            auto e_string = name + "=" + inf
+                                            + "+(" + name + "-" + inf + ")*exp(-dt/"
+                                            + rate + ")";
+                            auto stmt_update = Parser(e_string).parse_line_expression();
+                            body.emplace_back(std::move(stmt_update));
+                            continue;
                         }
+                        else {
+                            // create visitor for linear analysis
+                            auto v = make_unique<ExpressionClassifierVisitor>(sym);
+                            rhs->accept(v.get());
 
-                        // the linear differential equation is of the form
-                        //      s' = a*s + b
-                        // integration by separation of variables gives the following
-                        // update function to integrate s for one time step dt
-                        //      s = -b/a + (s+b/a)*exp(a*dt)
-                        // we are going to build this update function by
-                        //  1. generating statements that define a_=a and ba_=b/a
-                        //  2. generating statements that update the solution
+                            // quit if ODE is not linear
+                            if( v->classify() != expressionClassification::linear ) {
+                                error("unable to integrate nonlinear state ODEs",
+                                      rhs->location());
+                                return false;
+                            }
 
-                        // statement : a_ = a
-                        auto stmt_a  =
-                            binary_expression(Location(),
-                                              tok::eq,
-                                              id("a_"),
-                                              v->linear_coefficient()->clone());
+                            // the linear differential equation is of the form
+                            //      s' = a*s + b
+                            // integration by separation of variables gives the following
+                            // update function to integrate s for one time step dt
+                            //      s = -b/a + (s+b/a)*exp(a*dt)
+                            // we are going to build this update function by
+                            //  1. generating statements that define a_=a and ba_=b/a
+                            //  2. generating statements that update the solution
 
-                        // expression : b/a
-                        auto expr_ba =
-                            binary_expression(Location(),
-                                              tok::divide,
-                                              v->constant_term()->clone(),
-                                              id("a_"));
-                        // statement  : ba_ = b/a
-                        auto stmt_ba = binary_expression(Location(), tok::eq, id("ba_"), std::move(expr_ba));
+                            // statement : a_ = a
+                            auto stmt_a  =
+                                binary_expression(Location(),
+                                                  tok::eq,
+                                                  id("a_"),
+                                                  v->linear_coefficient()->clone());
 
-                        // the update function
-                        auto e_string = name + "  = -ba_ + "
-                                        "(" + name + " + ba_)*exp(a_*dt)";
-                        auto stmt_update = Parser(e_string).parse_line_expression();
+                            // expression : b/a
+                            auto expr_ba =
+                                binary_expression(Location(),
+                                                  tok::divide,
+                                                  v->constant_term()->clone(),
+                                                  id("a_"));
+                            // statement  : ba_ = b/a
+                            auto stmt_ba = binary_expression(Location(), tok::eq, id("ba_"), std::move(expr_ba));
 
-                        // add declaration of local variables
-                        body.emplace_back(Parser("LOCAL a_").parse_local());
-                        body.emplace_back(Parser("LOCAL ba_").parse_local());
-                        // add integration statements
-                        body.emplace_back(std::move(stmt_a));
-                        body.emplace_back(std::move(stmt_ba));
-                        body.emplace_back(std::move(stmt_update));
-                        continue;
+                            // the update function
+                            auto e_string = name + "  = -ba_ + "
+                                            "(" + name + " + ba_)*exp(a_*dt)";
+                            auto stmt_update = Parser(e_string).parse_line_expression();
+
+                            // add declaration of local variables
+                            body.emplace_back(Parser("LOCAL a_").parse_local());
+                            body.emplace_back(Parser("LOCAL ba_").parse_local());
+                            // add integration statements
+                            body.emplace_back(std::move(stmt_a));
+                            body.emplace_back(std::move(stmt_ba));
+                            body.emplace_back(std::move(stmt_update));
+                            continue;
+                        }
                     }
                     else {
                         body.push_back(e->clone());
