@@ -86,16 +86,14 @@ INITIAL{
 }
 
 BREAKPOINT {
-    LOCAL mggate, g_AMPA, g_NMDA, g, i_AMPA, i_NMDA, vv, i, vve
+    LOCAL mggate, g_AMPA, g_NMDA, g, i_AMPA, i_NMDA
     : make g the conductance
     :CONDUCTANCE g_AMPA
     :CONDUCTANCE g_NMDA
     CONDUCTANCE g
     SOLVE state
 
-    vv = v
-
-    mggate = 1 / (1 + exp(-0.062 * vv) * (mg / 3.57))
+    mggate = 1 / (1 + exp(-0.062 * v) * (mg / 3.57))
     g_AMPA = gmax*(B_AMPA-A_AMPA)
     g_NMDA = gmax*(B_NMDA-A_NMDA) * mggate
     g = g_AMPA + g_NMDA

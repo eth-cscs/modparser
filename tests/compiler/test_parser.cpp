@@ -1,3 +1,4 @@
+#include <cmath>
 #include "test.hpp"
 
 #include "../src/module.hpp"

@@ -183,14 +183,6 @@ void CPrinter::visit(LocalDeclaration *e) {
 }
 
 void CPrinter::visit(Symbol *e) {
-    /*
-    std::string const& name = e->name();
-    text_ << name;
-    auto k = e->kind();
-    if(k==symbolKind::ghost) {
-        text_ << "[j_]";
-    }
-    */
     throw compiler_exception("I don't know how to print raw Symbol " + e->to_string(),
                              e->location());
 }
@@ -198,11 +190,7 @@ void CPrinter::visit(Symbol *e) {
 void CPrinter::visit(LocalVariable *e) {
     std::string const& name = e->name();
     text_ << name;
-    // TODO : this is wrong: only use index if
-    //  a) has indexed
-    //  b) is write only
-    //  c) is in a point process
-    if(e->is_indexed() && is_point_process() && e->external_variable()->is_write()) {
+    if(is_ghost_local(e)) {
         text_ << "[j_]";
     }
 }
@@ -223,7 +211,7 @@ void CPrinter::visit(VariableExpression *e) {
 }
 
 void CPrinter::visit(IndexedVariable *e) {
-    text_ << e->name() << "[i_]";
+    text_ << e->index_name() << "[i_]";
 }
 
 void CPrinter::visit(UnaryExpression *e) {
@@ -267,20 +255,18 @@ void CPrinter::visit(BlockExpression *e) {
     if(!e->is_nested()) {
         std::vector<std::string> names;
         for(auto& symbol : e->scope()->locals()) {
-            auto var = symbol.second->is_local_variable();
-            // only print definition if variable is local or a
-            // write-only indexed variable
-            //if(var->is_local() || (!var->is_read())) {
-            if(!(var->is_indexed() && var->is_read()) && !var->is_arg()) {
-                names.push_back(symbol.first);
+            auto sym = symbol.second.get();
+            // input variables are declared earlier, before the
+            // block body is printed
+            if(is_stack_local(sym) && !is_input(sym)) {
+                names.push_back(sym->name());
             }
         }
         if(names.size()>0) {
-            text_.add_gutter() << "value_type " << names[0];
-            for(auto it=names.begin()+1; it!=names.end(); ++it) {
-                    text_ <<  "{0}, " << *it;
+            for(auto it=names.begin(); it!=names.end(); ++it) {
+                text_.add_gutter() << "value_type " << *it;
+                text_.end_line("{0};");
             }
-            text_.end_line("{0};");
         }
     }
 
@@ -394,12 +380,10 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     // loads from external indexed arrays
     for(auto &symbol : e->scope()->locals()) {
         auto var = symbol.second->is_local_variable();
-        if(var->is_local()) {
-            if(var->is_indexed() && var->is_read()) {
-                auto ext = var->external_variable();
-                text_.add_line("value_type " + ext->name() + " = "
-                               + ext->index_name() + "[i];");
-            }
+        if(is_input(var)) {
+            auto ext = var->external_variable();
+            text_.add_line("value_type " + ext->name() + " = "
+                           + ext->index_name() + "[i];");
         }
     }
 
@@ -408,8 +392,7 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
 
     for(auto &symbol : e->scope()->locals()) {
         auto var = symbol.second->is_local_variable();
-        if(var->is_indexed() && var->is_write()) {
-            //std::cout << "indexed output " << var->external_variable()->to_string() << std::endl;
+        if(is_output(var)) {
             auto ext = var->external_variable();
             text_.add_gutter();
             text_ << ext->index_name() + "[i]";
@@ -433,24 +416,29 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
 void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     // ------------- get mechanism properties ------------- //
 
-    // :: analyse outputs, to determine if they depend on any
-    //    ghost fields.
-    std::vector<APIMethod::memop_type*> aliased_variables;
-    /*
-    if(is_point_process) {
-        for(auto &out : e->outputs()) {
-            if(out.local->kind() == symbolKind::ghost) {
-                aliased_variables.push_back(&out);
+    // make a list of all the local variables that have to be
+    // written out to global memory via an index
+    auto is_aliased = [this] (Symbol* s) -> LocalVariable* {
+        if(is_output(s)) {
+            return s->is_local_variable();
+        }
+        return nullptr;
+    };
+
+    std::vector<LocalVariable*> aliased_variables;
+    if(is_point_process()) {
+        for(auto &l : e->scope()->locals()) {
+            if(auto var = is_aliased(l.second.get())) {
+                aliased_variables.push_back(var);
             }
         }
     }
-    */
-    bool aliased_output = aliased_variables.size()>0;
+    aliased_output_ = aliased_variables.size()>0;
 
     // only proceed with optimized output if the ouputs are aliased
     // because all optimizations are for using ghost buffers to avoid
     // race conditions in vectorized code
-    if(!aliased_output) {
+    if(!aliased_output_) {
         print_APIMethod_unoptimized(e);
         return;
     }
@@ -460,7 +448,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("constexpr int BSIZE = 64;");
     text_.add_line("int NB = n_/BSIZE;");
     for(auto out: aliased_variables) {
-        text_.add_line("value_type " + out->local->name() + "[BSIZE];");
+        text_.add_line("value_type " + out->name() + "[BSIZE];");
     }
     text_.add_line("START_PROFILE");
 
@@ -478,18 +466,11 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.increase_indentation();
 
     // initialize ghost fields to zero
-    for(auto out: aliased_variables) {
-        text_.add_line(out->local->name() + "[j_] = value_type{0.};");
-    }
-
-    // insert loads from external state here
     /*
-    for(auto &in : e->inputs()) {
+    for(auto out: aliased_variables) {
         text_.add_gutter();
-        in.local->accept(this);
-        text_ << " = ";
-        in.external->accept(this);
-        text_.end_line(";");
+        out->accept(this);
+        text_.end_line(" = value_type{0};");
     }
     */
 
@@ -502,16 +483,13 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
     text_.increase_indentation();
 
-    // insert stores here
-    /*
-    for(auto &out : e->outputs()) {
+    for(auto out: aliased_variables) {
         text_.add_gutter();
-        out.external->accept(this);
-        text_ << (out.op==tok::plus ? " += " : " -= ");
-        out.local->accept(this);
+        out->external_variable()->accept(this);
+        text_ << " = ";
+        out->accept(this);
         text_.end_line(";");
     }
-    */
 
     text_.decrease_indentation();
     text_.add_line("}"); // end inner write loop
@@ -527,20 +505,8 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     // initialize ghost fields to zero
     for(auto out: aliased_variables) {
-        text_.add_line(out->local->name() + "[j_] = value_type{0.};");
+        text_.add_line(out->name() + "[j_] = value_type{0.};");
     }
-
-
-    // insert loads from external state here
-    /*
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local->accept(this);
-        text_ << " = ";
-        in.external->accept(this);
-        text_.end_line(";");
-    }
-    */
 
     e->body()->accept(this);
 
@@ -550,16 +516,13 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
     text_.increase_indentation();
 
-    /*
-    // insert stores here
-    for(auto &out : e->outputs()) {
+    for(auto out: aliased_variables) {
         text_.add_gutter();
-        out.external->accept(this);
-        text_ << (out.op==tok::plus ? " += " : " -= ");
-        out.local->accept(this);
+        out->external_variable()->accept(this);
+        text_ << " = ";
+        out->accept(this);
         text_.end_line(";");
     }
-    */
 
     text_.decrease_indentation();
     text_.add_line("}"); // end block tail loop
@@ -571,6 +534,8 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     decrease_indentation();
     text_.add_line("}");
     text_.add_line();
+
+    aliased_output_ = false;
     return;
 }
 

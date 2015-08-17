@@ -379,6 +379,7 @@ bool Module::semantic() {
         };
 
         // add statements that initialize the reduction variables
+        bool has_current_update = false;
         for(auto& e: *(breakpoint->body())) {
             // ignore solve and conductance statements
             if(e->is_solve_statement())       continue;
@@ -402,15 +403,22 @@ bool Module::semantic() {
 
                 if(v->classify()==expressionClassification::linear) {
                     // add current update
-                    std::string e_string = "current_ = current_ + " + lhs->name();
-                    block.emplace_back(Parser(e_string).parse_line_expression());
+                    if(has_current_update) {
+                        block.emplace_back(Parser("current_ = current_ + " + lhs->name()).parse_line_expression());
+                    }
+                    else {
+                        block.emplace_back(Parser("current_ = " + lhs->name()).parse_line_expression());
+                    }
 
-                    auto g_stmt =
-                        binary_expression(tok::eq,
-                                          id("conductance_"),
-                                          binary_expression(tok::plus,
-                                                            id("conductance_"),
-                                                            v->linear_coefficient()->clone()));
+                    auto g_stmt = has_current_update
+                        ? binary_expression(tok::eq,
+                                            id("conductance_"),
+                                            binary_expression(tok::plus,
+                                                              id("conductance_"),
+                                                              v->linear_coefficient()->clone()))
+                        : binary_expression(tok::eq,
+                                            id("conductance_"),
+                                            v->linear_coefficient()->clone());
                     block.emplace_back(std::move(g_stmt));
                 }
                 else {
@@ -418,6 +426,7 @@ bool Module::semantic() {
                           " function of v : " + rhs->to_string(), e->location());
                     return false;
                 }
+                has_current_update = true;
             }
         }
         auto v = make_unique<ConstantFolderVisitor>();

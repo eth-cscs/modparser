@@ -54,6 +54,60 @@ private:
     tok parent_op_ = tok::eq;
     TextBuffer text_;
     bool optimize_ = false;
+    bool aliased_output_ = false;
+
+    bool is_input(Symbol *s) {
+        if(auto l = s->is_local_variable() ) {
+            if(l->is_local()) {
+                if(l->is_indexed() && l->is_read()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool is_output(Symbol *s) {
+        if(auto l = s->is_local_variable() ) {
+            if(l->is_local()) {
+                if(l->is_indexed() && l->is_write()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool is_arg_local(Symbol *s) {
+        if(auto l=s->is_local_variable()) {
+            if(l->is_arg()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_indexed_local(Symbol *s) {
+        if(auto l=s->is_local_variable()) {
+            if(l->is_indexed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_ghost_local(Symbol *s) {
+        if(!is_point_process()) return false;
+        if(!optimize_)          return false;
+        if(!aliased_output_)    return false;
+        if(is_arg_local(s))     return false;
+        return is_output(s);
+    }
+
+    bool is_stack_local(Symbol *s) {
+        if(is_arg_local(s))    return false;
+        return !is_ghost_local(s);
+    }
 
     bool is_point_process() {
         return module_->kind() == moduleKind::point;

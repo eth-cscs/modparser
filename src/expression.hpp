@@ -540,11 +540,11 @@ public :
     }
 
     bool is_indexed() const {
-        return external_!=nullptr;
+        return external_!=nullptr && ion_channel()!=ionKind::nonspecific;
     }
 
     ionKind ion_channel() const {
-        if(is_indexed()) return external_->ion_channel();
+        if(external_) return external_->ion_channel();
         return ionKind::none;
     }
 
@@ -566,7 +566,7 @@ public :
         return kind_==localVariableKind::argument;
     }
 
-    const IndexedVariable* external_variable() const {
+    IndexedVariable* external_variable() {
         return external_;
     }
 
