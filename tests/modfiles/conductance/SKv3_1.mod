@@ -38,11 +38,11 @@ INITIAL{
     m = mInf(v)
 }
 
-FUNCTION mInf(v) {
-    mInf =  1/(1+exp((v-18.7)/-9.7))
+FUNCTION mInf(voltage) {
+    mInf =  1/(1+exp((voltage-18.7)/-9.7))
 }
 
-FUNCTION mTau(v) {
-    mTau =  0.2*20.000/(1+exp(((v -(-46.560))/(-44.140))))
+FUNCTION mTau(voltage) {
+    mTau =  0.2*20.000/(1+exp(((voltage -(-46.560))/(-44.140))))
 }
 

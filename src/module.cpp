@@ -7,6 +7,7 @@
 #include "errorvisitor.hpp"
 #include "expressionclassifier.hpp"
 #include "functionexpander.hpp"
+#include "functioninliner.hpp"
 #include "module.hpp"
 #include "parser.hpp"
 
@@ -155,6 +156,13 @@ bool Module::semantic() {
                     s->is_procedure()->body()->body();
                 for(auto e=b.begin(); e!=b.end(); ++e) {
                     auto new_expressions = expand_function_calls((*e).get());
+                    for(auto &statement : new_expressions) {
+                        if(auto ass = statement->is_assignment()) {
+                            if(ass->rhs()->is_function_call()) {
+                                ass->replace_rhs(inline_function_call(ass->rhs()));
+                            }
+                        }
+                    }
                     b.splice(e, std::move(new_expressions));
                 }
             }

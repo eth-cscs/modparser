@@ -372,6 +372,9 @@ public:
     void set_name(std::string const& n) {
         name_ = n;
     }
+    const std::string& spelling() const {
+        return token_.spelling;
+    }
 
     ~ArgumentExpression() {}
     void accept(Visitor *v) override;
@@ -812,6 +815,17 @@ public:
     CallExpression* is_procedure_call() override {
         return symbol_->kind() == symbolKind::procedure ? this : nullptr;
     }
+
+    FunctionExpression* function() {
+        return symbol_->kind() == symbolKind::function
+            ? symbol_->is_function() : nullptr;
+    }
+
+    ProcedureExpression* procedure() {
+        return symbol_->kind() == symbolKind::procedure
+            ? symbol_->is_procedure() : nullptr;
+    }
+
 private:
     Symbol* symbol_;
 

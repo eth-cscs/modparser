@@ -263,10 +263,15 @@ void CPrinter::visit(BlockExpression *e) {
             }
         }
         if(names.size()>0) {
-            for(auto it=names.begin(); it!=names.end(); ++it) {
-                text_.add_gutter() << "value_type " << *it;
-                text_.end_line("{0};");
+            //for(auto it=names.begin(); it!=names.end(); ++it) {
+            //    text_.add_gutter() << "value_type " << *it;
+            //    text_.end_line("{0};");
+            //}
+            text_.add_gutter() << "value_type " << *(names.begin());
+            for(auto it=names.begin()+1; it!=names.end(); ++it) {
+                text_ << ", " << *it;
             }
+            text_.end_line(";");
         }
     }
 

@@ -270,9 +270,19 @@ void CallExpression::semantic(std::shared_ptr<scope_type> scp) {
     // save the symbol
     symbol_ = s;
 
-    // TODO: check that the number of arguments matches
-    if( !has_error() ) {
-        // only analyze if the call was found
+    // check that the number of passed arguments matches
+    if( !has_error() ) { // only analyze if the call was found
+        int expected_args;
+        if(auto f = function()) {
+            expected_args = f->args().size();
+        }
+        else {
+            expected_args = procedure()->args().size();
+        }
+        if(args_.size() != expected_args) {
+            error(pprintf("call has the wrong number of arguments: expected %"
+                          ", received %", expected_args, args_.size()));
+        }
     }
 
     // perform semantic analysis on the arguments
