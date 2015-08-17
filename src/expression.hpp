@@ -744,6 +744,8 @@ public:
         return false_branch_.get();
     }
 
+    expression_ptr clone() const override;
+
     std::string to_string() const override;
     void semantic(std::shared_ptr<scope_type> scp) override;
 

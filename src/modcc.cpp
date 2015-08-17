@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
             std::cout << cyan("--------------------------------------") << std::endl;
         }
 
-        std::cout << yellow("successfully compiled ") + white(options.outputname) << std::endl;
+        std::cout << yellow("successfully compiled ") << white(options.filename) << " -> " << white(options.outputname) << std::endl;
     }
 
     catch(compiler_exception e) {

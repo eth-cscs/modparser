@@ -660,6 +660,15 @@ void IfExpression::semantic(std::shared_ptr<scope_type> scp) {
     }
 }
 
+expression_ptr IfExpression::clone() const {
+    return make_expression<IfExpression>(
+            location_,
+            condition_->clone(),
+            true_branch_->clone(),
+            false_branch_? false_branch_->clone() : nullptr
+    );
+}
+
 #include "visitor.hpp"
 /*
    Visitor hooks

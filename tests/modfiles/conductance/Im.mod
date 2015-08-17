@@ -15,8 +15,6 @@ PARAMETER   {
 }
 
 ASSIGNED    {
-    v   (mV)
-    ek  (mV)
 }
 
 STATE {
