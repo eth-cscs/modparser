@@ -2,10 +2,11 @@
 #include <list>
 #include <cstring>
 
-#include "parser.hpp"
-#include "util.hpp"
-#include "perfvisitor.hpp"
 #include "constantfolder.hpp"
+#include "parser.hpp"
+#include "perfvisitor.hpp"
+#include "token.hpp"
+#include "util.hpp"
 
 // specialize on const char* for lazy evaluation of compile time strings
 bool Parser::expect(tok tok, const char* str) {
@@ -668,14 +669,14 @@ void Parser::parse_title() {
     std::string title;
     int this_line = location().line;
 
-    Token tok = peek();
-    while(   tok.location.line==this_line
-          && tok.type!=tok::eof
+    Token tkn = peek();
+    while(   tkn.location.line==this_line
+          && tkn.type!=tok::eof
           && status_==lexerStatus::happy)
     {
         get_token();
         title += token_.spelling;
-        tok = peek();
+        tkn = peek();
     }
 
     // set the module title
