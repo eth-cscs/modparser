@@ -619,9 +619,9 @@ void Module::add_variables_to_symbols() {
     // first the ION channels
     // add ion channel variables
     auto update_ion_symbols = [this, create_indexed_variable]
-            (Token const& tok, accessKind acc, ionKind channel)
+            (Token const& tkn, accessKind acc, ionKind channel)
     {
-        auto const& var = tok.spelling;
+        auto const& var = tkn.spelling;
 
         // add the ion variable's indexed shadow
         if(has_symbol(var)) {
@@ -641,7 +641,7 @@ void Module::add_variables_to_symbols() {
 
         create_indexed_variable(var, "ion_"+var,
                                 acc==accessKind::read ? tok::eq : tok::plus,
-                                acc, channel, tok.location);
+                                acc, channel, tkn.location);
     };
 
     // check for nonspecific current

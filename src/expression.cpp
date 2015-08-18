@@ -15,6 +15,7 @@ std::string to_string(symbolKind k) {
         case symbolKind::function:
             return std::string("function");
     }
+    return "";
 }
 
 
