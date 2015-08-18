@@ -696,7 +696,7 @@ void Module::add_variables_to_symbols() {
         else if (!sym->is_indexed_variable()){
             throw compiler_exception(
                 "unable to find symbol " + yellow(var.spelling) + " in symbols",
-                Location());
+                var.location);
         }
     }
 }
