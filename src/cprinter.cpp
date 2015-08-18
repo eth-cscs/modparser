@@ -345,12 +345,13 @@ void CPrinter::visit(APIMethod *e) {
         auto var = symbol.second->is_local_variable();
         if(var->is_indexed()) {
             auto const& name = var->name();
+            auto const& index_name = var->external_variable()->index_name();
             text_.add_gutter();
             if(var->is_read()) text_ << "const ";
-            text_ << "indexed_view " + var->external_variable()->index_name();
+            text_ << "indexed_view " + index_name;
             auto channel = var->external_variable()->ion_channel();
             if(channel==ionKind::none) {
-                text_ << "(matrix_.vec_" + name + "(), node_indices_);\n";
+                text_ << "(matrix_." + index_name + "(), node_indices_);\n";
             }
             else {
                 auto iname = ion_store(channel);
@@ -388,7 +389,7 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
         if(is_input(var)) {
             auto ext = var->external_variable();
             text_.add_line("value_type " + ext->name() + " = "
-                           + ext->index_name() + "[i];");
+                           + ext->index_name() + "[i_];");
         }
     }
 
@@ -400,7 +401,7 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
         if(is_output(var)) {
             auto ext = var->external_variable();
             text_.add_gutter();
-            text_ << ext->index_name() + "[i]";
+            text_ << ext->index_name() + "[i_]";
             text_ << (ext->op() == tok::plus ? " += " : " -= ");
             text_ << ext->name() << ";\n";
         }
