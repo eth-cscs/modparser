@@ -17,8 +17,8 @@ struct IonDep {
         return ionKind::none;
     }
     std::string name;               // name of ion channel
-    std::vector<std::string> read;  // name of channels parameters to write
-    std::vector<std::string> write; // name of channels parameters to read
+    std::vector<Token> read;  // name of channels parameters to write
+    std::vector<Token> write; // name of channels parameters to read
 };
 
 enum class moduleKind {

@@ -304,7 +304,7 @@ void Parser::parse_neuron_block() {
                     // the end of the USEION clause
                     while(token_.type == tok::read || token_.type == tok::write) {
                         auto& target = (token_.type == tok::read) ? ion.read
-                                                                 : ion.write;
+                                                                  : ion.write;
                         std::vector<Token> identifiers
                             = comma_separated_identifiers();
                         // bail if there was an error reading the list
@@ -312,10 +312,9 @@ void Parser::parse_neuron_block() {
                             return;
                         }
                         for(auto const &id : identifiers) {
-                            target.push_back(id.spelling);
+                            target.push_back(id);
                         }
                     }
-                    //std::cout << red("ion ") << ion << std::endl;
                     // add the ion dependency to the NEURON block
                     neuron_block.ions.push_back(ion);
                 }
