@@ -155,8 +155,9 @@ bool Module::semantic() {
                     s->is_function()->body()->body() :
                     s->is_procedure()->body()->body();
                 for(auto e=b.begin(); e!=b.end(); ++e) {
-                    auto new_expressions = expand_function_calls((*e).get());
-                    b.splice(e, std::move(new_expressions));
+                    // expand function calls then insert them into the
+                    // statement list before e
+                    b.splice(e, expand_function_calls((*e).get()));
                 }
                 for(auto e=b.begin(); e!=b.end(); ++e) {
                     if(auto ass = (*e)->is_assignment()) {
@@ -530,18 +531,18 @@ void Module::add_variables_to_symbols() {
     // add indexed variables to the table
     auto create_indexed_variable = [this]
         (std::string const& name, std::string const& indexed_name,
-         tok op, accessKind acc, ionKind ch)
+         tok op, accessKind acc, ionKind ch, Location loc)
     {
         symbols_[name] =
-            make_symbol<IndexedVariable>(Location(), name, indexed_name, acc, op, ch);
+            make_symbol<IndexedVariable>(loc, name, indexed_name, acc, op, ch);
     };
 
     create_indexed_variable("current_", "vec_rhs", tok::minus,
-                            accessKind::write, ionKind::none);
+                            accessKind::write, ionKind::none, Location());
     create_indexed_variable("conductance_", "vec_d", tok::plus,
-                            accessKind::write, ionKind::none);
+                            accessKind::write, ionKind::none, Location());
     create_indexed_variable("v", "vec_v", tok::eq,
-                            accessKind::read,  ionKind::none);
+                            accessKind::read,  ionKind::none, Location());
 
     // add state variables
     for(auto const &var : state_block()) {
@@ -618,8 +619,10 @@ void Module::add_variables_to_symbols() {
     // first the ION channels
     // add ion channel variables
     auto update_ion_symbols = [this, create_indexed_variable]
-            (std::string const& var, accessKind acc, ionKind channel)
+            (Token const& tkn, accessKind acc, ionKind channel)
     {
+        auto const& var = tkn.spelling;
+
         // add the ion variable's indexed shadow
         if(has_symbol(var)) {
             auto sym = symbols_[var].get();
@@ -638,13 +641,13 @@ void Module::add_variables_to_symbols() {
 
         create_indexed_variable(var, "ion_"+var,
                                 acc==accessKind::read ? tok::eq : tok::plus,
-                                acc, channel);
+                                acc, channel, tkn.location);
     };
 
     // check for nonspecific current
     if( neuron_block().has_nonspecific_current() ) {
         auto const& i = neuron_block().nonspecific_current;
-        update_ion_symbols(i.spelling, accessKind::write, ionKind::nonspecific);
+        update_ion_symbols(i, accessKind::write, ionKind::nonspecific);
     }
 
 
@@ -693,7 +696,7 @@ void Module::add_variables_to_symbols() {
         else if (!sym->is_indexed_variable()){
             throw compiler_exception(
                 "unable to find symbol " + yellow(var.spelling) + " in symbols",
-                Location());
+                var.location);
         }
     }
 }

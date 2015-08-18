@@ -56,10 +56,10 @@ CPrinter::CPrinter(Module &m, bool o)
         auto tname = "Ion" + ion.name;
         text_ << "    struct " + tname + " {\n";
         for(auto& field : ion.read) {
-            text_ << "        view_type " + field + ";\n";
+            text_ << "        view_type " + field.spelling + ";\n";
         }
         for(auto& field : ion.write) {
-            text_ << "        view_type " + field + ";\n";
+            text_ << "        view_type " + field.spelling + ";\n";
         }
         text_ << "        index_type index;\n";
         text_ << "        std::size_t memory() const { return sizeof(size_type)*index.size(); }\n";
@@ -388,8 +388,11 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
         auto var = symbol.second->is_local_variable();
         if(is_input(var)) {
             auto ext = var->external_variable();
-            text_.add_line("value_type " + ext->name() + " = "
-                           + ext->index_name() + "[i_];");
+            text_.add_gutter() << "value_type ";
+            var->accept(this);
+            text_ << " = ";
+            ext->accept(this);
+            text_.end_line(";");
         }
     }
 
@@ -401,9 +404,10 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
         if(is_output(var)) {
             auto ext = var->external_variable();
             text_.add_gutter();
-            text_ << ext->index_name() + "[i_]";
+            ext->accept(this);
             text_ << (ext->op() == tok::plus ? " += " : " -= ");
-            text_ << ext->name() << ";\n";
+            var->accept(this);
+            text_.end_line(";");
         }
     }
 

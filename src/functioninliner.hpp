@@ -10,8 +10,6 @@ expression_ptr inline_function_call(Expression* e);
 class VariableReplacer : public Visitor {
 
 public:
-    using scope_type = Scope<Symbol>;
-    using call_list = std::list<expression_ptr>;
     VariableReplacer(std::string const& source, std::string const& target)
     :   source_(source),
         target_(target)

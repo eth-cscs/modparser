@@ -931,7 +931,7 @@ public:
     void accept(Visitor *v) override;
     InitialBlock* initial_block() {return initial_block_;}
 protected:
-    InitialBlock* initial_block_;
+    InitialBlock* initial_block_ = nullptr;
 };
 
 class FunctionExpression : public Symbol {

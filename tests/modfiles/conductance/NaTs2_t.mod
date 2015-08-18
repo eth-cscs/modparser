@@ -23,7 +23,7 @@ STATE   {
 }
 
 BREAKPOINT  {
-    LOCAL gNaTs2_t, ina
+    LOCAL gNaTs2_t
     CONDUCTANCE gNaTs2_t USEION na
     SOLVE states METHOD cnexp
     gNaTs2_t = gNaTs2_tbar*m*m*m*h

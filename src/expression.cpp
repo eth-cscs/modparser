@@ -15,6 +15,7 @@ std::string to_string(symbolKind k) {
         case symbolKind::function:
             return std::string("function");
     }
+    return "";
 }
 
 
@@ -171,7 +172,17 @@ void LocalDeclaration::semantic(std::shared_ptr<scope_type> scp) {
         // Note that we allow for local variables with the same name as
         // class scope variables (globals), in which case the local variable
         // name will be used for lookup
-        if(s==nullptr || s->kind()==symbolKind::variable || s->kind()==symbolKind::indexed_variable) {
+        if(   s==nullptr    // symbol has not been defined yet
+           || s->kind()==symbolKind::variable  // symbol is defined at global scope
+           || s->kind()==symbolKind::indexed_variable)
+        {
+            if(s && s->kind()==symbolKind::indexed_variable) {
+                warning(pprintf("The local variable '%' clashes with the indexed"
+                                " variable defined at %, which will be ignored."
+                                " Remove the local definition of this variable"
+                                " if the previously defined variable was intended.",
+                                 yellow(name), s->location() ));
+            }
             auto symbol = make_symbol<LocalVariable>(location_, name);
             symbols_.push_back( scope_->add_local_symbol(name, std::move(symbol)) );
         }

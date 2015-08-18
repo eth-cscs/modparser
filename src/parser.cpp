@@ -2,10 +2,11 @@
 #include <list>
 #include <cstring>
 
-#include "parser.hpp"
-#include "util.hpp"
-#include "perfvisitor.hpp"
 #include "constantfolder.hpp"
+#include "parser.hpp"
+#include "perfvisitor.hpp"
+#include "token.hpp"
+#include "util.hpp"
 
 // specialize on const char* for lazy evaluation of compile time strings
 bool Parser::expect(tok tok, const char* str) {
@@ -304,7 +305,7 @@ void Parser::parse_neuron_block() {
                     // the end of the USEION clause
                     while(token_.type == tok::read || token_.type == tok::write) {
                         auto& target = (token_.type == tok::read) ? ion.read
-                                                                 : ion.write;
+                                                                  : ion.write;
                         std::vector<Token> identifiers
                             = comma_separated_identifiers();
                         // bail if there was an error reading the list
@@ -312,10 +313,9 @@ void Parser::parse_neuron_block() {
                             return;
                         }
                         for(auto const &id : identifiers) {
-                            target.push_back(id.spelling);
+                            target.push_back(id);
                         }
                     }
-                    //std::cout << red("ion ") << ion << std::endl;
                     // add the ion dependency to the NEURON block
                     neuron_block.ions.push_back(ion);
                 }
@@ -669,14 +669,14 @@ void Parser::parse_title() {
     std::string title;
     int this_line = location().line;
 
-    Token tok = peek();
-    while(   tok.location.line==this_line
-          && tok.type!=tok::eof
+    Token tkn = peek();
+    while(   tkn.location.line==this_line
+          && tkn.type!=tok::eof
           && status_==lexerStatus::happy)
     {
         get_token();
         title += token_.spelling;
-        tok = peek();
+        tkn = peek();
     }
 
     // set the module title
