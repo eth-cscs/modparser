@@ -1,6 +1,4 @@
 set(BASE_SOURCES
-    #variablerenamer.cpp
-    #inline.cpp
     token.cpp
     lexer.cpp
     expression.cpp
@@ -9,7 +7,7 @@ set(BASE_SOURCES
     cprinter.cpp
     functionexpander.cpp
     functioninliner.cpp
-    #cudaprinter.cpp
+    cudaprinter.cpp
     #cymeprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp

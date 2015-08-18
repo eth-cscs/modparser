@@ -26,7 +26,6 @@ public:
     void visit(ProcedureExpression *e)  override;
     void visit(APIMethod *e)            override;
     void visit(LocalDeclaration *e)      override;
-    //void visit(FunctionExpression *e)   override;
     void visit(BlockExpression *e)      override;
     void visit(IfExpression *e)         override;
 
@@ -44,6 +43,57 @@ public:
         text_.decrease_indentation();
     }
 private:
+
+    bool is_input(Symbol *s) {
+        if(auto l = s->is_local_variable() ) {
+            if(l->is_local()) {
+                if(l->is_indexed() && l->is_read()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool is_output(Symbol *s) {
+        if(auto l = s->is_local_variable() ) {
+            if(l->is_local()) {
+                if(l->is_indexed() && l->is_write()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool is_indexed_local(Symbol *s) {
+        if(auto l=s->is_local_variable()) {
+            if(l->is_indexed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_arg_local(Symbol *s) {
+        if(auto l=s->is_local_variable()) {
+            if(l->is_arg()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_stack_local(Symbol *s) {
+        if(is_arg_local(s))    return false;
+        if(is_input(s))        return false;
+        if(is_output(s))       return false;
+        return true;
+    }
+
+    bool is_point_process() const {
+        return module_->kind() == moduleKind::point;
+    }
 
     void print_APIMethod_body(APIMethod* e);
     void print_procedure_prototype(ProcedureExpression *e);

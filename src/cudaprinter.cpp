@@ -5,8 +5,7 @@
 ******************************************************************************/
 
 CUDAPrinter::CUDAPrinter(Module &m, bool o)
-    :   module_(&m)//,
-        //optimize_(o)
+    :   module_(&m)
 {
     // make a list of vector types, both parameters and assigned
     // and a list of all scalar types
@@ -54,12 +53,12 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     for(auto& ion: m.neuron_block().ions) {
         auto tname = "ion_" + ion.name;
         for(auto& field : ion.read) {
-            text_ << "  T* ion_" + field + ";\n";
-            param_pack.push_back(tname + "." + field + ".data()");
+            text_ << "  T* ion_" + field.spelling + ";\n";
+            param_pack.push_back(tname + "." + field.spelling + ".data()");
         }
         for(auto& field : ion.write) {
-            text_ << "  T* ion_" + field + ";\n";
-            param_pack.push_back(tname + "." + field + ".data()");
+            text_ << "  T* ion_" + field.spelling + ";\n";
+            param_pack.push_back(tname + "." + field.spelling + ".data()");
         }
         text_ << "  I* ion_" + ion.name + "_idx_;\n";
         param_pack.push_back(tname + ".index.data()");
@@ -140,10 +139,10 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
         auto tname = "Ion" + ion.name;
         text_ << "    struct " + tname + " {\n";
         for(auto& field : ion.read) {
-            text_ << "        view_type " + field + ";\n";
+            text_ << "        view_type " + field.spelling + ";\n";
         }
         for(auto& field : ion.write) {
-            text_ << "        view_type " + field + ";\n";
+            text_ << "        view_type " + field.spelling + ";\n";
         }
         text_ << "        index_type index;\n";
         text_ << "        std::size_t memory() const { return sizeof(size_type)*index.size(); }\n";
@@ -369,9 +368,11 @@ void CUDAPrinter::visit(BlockExpression *e) {
     // ------------- declare local variables ------------- //
     // only if this is the outer block
     if(!e->is_nested()) {
-        std::vector<std::string> names;
         for(auto& var : e->scope()->locals()) {
-            if(var.second->kind() == symbolKind::local) {
+            auto sym = var.second.get();
+            // input variables are declared earlier, before the
+            // block body is printed
+            if(is_stack_local(sym) && !is_input(sym)) {
                 text_.add_line("auto " + var.first + " = T{0};");
             }
         }
@@ -475,23 +476,27 @@ void CUDAPrinter::visit(APIMethod *e) {
 }
 
 void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
-    // ------------- get mechanism properties ------------- //
-    bool is_point_process = module_->kind() == moduleKind::point;
-
     // :: analyse outputs, to determine if they depend on any
     //    ghost fields.
-    std::vector<APIMethod::memop_type*> aliased_variables;
-    if(is_point_process) {
-        for(auto &out : e->outputs()) {
-            if(out.local->kind() == symbolKind::ghost) {
-                aliased_variables.push_back(&out);
+    auto is_aliased = [this] (Symbol* s) -> LocalVariable* {
+        if(is_output(s)) {
+            return s->is_local_variable();
+        }
+        return nullptr;
+    };
+
+    std::vector<LocalVariable*> aliased_variables;
+    if(is_point_process()) {
+        for(auto &l : e->scope()->locals()) {
+            if(auto var = is_aliased(l.second.get())) {
+                aliased_variables.push_back(var);
             }
         }
     }
 
     // declare local variables
     for(auto &var: aliased_variables) {
-        auto const& name = var->local->name();
+        auto const& name = var->name();
         text_.add_line("auto " + name + " = T{0};");
     }
 
@@ -499,8 +504,8 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     auto uses_k  = false;
     auto uses_na = false;
     auto uses_ca = false;
-    for(auto &in : e->inputs()) {
-        auto ch = in.external->is_indexed_variable()->ion_channel();
+    for(auto &symbol : e->scope()->locals()) {
+        auto ch = symbol.second->is_local_variable()->ion_channel();
         if(!uses_k   && (uses_k  = (ch == ionKind::K)) )
             text_.add_line("auto kid_  = params_.ion_k_idx_[tid_];");
         if(!uses_ca  && (uses_ca = (ch == ionKind::Ca)) )
@@ -511,6 +516,7 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
 
     text_.add_line();
 
+    /*
     // insert loads from external state
     for(auto &in : e->inputs()) {
         text_.add_gutter();
@@ -518,6 +524,19 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
         text_ << " = ";
         in.external->accept(this);
         text_.end_line(";");
+    }
+    */
+    // loads from external indexed arrays
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(is_input(var)) {
+            auto ext = var->external_variable();
+            text_.add_gutter() << "value_type ";
+            var->accept(this);
+            text_ << " = ";
+            ext->accept(this);
+            text_.end_line(";");
+        }
     }
 
     text_.add_line();
@@ -527,27 +546,21 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     // insert stores here
     // take care to use atomic operations for the updates for point processes, where
     // more than one thread may try add/subtract to the same memory location
-    for(auto &out : e->outputs()) {
+    for(auto &symbol : e->scope()->locals()) {
         text_.add_gutter();
-        if(!is_point_process) {
-            out.external->accept(this);
-            text_ << (out.op==tok::plus ? " += " : " -= ");
-            out.local->accept(this);
+        auto in  = symbol.second->is_local_variable();
+        auto out = in->external_variable();
+        if(out==nullptr) continue;
+        if(!is_point_process()) {
+            out->accept(this);
+            text_ << (out->op()==tok::plus ? " += " : " -= ");
+            in->accept(this);
         }
         else {
-            auto ext = out.external->is_indexed_variable();
-            // for now we assume that only matrix variables are updated in this manner
-            if(ext->ion_channel() != ionKind::none) {
-                throw compiler_exception(
-                    "CUDAPrinter : don't know how to update an ion variable this way",
-                    out.external->location()
-                );
-            }
-
-            text_ << (out.op==tok::plus ? "atomicAdd" : "atomicSub") << "(&";
-            ext->accept(this);
+            text_ << (out->op()==tok::plus ? "atomicAdd" : "atomicSub") << "(&";
+            out->accept(this);
             text_ << ", ";
-            out.local->accept(this);
+            in->accept(this);
             text_ << ")";
         }
         text_.end_line(";");

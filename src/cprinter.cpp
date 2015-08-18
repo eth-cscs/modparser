@@ -475,14 +475,18 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int j_=0; j_<BSIZE; ++j_, ++i_) {");
     text_.increase_indentation();
 
-    // initialize ghost fields to zero
-    /*
-    for(auto out: aliased_variables) {
-        text_.add_gutter();
-        out->accept(this);
-        text_.end_line(" = value_type{0};");
+    // loads from external indexed arrays
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(is_input(var)) {
+            auto ext = var->external_variable();
+            text_.add_gutter() << "value_type ";
+            var->accept(this);
+            text_ << " = ";
+            ext->accept(this);
+            text_.end_line(";");
+        }
     }
-    */
 
     e->body()->accept(this);
 
@@ -513,9 +517,16 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.add_line("for(int i_=NB*BSIZE; i_<n_; ++j_, ++i_) {");
     text_.increase_indentation();
 
-    // initialize ghost fields to zero
-    for(auto out: aliased_variables) {
-        text_.add_line(out->name() + "[j_] = value_type{0.};");
+    for(auto &symbol : e->scope()->locals()) {
+        auto var = symbol.second->is_local_variable();
+        if(is_input(var)) {
+            auto ext = var->external_variable();
+            text_.add_gutter() << "value_type ";
+            var->accept(this);
+            text_ << " = ";
+            ext->accept(this);
+            text_.end_line(";");
+        }
     }
 
     e->body()->accept(this);

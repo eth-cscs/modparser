@@ -5,8 +5,7 @@
 #include <tclap/include/CmdLine.h>
 
 #include "cprinter.hpp"
-//#include "cudaprinter.hpp"
-//#include "cymeprinter.hpp"
+#include "cudaprinter.hpp"
 #include "lexer.hpp"
 #include "module.hpp"
 #include "parser.hpp"
@@ -166,12 +165,12 @@ int main(int argc, char **argv) {
             case targetKind::cyme :
                 text = CymePrinter(m, options.optimize).text();
                 break;
+                */
             case targetKind::gpu  :
                 text = CUDAPrinter(m, options.optimize).text();
                 break;
-                */
             default :
-                std::cerr << red("error") << ": gpu and cyme printing has been turned off" << std::endl;
+                std::cerr << red("error") << ": cyme printing has been disabled" << std::endl;
                 exit(1);
         }
 
