@@ -18,9 +18,11 @@ public:
     void visit(PowBinaryExpression *e)  override;
     void visit(NumberExpression *e)     override;
     void visit(VariableExpression *e)   override;
-    void visit(IndexedVariable *e)      override;
 
     void visit(Symbol *e)               override;
+    void visit(LocalVariable *e)        override;
+    void visit(IndexedVariable *e)      override;
+
     void visit(IdentifierExpression *e) override;
     void visit(CallExpression *e)       override;
     void visit(ProcedureExpression *e)  override;

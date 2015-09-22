@@ -26,58 +26,66 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     // header files
     //////////////////////////////////////////////
-    text_ << "#pragma once\n\n";
-    text_ << "#include <cmath>\n";
-    text_ << "#include <limits>\n\n";
-    text_ << "#include <indexedview.hpp>\n";
-    text_ << "#include <mechanism.hpp>\n";
-    text_ << "#include <target.hpp>\n\n";
+    text_.add_line("#pragma once");
+    text_.add_line();
+    text_.add_line("#include <cmath>");
+    text_.add_line("#include <limits>");
+    text_.add_line();
+    text_.add_line("#include <indexedview.hpp>");
+    text_.add_line("#include <mechanism.hpp>");
+    text_.add_line("#include <target.hpp>");
+    text_.add_line();
 
     ////////////////////////////////////////////////////////////
     // generate the parameter pack
     ////////////////////////////////////////////////////////////
     std::vector<std::string> param_pack;
-    text_ << "template <typename T, typename I>\n";
-    text_ << "struct " << m.name() << "_ParamPack {\n";
-    text_ << "  // array parameters\n";
+    text_.add_line("template <typename T, typename I>");
+    text_.add_gutter() << "struct " << m.name() << "_ParamPack {";
+    text_.end_line();
+    text_.increase_indentation();
+    text_.add_line("// array parameters");
     for(auto const &var: array_variables) {
-        text_ << "  T* " << var->name() << ";\n";
+        text_.add_line("T* " + var->name() + ";");
         param_pack.push_back(var->name() + ".data()");
     }
-    text_ << "\n  // scalar parameters\n";
+    text_.add_line("// scalar parameters");
     for(auto const &var: scalar_variables) {
-        text_ << "  T " << var->name() << ";\n";
+        text_.add_line("T " + var->name() + ";");
         param_pack.push_back(var->name());
     }
-    text_ << "\n  // ion channel dependencies\n";
+    text_.add_line("// ion channel dependencies");
     for(auto& ion: m.neuron_block().ions) {
         auto tname = "ion_" + ion.name;
         for(auto& field : ion.read) {
-            text_ << "  T* ion_" + field.spelling + ";\n";
+            text_.add_line("T* ion_" + field.spelling + ";");
             param_pack.push_back(tname + "." + field.spelling + ".data()");
         }
         for(auto& field : ion.write) {
-            text_ << "  T* ion_" + field.spelling + ";\n";
+            text_.add_line("T* ion_" + field.spelling + ";");
             param_pack.push_back(tname + "." + field.spelling + ".data()");
         }
-        text_ << "  I* ion_" + ion.name + "_idx_;\n";
+        text_.add_line("I* ion_" + ion.name + "_idx_;");
         param_pack.push_back(tname + ".index.data()");
     }
 
-    text_ << "\n  // matrix\n";
-    text_ << "  T* vec_rhs;\n";
-    text_ << "  T* vec_d;\n";
-    text_ << "  T* vec_v;\n";
+    text_.add_line("// matrix");
+    text_.add_line("T* vec_rhs;");
+    text_.add_line("T* vec_d;");
+    text_.add_line("T* vec_v;");
     param_pack.push_back("matrix_.vec_rhs().data()");
     param_pack.push_back("matrix_.vec_d().data()");
     param_pack.push_back("matrix_.vec_v().data()");
 
-    text_ << "\n  // node index information\n";
-    text_ << "  I* ni;\n";
-    text_ << "  unsigned long n;\n";
-    text_ << "};\n\n";
+    text_.add_line("// node index information");
+    text_.add_line("I* ni;");
+    text_.add_line("unsigned long n;");
+    text_.decrease_indentation();
+    text_.add_line("};");
+    text_.add_line();
     param_pack.push_back("node_indices_.data()");
     param_pack.push_back("node_indices_.size()");
+
 
     ////////////////////////////////////////////////////////
     // write the CUDA kernels
@@ -326,7 +334,12 @@ std::string CUDAPrinter::index_string(Symbol *s) {
 }
 
 void CUDAPrinter::visit(IndexedVariable *e) {
-    text_ << "params_." << e->name() << "[" << index_string(e) << "]";
+    text_ << "params_." << e->index_name() << "[" << index_string(e) << "]";
+}
+
+void CUDAPrinter::visit(LocalVariable *e) {
+    std::string const& name = e->name();
+    text_ << name;
 }
 
 void CUDAPrinter::visit(UnaryExpression *e) {
@@ -373,7 +386,7 @@ void CUDAPrinter::visit(BlockExpression *e) {
             // input variables are declared earlier, before the
             // block body is printed
             if(is_stack_local(sym) && !is_input(sym)) {
-                text_.add_line("auto " + var.first + " = T{0};");
+                text_.add_line("value_type " + var.first + ";");
             }
         }
     }
@@ -456,17 +469,14 @@ void CUDAPrinter::visit(APIMethod *e) {
     increase_indentation();
 
     text_.add_line("auto tid_ = threadIdx.x + blockDim.x*blockIdx.x;");
-    text_.add_line("auto const grid_step_ = blockDim.x * gridDim.x;");
     text_.add_line("auto const n_ = params_.n;");
     text_.add_line();
-    text_.add_line("while(tid_<n_) {");
+    text_.add_line("if(tid_<n_) {");
     increase_indentation();
 
     text_.add_line("auto gid_ = params_.ni[tid_];");
 
     print_APIMethod_body(e);
-
-    text_.add_line("tid_ += grid_step_;");
 
     decrease_indentation();
     text_.add_line("}");
@@ -497,7 +507,7 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     // declare local variables
     for(auto &var: aliased_variables) {
         auto const& name = var->name();
-        text_.add_line("auto " + name + " = T{0};");
+        text_.add_line("value_type " + name + ";");
     }
 
     // load indexes of ion channels
@@ -514,22 +524,16 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
             text_.add_line("auto naid_ = params_.ion_na_idx_[tid_];");
     }
 
-    text_.add_line();
-
-    /*
-    // insert loads from external state
-    for(auto &in : e->inputs()) {
-        text_.add_gutter();
-        in.local->accept(this);
-        text_ << " = ";
-        in.external->accept(this);
-        text_.end_line(";");
-    }
-    */
     // loads from external indexed arrays
+    auto has_inputs = false;
     for(auto &symbol : e->scope()->locals()) {
         auto var = symbol.second->is_local_variable();
         if(is_input(var)) {
+            if(!has_inputs) {
+                text_.add_line();
+                text_.add_line("// loads from indexed global memory");
+                has_inputs = true;
+            }
             auto ext = var->external_variable();
             text_.add_gutter() << "value_type ";
             var->accept(this);
@@ -540,17 +544,24 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
     }
 
     text_.add_line();
+    text_.add_line("// the kernel computation");
 
     e->body()->accept(this);
 
     // insert stores here
     // take care to use atomic operations for the updates for point processes, where
     // more than one thread may try add/subtract to the same memory location
+    auto has_outputs = false;
     for(auto &symbol : e->scope()->locals()) {
-        text_.add_gutter();
         auto in  = symbol.second->is_local_variable();
         auto out = in->external_variable();
-        if(out==nullptr) continue;
+        if(out==nullptr || !is_output(in)) continue;
+        if(!has_outputs) {
+            text_.add_line();
+            text_.add_line("// stores to indexed global memory");
+            has_outputs = true;
+        }
+        text_.add_gutter();
         if(!is_point_process()) {
             out->accept(this);
             text_ << (out->op()==tok::plus ? " += " : " -= ");
@@ -566,7 +577,6 @@ void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
         text_.end_line(";");
     }
 
-    text_.add_line();
     return;
 }
 
