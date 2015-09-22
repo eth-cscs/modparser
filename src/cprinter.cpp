@@ -499,8 +499,9 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     for(auto out: aliased_variables) {
         text_.add_gutter();
-        out->external_variable()->accept(this);
-        text_ << " = ";
+        auto ext = out->external_variable();
+        ext->accept(this);
+        text_ << (ext->op() == tok::plus ? " += " : " -= ");
         out->accept(this);
         text_.end_line(";");
     }
@@ -539,8 +540,9 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     for(auto out: aliased_variables) {
         text_.add_gutter();
-        out->external_variable()->accept(this);
-        text_ << " = ";
+        auto ext = out->external_variable();
+        ext->accept(this);
+        text_ << (ext->op() == tok::plus ? " += " : " -= ");
         out->accept(this);
         text_.end_line(";");
     }
