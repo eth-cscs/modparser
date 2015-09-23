@@ -70,7 +70,7 @@ DERIVATIVE states   {
     mBeta = mBetaf(lv)
     mInf = mAlpha/(mAlpha+mBeta)
     mTau = (1/(mAlpha+mBeta))/qt
-    m' = (-m + mInf)/mTau*m
+    m' = (-m + mInf)/mTau
 
     if(lv == -60){
         lv = lv+0.0001

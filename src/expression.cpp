@@ -553,8 +553,8 @@ void BinaryExpression::replace_rhs(expression_ptr&& other) {
 }
 
 std::string BinaryExpression::to_string() const {
-    //return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
-    return pprintf("(% % %)", lhs_->to_string(), blue(token_string(op_)), rhs_->to_string());
+    return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
+    //return pprintf("(% % %)", lhs_->to_string(), blue(token_string(op_)), rhs_->to_string());
 }
 
 /*******************************************************************************

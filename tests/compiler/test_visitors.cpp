@@ -24,7 +24,7 @@ TEST(FlopVisitor, basic) {
     auto visitor = make_unique<FlopVisitor>();
     auto e = parse_expression("x-y");
     e->accept(visitor.get());
-    EXPECT_EQ(visitor->flops.sub, 1);
+    EXPECT_EQ(visitor->flops.add, 1);
     }
 
     {
@@ -75,8 +75,7 @@ TEST(FlopVisitor, compound) {
         auto visitor = make_unique<FlopVisitor>();
     auto e = parse_expression("x+y*z/a-b");
     e->accept(visitor.get());
-    EXPECT_EQ(visitor->flops.add, 1);
-    EXPECT_EQ(visitor->flops.sub, 1);
+    EXPECT_EQ(visitor->flops.add, 2);
     EXPECT_EQ(visitor->flops.mul, 1);
     EXPECT_EQ(visitor->flops.div, 1);
     }
@@ -123,8 +122,8 @@ TEST(FlopVisitor, procedure) {
     auto visitor = make_unique<FlopVisitor>();
     auto e = parse_procedure(expression);
     e->accept(visitor.get());
-    EXPECT_EQ(visitor->flops.add, 2);
-    EXPECT_EQ(visitor->flops.sub, 4);
+    EXPECT_EQ(visitor->flops.add, 6);
+    EXPECT_EQ(visitor->flops.neg, 0);
     EXPECT_EQ(visitor->flops.mul, 0);
     EXPECT_EQ(visitor->flops.div, 5);
     EXPECT_EQ(visitor->flops.exp, 2);
@@ -137,7 +136,7 @@ TEST(FlopVisitor, function) {
     const char *expression =
 "FUNCTION foo(v) {\n"
 "    LOCAL qt\n"
-"    qt=q10^((celsius-22)/10)\n"
+"    qt=q10^((celsius- -22)/10)\n"
 "    minf=1-1/(1+exp((v-vhalfm)/km))\n"
 "    hinf=1/(1+exp((v-vhalfh)/kh))\n"
 "    foo = minf + hinf\n"
@@ -145,8 +144,8 @@ TEST(FlopVisitor, function) {
     auto visitor = make_unique<FlopVisitor>();
     auto e = parse_function(expression);
     e->accept(visitor.get());
-    EXPECT_EQ(visitor->flops.add, 3);
-    EXPECT_EQ(visitor->flops.sub, 4);
+    EXPECT_EQ(visitor->flops.add, 7);
+    EXPECT_EQ(visitor->flops.neg, 1);
     EXPECT_EQ(visitor->flops.mul, 0);
     EXPECT_EQ(visitor->flops.div, 5);
     EXPECT_EQ(visitor->flops.exp, 2);

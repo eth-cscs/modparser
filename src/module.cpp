@@ -104,11 +104,11 @@ bool Module::semantic() {
     // functions and procedurs in the mechanism
     add_variables_to_symbols();
 
-    // Helper which iterates over a vector of Symbols, inserting them into the
+    // Helper which iterates over a vector of Symbols, moving them into the
     // symbol table.
-    // Returns false if the list contains a symbol that is already in the
-    // symbol table.
-    auto add_symbols = [this] (std::vector<symbol_ptr>& symbol_list) {
+    // Returns false if a symbol name clases with the name of a symbol that
+    // is already in the symbol table.
+    auto move_symbols = [this] (std::vector<symbol_ptr>& symbol_list) {
         for(auto& symbol: symbol_list) {
             bool is_found = (symbols_.find(symbol->name()) != symbols_.end());
             if(is_found) {
@@ -119,21 +119,22 @@ bool Module::semantic() {
                 );
                 return false;
             }
-            // add symbol to table
+            // move symbol to table
             symbols_[symbol->name()] = std::move(symbol);
         }
         return true;
     };
 
-    // add functions and procedures to symbol table
-    if(!add_symbols(functions_))  return false;
-    if(!add_symbols(procedures_)) return false;
+    // move functions and procedures to the symbol table
+    if(!move_symbols(functions_))  return false;
+    if(!move_symbols(procedures_)) return false;
 
     ////////////////////////////////////////////////////////////////////////////
     // now iterate over the functions and procedures and perform semantic
     // analysis on each. This includes
     //  -   variable, function and procedure lookup
     //  -   generate local variable table for each function/procedure
+    //  -   inlining function calls
     ////////////////////////////////////////////////////////////////////////////
     int errors = 0;
     for(auto& e : symbols_) {

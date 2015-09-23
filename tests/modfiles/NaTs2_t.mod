@@ -22,10 +22,12 @@ ASSIGNED    {
     ena (mV)
     ina (mA/cm2)
     gNaTs2_t    (S/cm2)
+
     mInf
     mTau
     mAlpha
     mBeta
+
     hInf
     hTau
     hAlpha

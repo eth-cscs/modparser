@@ -9,6 +9,7 @@
 #include "lexer.hpp"
 #include "module.hpp"
 #include "parser.hpp"
+#include "perfvisitor.hpp"
 #include "util.hpp"
 
 //#define VERBOSE
@@ -21,6 +22,7 @@ struct Options {
     bool has_output = false;
     bool verbose = true;
     bool optimize = false;
+    bool analysis = false;
     targetKind target = targetKind::cpu;
 
     void print() {
@@ -31,6 +33,7 @@ struct Options {
         std::cout << cyan("| verbose  ") << (verbose  ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("| optimize ") << (optimize ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("| target   ") << (target==targetKind::cpu? "cpu" : target==targetKind::cyme ? "cym" : "gpu") << std::string(61-11-3,' ') << cyan("|") << std::endl;
+        std::cout << cyan("| analysis ") << (analysis ? "yes" : "no ") << std::string(61-11-3,' ') << cyan("|") << std::endl;
         std::cout << cyan("." + std::string(60, '-') + ".") << std::endl;
     }
 };
@@ -54,6 +57,8 @@ int main(int argc, char **argv) {
             target_arg("t","target","backend target={cpu,gpu,cyme}", true,"cpu","cpu/gpu/cyme");
         // verbose mode
         TCLAP::SwitchArg verbose_arg("V","verbose","toggle verbose mode", cmd, false);
+        // analysis mode
+        TCLAP::SwitchArg analysis_arg("A","analyse","toggle analysis mode", cmd, false);
         // optimization mode
         TCLAP::SwitchArg opt_arg("O","optimize","turn optimizations on", cmd, false);
 
@@ -68,6 +73,7 @@ int main(int argc, char **argv) {
         options.filename = fin_arg.getValue();
         options.verbose = verbose_arg.getValue();
         options.optimize = opt_arg.getValue();
+        options.analysis = analysis_arg.getValue();
         auto targstr = target_arg.getValue();
         if(targstr == "cpu") {
             options.target = targetKind::cpu;
@@ -130,13 +136,6 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        /*
-        for(auto &symbol : m.symbols()) {
-            if(symbol.second->kind()==symbolKind::procedure)
-                std::cout << symbol.second->to_string() << std::endl;
-        }
-        */
-
         ////////////////////////////////////////////////////////////
         // optimize
         ////////////////////////////////////////////////////////////
@@ -146,6 +145,11 @@ int main(int argc, char **argv) {
             if(m.status() == lexerStatus::error) {
                 return 1;
             }
+        }
+
+        for(auto &symbol : m.symbols()) {
+            if(symbol.second->is_api_method())
+                std::cout << std::endl << symbol.second->to_string() << std::endl;
         }
 
         ////////////////////////////////////////////////////////////
@@ -161,16 +165,11 @@ int main(int argc, char **argv) {
             case targetKind::cpu  :
                 text = CPrinter(m, options.optimize).text();
                 break;
-                /*
-            case targetKind::cyme :
-                text = CymePrinter(m, options.optimize).text();
-                break;
-                */
             case targetKind::gpu  :
                 text = CUDAPrinter(m, options.optimize).text();
                 break;
             default :
-                std::cerr << red("error") << ": cyme printing has been disabled" << std::endl;
+                std::cerr << red("error") << ": unknown printer" << std::endl;
                 exit(1);
         }
 
@@ -186,6 +185,30 @@ int main(int argc, char **argv) {
         }
 
         std::cout << yellow("successfully compiled ") << white(options.filename) << " -> " << white(options.outputname) << std::endl;
+
+        ////////////////////////////////////////////////////////////
+        // print module information
+        ////////////////////////////////////////////////////////////
+        if(options.analysis) {
+            std::cout << green("performance analysis") << std::endl;
+            for(auto &symbol : m.symbols()) {
+                if(auto method = symbol.second->is_api_method()) {
+                    std::cout << white("-------------------------") << std::endl;
+                    std::cout << yellow("method " + method->name()) << std::endl;
+                    std::cout << white("-------------------------") << std::endl;
+
+                    auto flops = make_unique<FlopVisitor>();
+                    method->accept(flops.get());
+                    std::cout << white("FLOPS") << std::endl;
+                    std::cout << flops->print() << std::endl;
+
+                    std::cout << white("MEMOPS") << std::endl;
+                    auto memops = make_unique<MemOpVisitor>();
+                    method->accept(memops.get());
+                    std::cout << memops->print() << std::endl;;
+                }
+            }
+        }
     }
 
     catch(compiler_exception e) {

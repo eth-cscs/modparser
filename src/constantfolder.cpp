@@ -91,7 +91,8 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
     }
     //std::cout << "rhs : " << e->rhs()->to_string() << std::endl;
 
-    is_number = is_number && lhs_is_number;
+    auto rhs_is_number = is_number;
+    is_number = rhs_is_number && lhs_is_number;
 
     // check to see if both lhs and rhs are numbers
     // mark this node as a number if so
