@@ -22,8 +22,7 @@ STATE {
 }
 
 BREAKPOINT  {
-    LOCAL gIm, ik
-    CONDUCTANCE gIm USEION k
+    LOCAL gIm
     SOLVE states METHOD cnexp
     gIm = gImbar*m
     ik = gIm*(v-ek)

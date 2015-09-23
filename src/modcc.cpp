@@ -147,10 +147,14 @@ int main(int argc, char **argv) {
             }
         }
 
+        /*
         for(auto &symbol : m.symbols()) {
             if(symbol.second->is_api_method())
                 std::cout << std::endl << symbol.second->to_string() << std::endl;
+            if(symbol.second->is_variable())
+                std::cout << std::endl << symbol.second->to_string() << std::endl;
         }
+        */
 
         ////////////////////////////////////////////////////////////
         // generate output

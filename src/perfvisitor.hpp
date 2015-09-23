@@ -28,7 +28,13 @@ static std::ostream& operator << (std::ostream& os, FlopAccumulator const& f) {
              512,
              "   add   neg   mul   div   exp   sin   cos   log   pow\n%6d%6d%6d%6d%6d%6d%6d%6d%6d",
              f.add, f.neg, f.mul, f.div, f.exp, f.sin, f.cos, f.log, f.pow);
-    return os << buffer;
+
+    os << buffer << std::endl << std::endl;
+    os << " add+mul+neg  " << f.add + f.neg + f.mul << std::endl;
+    os << " div          " << f.div << std::endl;
+    os << " exp          " << f.exp;
+
+    return os;
 }
 
 class FlopVisitor : public Visitor {

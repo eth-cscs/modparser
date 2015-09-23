@@ -183,9 +183,10 @@ void LocalDeclaration::semantic(std::shared_ptr<scope_type> scp) {
                                 " Remove the local definition of this variable"
                                 " if the previously defined variable was intended.",
                                  yellow(name), s->location() ));
+            } else {
+                auto symbol = make_symbol<LocalVariable>(location_, name);
+                symbols_.push_back( scope_->add_local_symbol(name, std::move(symbol)) );
             }
-            auto symbol = make_symbol<LocalVariable>(location_, name);
-            symbols_.push_back( scope_->add_local_symbol(name, std::move(symbol)) );
         }
         else {
             error(pprintf("the symbol '%' has already been defined at %",
@@ -660,10 +661,13 @@ expression_ptr BlockExpression::clone() const {
 
 std::string IfExpression::to_string() const {
     std::string s = blue("if") + " :";
-    s += "\n  " + white("condition") + "    : " + condition_->to_string();
-    s += "\n  " + white("true branch") + "  :\n" + true_branch_->to_string();
-    s += "\n  " + white("false branch") + " :";
-    s += (false_branch_ ? "\n" + false_branch_->to_string() : "");
+    s += "\n    " + white("condition") +" " + condition_->to_string();
+    s += "\n    " + white("true branch ") + true_branch_->to_string();
+    if(false_branch_) {
+        s += "\n    " + white("false branch ");
+        s += false_branch_->to_string();
+    }
+    s += "\n";
     return s;
 }
 

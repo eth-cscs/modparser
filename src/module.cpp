@@ -534,6 +534,11 @@ void Module::add_variables_to_symbols() {
         (std::string const& name, std::string const& indexed_name,
          tok op, accessKind acc, ionKind ch, Location loc)
     {
+        if(symbols_.count(name)) {
+            throw compiler_exception(
+                "trying to insert a symbol that already exists",
+                loc);
+        }
         symbols_[name] =
             make_symbol<IndexedVariable>(loc, name, indexed_name, acc, op, ch);
     };
