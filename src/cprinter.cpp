@@ -26,112 +26,168 @@ CPrinter::CPrinter(Module &m, bool o)
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
-    text_ << "#pragma once\n\n";
-    text_ << "#include <cmath>\n";
-    text_ << "#include <limits>\n\n";
-    text_ << "#include <indexedview.hpp>\n";
-    text_ << "#include <mechanism.hpp>\n";
-    text_ << "#include <target.hpp>\n\n";
+    text_.add_line("#pragma once");
+    text_.add_line();
+    text_.add_line("#include <cmath>");
+    text_.add_line("#include <limits>");
+    text_.add_line();
+    text_.add_line("#include <indexedview.hpp>");
+    text_.add_line("#include <mechanism.hpp>");
+    text_.add_line("#include <target.hpp>");
+    text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     std::string class_name = "Mechanism_" + m.name();
 
-    text_ << "template<typename T, typename I>\n";
-    text_ << "class " + class_name + " : public Mechanism<T, I, targetKind::cpu> {\n";
-    text_ << "public:\n\n";
-    text_ << "    using base = Mechanism<T, I, targetKind::cpu>;\n";
-    text_ << "    using value_type  = typename base::value_type;\n";
-    text_ << "    using size_type   = typename base::size_type;\n";
-    text_ << "    using vector_type = typename base::vector_type;\n";
-    text_ << "    using view_type   = typename base::view_type;\n";
-    text_ << "    using index_type  = typename base::index_type;\n";
-    text_ << "    using index_view  = typename index_type::view_type;\n";
-    text_ << "    using indexed_view= typename base::indexed_view;\n\n";
-    text_ << "    using matrix_type = typename base::matrix_type;\n\n";
+    text_.add_line("template<typename T, typename I>");
+    text_.add_line("class " + class_name + " : public Mechanism<T, I, targetKind::cpu> {");
+    text_.add_line("public:");
+    text_.increase_indentation();
+    text_.add_line("using base = Mechanism<T, I, targetKind::cpu>;");
+    text_.add_line("using value_type  = typename base::value_type;");
+    text_.add_line("using size_type   = typename base::size_type;");
+    text_.add_line("using vector_type = typename base::vector_type;");
+    text_.add_line("using view_type   = typename base::view_type;");
+    text_.add_line("using index_type  = typename base::index_type;");
+    text_.add_line("using index_view  = typename index_type::view_type;");
+    text_.add_line("using indexed_view= typename base::indexed_view;");
+    text_.add_line("using matrix_type = typename base::matrix_type;");
+    text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     for(auto& ion: m.neuron_block().ions) {
         auto tname = "Ion" + ion.name;
-        text_ << "    struct " + tname + " {\n";
+        text_.add_line("struct " + tname + " {");
+        text_.increase_indentation();
         for(auto& field : ion.read) {
-            text_ << "        view_type " + field.spelling + ";\n";
+            text_.add_line("view_type " + field.spelling + ";");
         }
         for(auto& field : ion.write) {
-            text_ << "        view_type " + field.spelling + ";\n";
+            text_.add_line("view_type " + field.spelling + ";");
         }
-        text_ << "        index_type index;\n";
-        text_ << "        std::size_t memory() const { return sizeof(size_type)*index.size(); }\n";
-        text_ << "        std::size_t size() const { return index.size(); }\n";
-        text_ << "    };\n";
-        text_ << "    " + tname + " ion_" + ion.name + ";\n\n";
+        text_.add_line("index_type index;");
+        text_.add_line("std::size_t memory() const { return sizeof(size_type)*index.size(); }");
+        text_.add_line("std::size_t size() const { return index.size(); }");
+        text_.decrease_indentation();
+        text_.add_line("};");
+        text_.add_line(tname + " ion_" + ion.name + ";");
     }
+    text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     int num_vars = array_variables.size();
-    text_ << "    " + class_name + "(\n";
-    text_ << "        matrix_type &matrix,\n";
-    text_ << "        index_view node_indices)\n";
-    text_ << "    :   base(matrix, node_indices)\n";
-    text_ << "    {\n";
-    text_ << "        size_type num_fields = " << num_vars << ";\n";
-    text_ << "        size_type n = size();\n";
-    text_ << "        data_ = vector_type(n * num_fields);\n";
-    text_ << "        data_(memory::all) = std::numeric_limits<value_type>::quiet_NaN();\n";
+    text_.add_line(class_name + "(matrix_type &matrix, index_view node_indices)");
+    text_.add_line(":   base(matrix, node_indices)");
+    text_.add_line("{");
+    text_.increase_indentation();
+    text_.add_gutter() << "size_type num_fields = " << num_vars << ";";
+    text_.end_line();
+    text_.add_line("size_type n = size();");
+
+    text_.add_line();
+    text_.add_line("// calculate the padding required to maintain proper alignment of sub arrays");
+    text_.add_line("auto alignment  = data_.alignment();");
+    text_.add_line("auto field_size_in_bytes = sizeof(value_type)*n;");
+    text_.add_line("auto remainder  = field_size_in_bytes % alignment;");
+    text_.add_line("auto padding    = remainder ? (alignment - remainder)/sizeof(value_type) : 0;");
+    text_.add_line("auto field_size = n+padding;");
+
+    text_.add_line();
+    text_.add_line("// allocate memory");
+    text_.add_line("data_ = vector_type(field_size * num_fields);");
+    text_.add_line("data_(memory::all) = std::numeric_limits<value_type>::quiet_NaN();");
+
+    // assign the sub-arrays
+    // replace this : data_(1*n, 2*n);
+    //    with this : data_(1*field_size, 1*field_size+n);
+
+    text_.add_line();
+    text_.add_line("// asign the sub-arrays");
     for(int i=0; i<num_vars; ++i) {
         char namestr[128];
         sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
-        text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
+        if(optimize_) {
+            text_.add_gutter() << namestr << " = data_.data() + "
+                               << i << "*field_size;";
+        }
+        else {
+            text_.add_gutter() << namestr << " = data_("
+                               << i << "*field_size, " << i+1 << "*n);";
+        }
+        text_.end_line();
     }
+
+    text_.add_line();
+    text_.add_line("// set initial values for variables and parameters");
     for(auto const& var : array_variables) {
         double val = var->value();
         // only non-NaN fields need to be initialized, because data_
         // is NaN by default
+        std::string pointer_name = var->name();
+        if(!optimize_) pointer_name += ".data()";
         if(val == val) {
-            text_ << "        " << var->name() << "(memory::all) = " << val << ";\n";
+            text_.add_gutter() << "std::fill(" << pointer_name << ", "
+                                               << pointer_name << "+n, "
+                                               << val << ");";
+            text_.end_line();
         }
     }
 
-    text_ << "        INIT_PROFILE\n";
-    text_ << "    }\n\n";
+    text_.add_line();
+    text_.add_line("INIT_PROFILE");
+    text_.decrease_indentation();
+    text_.add_line("}");
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    text_ << "    using base::size;\n\n";
+    text_.add_line();
+    text_.add_line("using base::size;");
+    text_.add_line();
 
-    text_ << "    std::size_t memory() const override {\n";
-    text_ << "        auto s = std::size_t{0};\n";
-    text_ << "        s += data_.size()*sizeof(value_type);\n";
+    text_.add_line("std::size_t memory() const override {");
+    text_.increase_indentation();
+    text_.add_line("auto s = std::size_t{0};");
+    text_.add_line("s += data_.size()*sizeof(value_type);");
     for(auto& ion: m.neuron_block().ions) {
-        text_ << "        s += ion_" + ion.name + ".memory();\n";
+        text_.add_line("s += ion_" + ion.name + ".memory();");
     }
-    text_ << "        return s;\n";
-    text_ << "    }\n\n";
+    text_.add_line("return s;");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
 
-    text_ << "    void set_params(value_type t_, value_type dt_) override {\n";
-    text_ << "        t = t_;\n";
-    text_ << "        dt = dt_;\n";
-    text_ << "    }\n\n";
+    text_.add_line("void set_params(value_type t_, value_type dt_) override {");
+    text_.increase_indentation();
+    text_.add_line("t = t_;");
+    text_.add_line("dt = dt_;");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
 
-    text_ << "    std::string name() const override {\n";
-    text_ << "        return \"" << m.name() << "\";\n";
-    text_ << "    }\n\n";
+    text_.add_line("std::string name() const override {");
+    text_.increase_indentation();
+    text_.add_line("return \"" + m.name() + "\";");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
 
     std::string kind_str = m.kind() == moduleKind::density
                             ? "mechanismKind::density"
                             : "mechanismKind::point_process";
-    text_ << "    mechanismKind kind() const override {\n";
-    text_ << "        return " << kind_str << ";\n";
-    text_ << "    }\n\n";
-
+    text_.add_line("mechanismKind kind() const override {");
+    text_.increase_indentation();
+    text_.add_line("return " + kind_str + ";");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    increase_indentation();
     auto proctest = [] (procedureKind k) {return k == procedureKind::normal || k == procedureKind::api;};
     for(auto &var : m.symbols()) {
         if(   var.second->kind()==symbolKind::procedure
@@ -144,28 +200,40 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    text_ << "    vector_type data_;\n\n";
+    text_.add_line("vector_type data_;");
     for(auto var: array_variables) {
-        text_ << "    view_type " << var->name() << ";\n";
+        if(optimize_) {
+            text_.add_line(
+                "__declspec(align(vector_type::alignment())) value_type *"
+                + var->name() + ";");
+        }
+        else {
+            text_.add_line("view_type " + var->name() + ";");
+        }
     }
+
     for(auto var: scalar_variables) {
         double val = var->value();
         // test the default value for NaN
         // useful for error propogation from bad initial conditions
         if(val==val) {
-            text_ << "    value_type " << var->name() << " = " << val << ";\n";
+            text_.add_gutter() << "value_type " << var->name() << " = " << val << ";";
+            text_.end_line();
         }
         else {
-            text_ << "    value_type " << var->name()
-              << " = std::numeric_limits<value_type>::quiet_NaN();\n";
+            text_.add_line("value_type " + var->name()
+                           + " = std::numeric_limits<value_type>::quiet_NaN();");
         }
     }
 
-    text_ << "    using base::matrix_;\n";
-    text_ << "    using base::node_indices_;\n\n";
+    text_.add_line();
+    text_.add_line("using base::matrix_;");
+    text_.add_line("using base::node_indices_;");
 
-    text_ << "\n    DATA_PROFILE\n";
-    text_ << "};\n\n";
+    text_.add_line();
+    text_.add_line("DATA_PROFILE");
+    text_.decrease_indentation();
+    text_.add_line("};");
 }
 
 
@@ -455,10 +523,12 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
 
     // ------------- block loop ------------- //
 
-    text_.add_line("constexpr int BSIZE = 64;");
+    text_.add_line("constexpr int BSIZE = 4;");
     text_.add_line("int NB = n_/BSIZE;");
     for(auto out: aliased_variables) {
-        text_.add_line("value_type " + out->name() + "[BSIZE];");
+        text_.add_line(
+            "__declspec(align(vector_type::alignment())) value_type "
+            + out->name() +  "[BSIZE];");
     }
     text_.add_line("START_PROFILE");
 
