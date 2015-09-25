@@ -204,10 +204,10 @@ public:
         }
         switch (symbol->kind()) {
             case symbolKind::variable :
-                vector_reads_.insert(symbol);
+                vector_writes_.insert(symbol);
                 break;
             case symbolKind::indexed_variable :
-                indexed_reads_.insert(symbol);
+                indexed_writes_.insert(symbol);
             default :
                 break;
         }
@@ -226,11 +226,11 @@ public:
         switch (symbol->kind()) {
             case symbolKind::variable :
                 if(symbol->is_variable()->is_range()) {
-                    vector_writes_.insert(symbol);
+                    vector_reads_.insert(symbol);
                 }
                 break;
             case symbolKind::indexed_variable :
-                indexed_writes_.insert(symbol);
+                indexed_reads_.insert(symbol);
             default :
                 break;
         }
