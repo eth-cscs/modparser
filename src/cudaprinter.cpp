@@ -443,6 +443,10 @@ void CUDAPrinter::visit(ProcedureExpression *e) {
     // ------------- print body ------------- //
     increase_indentation();
 
+    text_.add_line("using value_type = T;");
+    text_.add_line("using index_type = I;");
+    text_.add_line();
+
     e->body()->accept(this);
 
     // ------------- close up ------------- //
@@ -468,13 +472,17 @@ void CUDAPrinter::visit(APIMethod *e) {
     }
     increase_indentation();
 
+    text_.add_line("using value_type = T;");
+    text_.add_line("using index_type = I;");
+    text_.add_line();
+
     text_.add_line("auto tid_ = threadIdx.x + blockDim.x*blockIdx.x;");
     text_.add_line("auto const n_ = params_.n;");
     text_.add_line();
     text_.add_line("if(tid_<n_) {");
     increase_indentation();
 
-    text_.add_line("auto gid_ = params_.ni[tid_];");
+    text_.add_line("auto gid_ __attribute__((unused)) = params_.ni[tid_];");
 
     print_APIMethod_body(e);
 
@@ -486,60 +494,37 @@ void CUDAPrinter::visit(APIMethod *e) {
 }
 
 void CUDAPrinter::print_APIMethod_body(APIMethod* e) {
-    // :: analyse outputs, to determine if they depend on any
-    //    ghost fields.
-    auto is_aliased = [this] (Symbol* s) -> LocalVariable* {
-        if(is_output(s)) {
-            return s->is_local_variable();
-        }
-        return nullptr;
-    };
-
-    std::vector<LocalVariable*> aliased_variables;
-    if(is_point_process()) {
-        for(auto &l : e->scope()->locals()) {
-            if(auto var = is_aliased(l.second.get())) {
-                aliased_variables.push_back(var);
-            }
-        }
-    }
-
-    // declare local variables
-    for(auto &var: aliased_variables) {
-        auto const& name = var->name();
-        text_.add_line("value_type " + name + ";");
-    }
-
     // load indexes of ion channels
     auto uses_k  = false;
     auto uses_na = false;
     auto uses_ca = false;
     for(auto &symbol : e->scope()->locals()) {
         auto ch = symbol.second->is_local_variable()->ion_channel();
-        if(!uses_k   && (uses_k  = (ch == ionKind::K)) )
+        if(!uses_k   && (uses_k  = (ch == ionKind::K)) ) {
             text_.add_line("auto kid_  = params_.ion_k_idx_[tid_];");
-        if(!uses_ca  && (uses_ca = (ch == ionKind::Ca)) )
+        }
+        if(!uses_ca  && (uses_ca = (ch == ionKind::Ca)) ) {
             text_.add_line("auto caid_ = params_.ion_ca_idx_[tid_];");
-        if(!uses_na  && (uses_na = (ch == ionKind::Na)) )
+        }
+        if(!uses_na  && (uses_na = (ch == ionKind::Na)) ) {
             text_.add_line("auto naid_ = params_.ion_na_idx_[tid_];");
+        }
     }
 
-    // loads from external indexed arrays
-    auto has_inputs = false;
+    // shadows for indexed arrays
     for(auto &symbol : e->scope()->locals()) {
         auto var = symbol.second->is_local_variable();
         if(is_input(var)) {
-            if(!has_inputs) {
-                text_.add_line();
-                text_.add_line("// loads from indexed global memory");
-                has_inputs = true;
-            }
             auto ext = var->external_variable();
             text_.add_gutter() << "value_type ";
             var->accept(this);
             text_ << " = ";
             ext->accept(this);
-            text_.end_line(";");
+            text_.end_line("; // indexed load");
+        }
+        else if (is_output(var)) {
+            text_.add_gutter() << "value_type " << var->name() << ";";
+            text_.end_line();
         }
     }
 
