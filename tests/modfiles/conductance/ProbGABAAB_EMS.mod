@@ -86,17 +86,14 @@ INITIAL{
 }
 
 BREAKPOINT {
-    LOCAL g_GABAA, g_GABAB, i_GABAA, i_GABAB, g, i
+    LOCAL g_GABAA, g_GABAB, g
     CONDUCTANCE g_GABAA
     CONDUCTANCE g_GABAB
 
     SOLVE state
     g_GABAA = gmax*(B_GABAA-A_GABAA)
     g_GABAB = gmax*(B_GABAB-A_GABAB)
-    g = g_GABAA + g_GABAB
-    i_GABAA = g_GABAA*(v-e_GABAA)
-    i_GABAB = g_GABAB*(v-e_GABAB)
-    i = i_GABAA + i_GABAB
+    i = g_GABAA*(v-e_GABAA) + g_GABAB*(v-e_GABAB)
 }
 
 PROCEDURE state() {
