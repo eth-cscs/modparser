@@ -7,11 +7,14 @@ A source to source compiler for the NMODL domain specific language.
 ### check out
 
 first, check out the repository
-```
+```bash
+# ssh
 git clone git@github.com:eth-cscs/modparser.git
+# https
+git clone https://github.com/eth-cscs/modparser.git
 ```
 
-There are no external dependencies. The project uses external projects, which are part of the repository.
+There are no external dependencies. The project uses the following external projects, which are included in the repository (they don't have to be downloaded seperately)
 * **Google Test** is used for the unit testing framework. The files for Google Test are part of the modparser repository, in ```tests/gtest```. BSD license.
 * **TCLap (Templatized C++ Command Line Parser)** is used for command line parsing, is stored in `external/tclap`. MIT license.
 
@@ -19,7 +22,7 @@ There are no external dependencies. The project uses external projects, which ar
 
 CMake and a C++11 compliant compiler are all that are required.
 
-```
+```bash
 # you might want to specify the compiler, e.g. clang
 export CC=`which clang`
 export CXX=`which clang++`
@@ -32,13 +35,17 @@ make all
 ### test
 
 To run the unit tests:
-```
-cd tests
+```bash
+# you might want to update PATH to include modcc
+export PATH=`pwd`/bin:$PATH
 # run the unit tests
+cd tests
 ./test_compiler
 # check that there are no errors compiling the packaged example files
 ./test_compiler.sh
-# if you have valgrind, you can check for memory leaks
+# If you have valgrind, you can check for memory leaks
+# The valgrind tests have had some problems recently that appear to be caused by
+# libc. The robustness of this testing needs to be improved
 # (takes a couple of minutes)
 ./test_valgrind.sh
 ```
