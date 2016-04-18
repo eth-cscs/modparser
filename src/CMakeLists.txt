@@ -8,7 +8,6 @@ set(BASE_SOURCES
     functionexpander.cpp
     functioninliner.cpp
     cudaprinter.cpp
-    #cymeprinter.cpp
     expressionclassifier.cpp
     constantfolder.cpp
     errorvisitor.cpp

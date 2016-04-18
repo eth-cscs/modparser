@@ -1,6 +1,6 @@
 for f in `ls ./modfiles/*.mod`
 do
-    for target in cpu gpu cyme
+    for target in cpu gpu
     do
         logfile=$f.$target.log
         printf "testing %30s::%4s : " $f $target
