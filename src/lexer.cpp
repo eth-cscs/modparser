@@ -133,7 +133,7 @@ Token Lexer::parse() {
                 t.spelling += character();
                 if(*current_=='=') {
                     t.spelling += character();
-                    t.type=tok::EQ;
+                    t.type=tok::equality;
                 }
                 else {
                     t.type = tok::eq;
@@ -333,18 +333,18 @@ void Lexer::binop_prec_init() {
         return;
 
     // I have taken the operator precedence from C++
-    binop_prec_[tok::eq]     = 2;
-    binop_prec_[tok::EQ]     = 4;
-    binop_prec_[tok::ne]     = 4;
-    binop_prec_[tok::lt]     = 5;
-    binop_prec_[tok::lte]    = 5;
-    binop_prec_[tok::gt]     = 5;
-    binop_prec_[tok::gte]    = 5;
-    binop_prec_[tok::plus]   = 10;
-    binop_prec_[tok::minus]  = 10;
-    binop_prec_[tok::times]  = 20;
-    binop_prec_[tok::divide] = 20;
-    binop_prec_[tok::pow]    = 30;
+    binop_prec_[tok::eq]       = 2;
+    binop_prec_[tok::equality] = 4;
+    binop_prec_[tok::ne]       = 4;
+    binop_prec_[tok::lt]       = 5;
+    binop_prec_[tok::lte]      = 5;
+    binop_prec_[tok::gt]       = 5;
+    binop_prec_[tok::gte]      = 5;
+    binop_prec_[tok::plus]     = 10;
+    binop_prec_[tok::minus]    = 10;
+    binop_prec_[tok::times]    = 20;
+    binop_prec_[tok::divide]   = 20;
+    binop_prec_[tok::pow]      = 30;
 }
 
 int Lexer::binop_precedence(tok tok) {

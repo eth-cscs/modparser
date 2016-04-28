@@ -391,7 +391,7 @@ std::string APIMethod::to_string() const {
 
 std::string InitialBlock::to_string() const {
     std::string str = green("[[initial");
-    for(auto& ex : body_) {
+    for(auto& ex : statements_) {
        str += "\n   " + ex->to_string();
     }
     str += green("\n  ]]");
@@ -513,6 +513,8 @@ void FunctionExpression::semantic(scope_type::symbol_map &global_symbols) {
   UnaryExpression
 *******************************************************************************/
 void UnaryExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
+
     expression_->semantic(scp);
 
     if(expression_->is_procedure_call()) {
@@ -554,8 +556,8 @@ void BinaryExpression::replace_rhs(expression_ptr&& other) {
 }
 
 std::string BinaryExpression::to_string() const {
-    return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
-    //return pprintf("(% % %)", lhs_->to_string(), blue(token_string(op_)), rhs_->to_string());
+    //return pprintf("(% % %)", blue(token_string(op_)), lhs_->to_string(), rhs_->to_string());
+    return pprintf("(% % %)", lhs_->to_string(), blue(token_string(op_)), rhs_->to_string());
 }
 
 /*******************************************************************************
@@ -583,6 +585,8 @@ void AssignmentExpression::semantic(std::shared_ptr<scope_type> scp) {
 *******************************************************************************/
 
 void SolveExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
+
     auto e = scp->find(name());
     auto proc = e ? e->is_procedure() : nullptr;
 
@@ -609,6 +613,7 @@ expression_ptr SolveExpression::clone() const {
 *******************************************************************************/
 
 void ConductanceExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
     // For now do nothing with the CONDUCTANCE statement, because it is not needed
     // to optimize conductance calculation.
     // Semantic analysis would involve
@@ -632,27 +637,26 @@ expression_ptr ConductanceExpression::clone() const {
 *******************************************************************************/
 
 std::string BlockExpression::to_string() const {
-    std::string str = green("[[");
-    for(auto& ex : body_) {
+    std::string str;
+    for(auto& ex : statements_) {
        str += "\n   " + ex->to_string();
     }
-    str += green("\n  ]]");
     return str;
 }
 
 void BlockExpression::semantic(std::shared_ptr<scope_type> scp) {
     scope_ = scp;
-    for(auto& e : body_) {
+    for(auto& e : statements_) {
         e->semantic(scope_);
     }
 }
 
 expression_ptr BlockExpression::clone() const {
-    std::list<expression_ptr> body;
-    for(auto& e: body_) {
-        body.emplace_back(e->clone());
+    std::list<expression_ptr> statements;
+    for(auto& e: statements_) {
+        statements.emplace_back(e->clone());
     }
-    return make_expression<BlockExpression>(location_, std::move(body), is_nested_);
+    return make_expression<BlockExpression>(location_, std::move(statements), is_nested_);
 }
 
 /*******************************************************************************
@@ -672,6 +676,8 @@ std::string IfExpression::to_string() const {
 }
 
 void IfExpression::semantic(std::shared_ptr<scope_type> scp) {
+    scope_ = scp;
+
     condition_->semantic(scp);
 
     auto cond = condition_->is_conditional();
@@ -853,22 +859,34 @@ expression_ptr binary_expression(Location loc,
 {
     switch(op) {
         case tok::eq     :
-            return make_expression<AssignmentExpression>(loc, std::move(lhs), std::move(rhs));
+            return make_expression<AssignmentExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
         case tok::plus   :
-            return make_expression<AddBinaryExpression>(loc, std::move(lhs), std::move(rhs));
+            return make_expression<AddBinaryExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
         case tok::minus  :
-            return make_expression<SubBinaryExpression>(loc, std::move(lhs), std::move(rhs));
+            return make_expression<SubBinaryExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
         case tok::times  :
-            return make_expression<MulBinaryExpression>(loc, std::move(lhs), std::move(rhs));
+            return make_expression<MulBinaryExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
         case tok::divide :
-            return make_expression<DivBinaryExpression>(loc, std::move(lhs), std::move(rhs));
+            return make_expression<DivBinaryExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
         case tok::pow    :
-            return make_expression<PowBinaryExpression>(loc, std::move(lhs), std::move(rhs));
-        case tok::lt     :
-        case tok::lte    :
-        case tok::gt     :
-        case tok::gte    :
-        case tok::EQ     :
+            return make_expression<PowBinaryExpression>(
+                loc, std::move(lhs), std::move(rhs)
+            );
+        case tok::lt       :
+        case tok::lte      :
+        case tok::gt       :
+        case tok::gte      :
+        case tok::equality :
             return make_expression<ConditionalExpression>(loc, op, std::move(lhs), std::move(rhs));
         default         :
             std::cerr << yellow(token_string(op))

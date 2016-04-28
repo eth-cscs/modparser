@@ -177,7 +177,7 @@ TEST(Lexer, comparison_operators) {
     auto t4 = lexer.parse();
     EXPECT_EQ(t4.type, tok::gte);
     auto t5 = lexer.parse();
-    EXPECT_EQ(t5.type, tok::EQ);
+    EXPECT_EQ(t5.type, tok::equality);
     auto t6 = lexer.parse();
     EXPECT_EQ(t6.type, tok::ne);
     auto t7 = lexer.parse();

@@ -5,48 +5,19 @@
 #include "util.hpp"
 #include "errorvisitor.hpp"
 
-void VariableReplacer::visit(Expression *e) {
-    throw compiler_exception(
-            "I don't know how to perform function inlining for "
-            + e->to_string(), e->location());
-}
-
-void VariableReplacer::visit(UnaryExpression *e) {
-    auto exp = e->expression()->is_identifier();
-    if(exp && exp->spelling()==source_) {
-        e->replace_expression(make_expression<IdentifierExpression>(exp->location(), target_));
-    }
-    else {
-        e->expression()->accept(this);
-    }
-}
-
-void VariableReplacer::visit(BinaryExpression *e) {
-    auto lhs = e->lhs()->is_identifier();
-    if(lhs && lhs->spelling()==source_) {
-        e->replace_lhs(make_expression<IdentifierExpression>(lhs->location(), target_));
-    }
-    else {
-        e->lhs()->accept(this);
-    }
-
-    auto rhs = e->rhs()->is_identifier();
-    if(rhs && rhs->spelling()==source_) {
-        e->replace_rhs(make_expression<IdentifierExpression>(rhs->location(), target_));
-    }
-    else {
-        e->rhs()->accept(this);
-    }
-}
-
 expression_ptr inline_function_call(Expression* e)
 {
     if(auto f=e->is_function_call()) {
         auto func = f->function();
-        auto& body = func->body()->body();
+#ifdef LOGGING
+        std::cout << "inline_function_call for statement " << f->to_string()
+                  << " with body" << func->body()->to_string() << "\n";
+#endif
+        auto& body = func->body()->statements();
         if(body.size() != 1) {
-            throw compiler_exception("I only know how to inline functions with "
-                                     "1 statement", func->location());
+            throw compiler_exception(
+                "can only inline functions with one statement", func->location()
+            );
         }
         // assume that the function body is correctly formed, with the last
         // statement being an assignment expression
@@ -57,21 +28,45 @@ expression_ptr inline_function_call(Expression* e)
         auto& cargs = f->args();    // arguments at the call site
         for(int i=0; i<fargs.size(); ++i) {
             if(auto id = cargs[i]->is_identifier()) {
-                auto v = make_unique<VariableReplacer>
-                            (fargs[i]->is_argument()->spelling(),
-                             id->spelling());
+#ifdef LOGGING
+                std::cout << "inline_function_call symbol replacement "
+                          << id->to_string() << " -> " << fargs[i]->to_string()
+                          << " in the expression " << new_e->to_string() << "\n";
+#endif
+                auto v =
+                    make_unique<VariableReplacer>(
+                        fargs[i]->is_argument()->spelling(),
+                        id->spelling()
+                    );
+                new_e->accept(v.get());
+            }
+            else if(auto value = cargs[i]->is_number()) {
+#ifdef LOGGING
+                std::cout << "inline_function_call symbol replacement "
+                          << value->to_string() << " -> " << fargs[i]->to_string()
+                          << " in the expression " << new_e->to_string() << "\n";
+#endif
+                auto v =
+                    make_unique<ValueInliner>(
+                        fargs[i]->is_argument()->spelling(),
+                        value->value()
+                    );
                 new_e->accept(v.get());
             }
             else {
-                throw compiler_exception("can't inline functions which don't "
-                                         "take identifiers as arguments",
-                                         e->location());
+                throw compiler_exception(
+                    "can't inline functions with expressions as arguments",
+                     e->location()
+                 );
             }
         }
         new_e->semantic(e->scope());
 
         auto v = make_unique<ErrorVisitor>("");
         new_e->accept(v.get());
+#ifdef LOGGING
+        std::cout << "inline_function_call result " << new_e->to_string() << "\n\n";
+#endif
         if(v->num_errors()) {
             throw compiler_exception("something went wrong with inlined function call ",
                                      e->location());
@@ -83,4 +78,90 @@ expression_ptr inline_function_call(Expression* e)
     return {};
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//  variable replacer
+///////////////////////////////////////////////////////////////////////////////
 
+void VariableReplacer::visit(Expression *e) {
+    throw compiler_exception(
+            "I don't know how to variable inlining for this statement : "
+            + e->to_string(), e->location());
+}
+
+void VariableReplacer::visit(UnaryExpression *e) {
+    auto exp = e->expression()->is_identifier();
+    if(exp && exp->spelling()==source_) {
+        e->replace_expression(
+            make_expression<IdentifierExpression>(exp->location(), target_)
+        );
+    }
+    else if(!exp) {
+        e->expression()->accept(this);
+    }
+}
+
+void VariableReplacer::visit(BinaryExpression *e) {
+    auto lhs = e->lhs()->is_identifier();
+    if(lhs && lhs->spelling()==source_) {
+        e->replace_lhs(
+            make_expression<IdentifierExpression>(lhs->location(), target_)
+        );
+    }
+    else if(!lhs){ // only inspect subexpressions that are not themselves identifiers
+        e->lhs()->accept(this);
+    }
+
+    auto rhs = e->rhs()->is_identifier();
+    if(rhs && rhs->spelling()==source_) {
+        e->replace_rhs(
+            make_expression<IdentifierExpression>(rhs->location(), target_)
+        );
+    }
+    else if(!rhs){ // only inspect subexpressions that are not themselves identifiers
+        e->rhs()->accept(this);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  value inliner
+///////////////////////////////////////////////////////////////////////////////
+
+void ValueInliner::visit(Expression *e) {
+    throw compiler_exception(
+            "I don't know how to value inlining for this statement : "
+            + e->to_string(), e->location());
+}
+
+void ValueInliner::visit(UnaryExpression *e) {
+    auto exp = e->expression()->is_identifier();
+    if(exp && exp->spelling()==source_) {
+        e->replace_expression(
+            make_expression<NumberExpression>(exp->location(), value_)
+        );
+    }
+    else if(!exp){
+        e->expression()->accept(this);
+    }
+}
+
+void ValueInliner::visit(BinaryExpression *e) {
+    auto lhs = e->lhs()->is_identifier();
+    if(lhs && lhs->spelling()==source_) {
+        e->replace_lhs(
+            make_expression<NumberExpression>(lhs->location(), value_)
+        );
+    }
+    else if(!lhs) {
+        e->lhs()->accept(this);
+    }
+
+    auto rhs = e->rhs()->is_identifier();
+    if(rhs && rhs->spelling()==source_) {
+        e->replace_rhs(
+            make_expression<NumberExpression>(rhs->location(), value_)
+        );
+    }
+    else if(!rhs){
+        e->rhs()->accept(this);
+    }
+}

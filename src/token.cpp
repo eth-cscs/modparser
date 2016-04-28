@@ -70,7 +70,7 @@ static TokenString token_strings[] = {
     {"<=",          tok::lte},
     {">",           tok::gt},
     {">=",          tok::gte},
-    {"==",          tok::EQ},
+    {"==",          tok::equality},
     {"!=",          tok::ne},
     {",",           tok::comma},
     {"'",           tok::prime},

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "cprinter.hpp"
 #include "lexer.hpp"
 
@@ -31,28 +33,31 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("#include <cmath>");
     text_.add_line("#include <limits>");
     text_.add_line();
-    text_.add_line("#include <indexedview.hpp>");
     text_.add_line("#include <mechanism.hpp>");
-    text_.add_line("#include <target.hpp>");
+    text_.add_line("#include <mechanism_interface.hpp>");
+    text_.add_line("#include <algorithms.hpp>");
     text_.add_line();
 
     //////////////////////////////////////////////
     //////////////////////////////////////////////
-    std::string class_name = "Mechanism_" + m.name();
+    std::string class_name = "mechanism_" + m.name();
 
+    text_.add_line("namespace nest{ namespace mc{ namespace mechanisms{ namespace " + m.name() + "{");
+    text_.add_line();
     text_.add_line("template<typename T, typename I>");
-    text_.add_line("class " + class_name + " : public Mechanism<T, I, targetKind::cpu> {");
+    text_.add_line("class " + class_name + " : public mechanism<T, I> {");
     text_.add_line("public:");
     text_.increase_indentation();
-    text_.add_line("using base = Mechanism<T, I, targetKind::cpu>;");
+    text_.add_line("using base = mechanism<T, I>;");
     text_.add_line("using value_type  = typename base::value_type;");
     text_.add_line("using size_type   = typename base::size_type;");
     text_.add_line("using vector_type = typename base::vector_type;");
     text_.add_line("using view_type   = typename base::view_type;");
     text_.add_line("using index_type  = typename base::index_type;");
     text_.add_line("using index_view  = typename index_type::view_type;");
-    text_.add_line("using indexed_view= typename base::indexed_view;");
+    text_.add_line("using indexed_view_type= typename base::indexed_view_type;");
     text_.add_line("using matrix_type = typename base::matrix_type;");
+    text_.add_line("using ion_type = typename base::ion_type;");
     text_.add_line();
 
     //////////////////////////////////////////////
@@ -79,21 +84,20 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     int num_vars = array_variables.size();
-    text_.add_line(class_name + "(matrix_type &matrix, index_view node_indices)");
-    text_.add_line(":   base(matrix, node_indices)");
+    text_.add_line(class_name + "(matrix_type* matrix, index_view node_index)");
+    text_.add_line(":   base(matrix, node_index)");
     text_.add_line("{");
     text_.increase_indentation();
     text_.add_gutter() << "size_type num_fields = " << num_vars << ";";
     text_.end_line();
-    text_.add_line("size_type n = size();");
 
     text_.add_line();
     text_.add_line("// calculate the padding required to maintain proper alignment of sub arrays");
     text_.add_line("auto alignment  = data_.alignment();");
-    text_.add_line("auto field_size_in_bytes = sizeof(value_type)*n;");
+    text_.add_line("auto field_size_in_bytes = sizeof(value_type)*size();");
     text_.add_line("auto remainder  = field_size_in_bytes % alignment;");
     text_.add_line("auto padding    = remainder ? (alignment - remainder)/sizeof(value_type) : 0;");
-    text_.add_line("auto field_size = n+padding;");
+    text_.add_line("auto field_size = size()+padding;");
 
     text_.add_line();
     text_.add_line("// allocate memory");
@@ -115,7 +119,7 @@ CPrinter::CPrinter(Module &m, bool o)
         }
         else {
             text_.add_gutter() << namestr << " = data_("
-                               << i << "*field_size, " << i+1 << "*n);";
+                               << i << "*field_size, " << i+1 << "*size());";
         }
         text_.end_line();
     }
@@ -130,14 +134,14 @@ CPrinter::CPrinter(Module &m, bool o)
         if(!optimize_) pointer_name += ".data()";
         if(val == val) {
             text_.add_gutter() << "std::fill(" << pointer_name << ", "
-                                               << pointer_name << "+n, "
+                                               << pointer_name << "+size(), "
                                                << val << ");";
             text_.end_line();
         }
     }
 
     text_.add_line();
-    text_.add_line("INIT_PROFILE");
+    //text_.add_line("INIT_PROFILE");
     text_.decrease_indentation();
     text_.add_line("}");
 
@@ -185,6 +189,73 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("}");
     text_.add_line();
 
+    // bool uses_ion(ionKind k) override
+    // return true/false indicating if cell has dependency on k
+    auto const& ions = m.neuron_block().ions;
+    auto has_ion = [&ions] (ionKind k) -> bool {
+        return
+            std::find_if(
+                ions.begin(), ions.end(),
+                [k](IonDep const& d) {return d.kind()==k;}
+            ) != ions.end();
+    };
+    text_.add_line("bool uses_ion(ionKind k) const override {");
+    text_.increase_indentation();
+    text_.add_line("switch(k) {");
+    text_.increase_indentation();
+    text_.add_gutter()
+        << "case ionKind::na : return "
+        << (has_ion(ionKind::Na) ? "true" : "false") << ";";
+    text_.end_line();
+    text_.add_gutter()
+        << "case ionKind::ca : return "
+        << (has_ion(ionKind::Ca) ? "true" : "false") << ";";
+    text_.end_line();
+    text_.add_gutter()
+        << "case ionKind::k  : return "
+        << (has_ion(ionKind::K) ? "true" : "false") << ";";
+    text_.end_line();
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line("return false;");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+
+    // void set_ion(ionKind k, ion_type& i) override
+    //      this is tedious...
+    text_.add_line("void set_ion(ionKind k, ion_type& i) override {");
+    text_.increase_indentation();
+    text_.add_line("using nest::mc::algorithms::index_into;");
+    if(has_ion(ionKind::Na)) {
+        text_.add_line("if(k==ionKind::na) {");
+        text_.increase_indentation();
+        text_.add_line("ion_na.index = index_into(i.node_index(), node_index_);");
+        text_.add_line("return;");
+        text_.decrease_indentation();
+        text_.add_line("}");
+    }
+    if(has_ion(ionKind::Ca)) {
+        text_.add_line("if(k==ionKind::ca) {");
+        text_.increase_indentation();
+        text_.add_line("ion_ca.index = index_into(i.node_index(), node_index_);");
+        text_.add_line("return;");
+        text_.decrease_indentation();
+        text_.add_line("}");
+    }
+    if(has_ion(ionKind::K)) {
+        text_.add_line("if(k==ionKind::k) {");
+        text_.increase_indentation();
+        text_.add_line("ion_k.index = index_into(i.node_index(), node_index_);");
+        text_.add_line("return;");
+        text_.decrease_indentation();
+        text_.add_line("}");
+    }
+    text_.add_line("throw std::domain_error(nest::mc::util::pprintf(\"mechanism % does not support ion type\\n\", name()));");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
@@ -228,12 +299,60 @@ CPrinter::CPrinter(Module &m, bool o)
 
     text_.add_line();
     text_.add_line("using base::matrix_;");
-    text_.add_line("using base::node_indices_;");
+    text_.add_line("using base::node_index_;");
 
     text_.add_line();
-    text_.add_line("DATA_PROFILE");
+    //text_.add_line("DATA_PROFILE");
     text_.decrease_indentation();
     text_.add_line("};");
+    text_.add_line();
+
+    // print the helper type that provides the bridge from the mechanism to
+    // the calling code
+    text_.add_line("template<typename T, typename I>");
+    text_.add_line("struct helper : public mechanism_helper<T, I> {");
+    text_.increase_indentation();
+    text_.add_line("using base = mechanism_helper<T, I>;");
+    text_.add_line("using matrix_type = typename base::matrix_type;");
+    text_.add_line("using index_view  = typename base::index_view;");
+    text_.add_line("using mechanism_ptr_type  = typename base::mechanism_ptr_type;");
+    text_.add_gutter() << "using mechanism_type = " << class_name << "<T, I>;";
+    text_.add_line();
+    text_.add_line();
+
+    text_.add_line("std::string");
+    text_.add_line("name() const override");
+    text_.add_line("{");
+    text_.increase_indentation();
+    text_.add_gutter() << "return \"" << m.name() << "\";";
+    text_.add_line();
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+
+    text_.add_line("mechanism_ptr<T,I>");
+    text_.add_line("new_mechanism(matrix_type* matrix, index_view node_index) const override");
+    text_.add_line("{");
+    text_.increase_indentation();
+    text_.add_line("return nest::mc::mechanisms::make_mechanism<mechanism_type>(matrix, node_index);");
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+
+    text_.add_line("void");
+    text_.add_line("set_parameters(mechanism_ptr_type&, parameter_list const&) const override");
+    text_.add_line("{");
+    text_.increase_indentation();
+    // TODO : interface that writes parameter_list paramaters into the mechanism's storage
+    text_.decrease_indentation();
+    text_.add_line("}");
+    text_.add_line();
+
+    text_.decrease_indentation();
+    text_.add_line("};");
+    text_.add_line();
+
+    text_.add_line("}}}} // namespaces");
 }
 
 
@@ -344,7 +463,7 @@ void CPrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto& stmt : e->body()) {
+    for(auto& stmt : e->statements()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -406,43 +525,50 @@ void CPrinter::visit(APIMethod *e) {
             e->location());
     }
 
-    increase_indentation();
+    // only print the body if it has contents
+    if(e->is_api_method()->body()->statements().size()) {
+        increase_indentation();
 
-    // create local indexed views
-    for(auto &symbol : e->scope()->locals()) {
-        auto var = symbol.second->is_local_variable();
-        if(var->is_indexed()) {
-            auto const& name = var->name();
-            auto const& index_name = var->external_variable()->index_name();
-            text_.add_gutter();
-            if(var->is_read()) text_ << "const ";
-            text_ << "indexed_view " + index_name;
-            auto channel = var->external_variable()->ion_channel();
-            if(channel==ionKind::none) {
-                text_ << "(matrix_." + index_name + "(), node_indices_);\n";
+        // create local indexed views
+        for(auto &symbol : e->scope()->locals()) {
+            auto var = symbol.second->is_local_variable();
+            if(var->is_indexed()) {
+                auto const& name = var->name();
+                auto const& index_name = var->external_variable()->index_name();
+                text_.add_gutter();
+                if(var->is_read()) text_ << "const ";
+                text_ << "indexed_view_type " + index_name;
+                auto channel = var->external_variable()->ion_channel();
+                if(channel==ionKind::none) {
+                    text_ << "(matrix_->" + index_name + "(), node_index_);\n";
+                }
+                else {
+                    auto iname = ion_store(channel);
+                    text_ << "(" << iname << "." << name << ", "
+                          << ion_store(channel) << ".index);\n";
+                }
             }
-            else {
-                auto iname = ion_store(channel);
-                text_ << "(" << iname << "." << name << ", "
-                      << ion_store(channel) << ".index);\n";
-            }
+        }
+
+        // ------------- get loop dimensions ------------- //
+        text_.add_line("int n_ = node_index_.size();");
+
+        // hand off printing of loops to optimized or unoptimized backend
+        if(optimize_) {
+            print_APIMethod_optimized(e);
+        }
+        else {
+            print_APIMethod_unoptimized(e);
         }
     }
 
-    // ------------- get loop dimensions ------------- //
-    text_.add_line("int n_ = node_indices_.size();");
-
-    // hand off printing of loops to optimized or unoptimized backend
-    if(optimize_) {
-        print_APIMethod_optimized(e);
-    }
-    else {
-        print_APIMethod_unoptimized(e);
-    }
+    // ------------- close up ------------- //
+    text_.add_line("}");
+    text_.add_line();
 }
 
 void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
-    text_.add_line("START_PROFILE");
+    //text_.add_line("START_PROFILE");
 
     // there can not be more than 1 instance of a density channel per grid point,
     // so we can assert that aliasing will not occur.
@@ -464,9 +590,10 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
         }
     }
 
-    // print the body of the funtor
+    // print the body of the loop
     e->body()->accept(this);
 
+    // perform update of external variables (currents etc)
     for(auto &symbol : e->scope()->locals()) {
         auto var = symbol.second->is_local_variable();
         if(is_output(var)) {
@@ -482,12 +609,9 @@ void CPrinter::print_APIMethod_unoptimized(APIMethod* e) {
     text_.decrease_indentation();
     text_.add_line("}");
 
-    text_.add_line("STOP_PROFILE");
-
-    // ------------- close up ------------- //
+    //text_.add_line("STOP_PROFILE");
     decrease_indentation();
-    text_.add_line("}");
-    text_.add_line();
+
     return;
 }
 
@@ -530,7 +654,7 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
             "__declspec(align(vector_type::alignment())) value_type "
             + out->name() +  "[BSIZE];");
     }
-    text_.add_line("START_PROFILE");
+    //text_.add_line("START_PROFILE");
 
     text_.add_line("for(int b_=0; b_<NB; ++b_) {");
     text_.increase_indentation();
@@ -620,13 +744,8 @@ void CPrinter::print_APIMethod_optimized(APIMethod* e) {
     text_.decrease_indentation();
     text_.add_line("}"); // end block tail loop
 
-
-    text_.add_line("STOP_PROFILE");
-
-    // ------------- close up ------------- //
+    //text_.add_line("STOP_PROFILE");
     decrease_indentation();
-    text_.add_line("}");
-    text_.add_line();
 
     aliased_output_ = false;
     return;
@@ -691,7 +810,7 @@ void CPrinter::visit(BinaryExpression *e) {
         case tok::gte    :
             text_ << ">=";
             break;
-        case tok::EQ     :
+        case tok::equality :
             text_ << "==";
             break;
         default :

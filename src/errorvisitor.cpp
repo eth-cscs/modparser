@@ -40,7 +40,7 @@ void ErrorVisitor::visit(IfExpression *e) {
 }
 
 void ErrorVisitor::visit(BlockExpression* e) {
-    for(auto& expression : e->body()) {
+    for(auto& expression : e->statements()) {
         expression->accept(this);
     }
 
@@ -48,7 +48,7 @@ void ErrorVisitor::visit(BlockExpression* e) {
 }
 
 void ErrorVisitor::visit(InitialBlock* e) {
-    for(auto& expression : e->body()) {
+    for(auto& expression : e->statements()) {
         expression->accept(this);
     }
 

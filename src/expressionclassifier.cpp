@@ -202,7 +202,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                 case tok::lte    :
                 case tok::gt     :
                 case tok::gte    :
-                case tok::EQ     :
+                case tok::equality :
                     is_linear_ = false;
                     return;
                 default:
@@ -294,7 +294,7 @@ void ExpressionClassifierVisitor::visit(BinaryExpression *e) {
                 case tok::lte    :
                 case tok::gt     :
                 case tok::gte    :
-                case tok::EQ     :
+                case tok::equality :
                     is_linear_ = false;
                     return;
                 default:

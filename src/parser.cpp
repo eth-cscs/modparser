@@ -317,7 +317,7 @@ void Parser::parse_neuron_block() {
                         }
                     }
                     // add the ion dependency to the NEURON block
-                    neuron_block.ions.push_back(ion);
+                    neuron_block.ions.push_back(std::move(ion));
                 }
                 break;
 

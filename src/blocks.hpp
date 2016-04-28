@@ -16,7 +16,7 @@ struct IonDep {
         if(name=="ca") return ionKind::Ca;
         return ionKind::none;
     }
-    std::string name;               // name of ion channel
+    std::string name;         // name of ion channel
     std::vector<Token> read;  // name of channels parameters to write
     std::vector<Token> write; // name of channels parameters to read
 };

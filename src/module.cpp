@@ -136,11 +136,22 @@ bool Module::semantic() {
     //  -   generate local variable table for each function/procedure
     //  -   inlining function calls
     ////////////////////////////////////////////////////////////////////////////
+#ifdef LOGGING
+    std::cout << white("===================================\n");
+    std::cout << cyan("        Function Inlining\n");
+    std::cout << white("===================================\n");
+#endif
     int errors = 0;
     for(auto& e : symbols_) {
         auto& s = e.second;
 
-        if( s->kind() == symbolKind::function || s->kind() == symbolKind::procedure ) {
+        if(    s->kind() == symbolKind::function
+            || s->kind() == symbolKind::procedure)
+        {
+#ifdef LOGGING
+            std::cout << "\nfunction inlining for " << s->location() << "\n" << s->to_string() << "\n";
+            std::cout << green("\n-call site lowering-\n\n");
+#endif
             // first perform semantic analysis
             s->semantic(symbols_);
 
@@ -152,14 +163,63 @@ bool Module::semantic() {
             // inline function calls
             // this requires that the symbol table has already been built
             if(v->num_errors()==0) {
-                auto &b =  s->kind()==symbolKind::function ?
-                    s->is_function()->body()->body() :
-                    s->is_procedure()->body()->body();
+                auto &b = s->kind()==symbolKind::function ?
+                    s->is_function()->body()->statements() :
+                    s->is_procedure()->body()->statements();
+
+                // lower function call sites so that all function calls are of
+                // the form : variable = call(<args>)
+                // e.g.
+                //      a = 2 + foo(2+x, y, 1)
+                // becomes
+                //      ll0_ = foo(2+x, y, 1)
+                //      a = 2 + ll0_
                 for(auto e=b.begin(); e!=b.end(); ++e) {
-                    // expand function calls then insert them into the
-                    // statement list before e
-                    b.splice(e, expand_function_calls((*e).get()));
+                    b.splice(e, lower_function_calls((*e).get()));
                 }
+#ifdef LOGGING
+                std::cout << "body after call site lowering\n";
+                for(auto& l : b) std::cout << "  " << l->to_string() << " @ " << l->location() << "\n";
+                std::cout << green("\n-argument lowering-\n\n");
+#endif
+
+                // lower function arguments that are not identifiers or literals
+                // e.g.
+                //      ll0_ = foo(2+x, y, 1)
+                //      a = 2 + ll0_
+                // becomes
+                //      ll1_ = 2+x
+                //      ll0_ = foo(ll1_, y, 1)
+                //      a = 2 + ll0_
+                for(auto e=b.begin(); e!=b.end(); ++e) {
+                    if(auto be = (*e)->is_binary()) {
+                        // only apply to assignment expressions where rhs is a
+                        // function call because the function call lowering step
+                        // above ensures that all function calls are of this form
+                        if(auto rhs = be->rhs()->is_function_call()) {
+                            b.splice(e, lower_function_arguments(rhs->args()));
+                        }
+                    }
+                }
+
+#ifdef LOGGING
+                std::cout << "body after argument lowering\n";
+                for(auto& l : b) std::cout << "  " << l->to_string() << " @ " << l->location() << "\n";
+                std::cout << green("\n-inlining-\n\n");
+#endif
+
+                // Do the inlining, which currently only works for functions
+                // that have a single statement in their body
+                // e.g. if the function foo in the examples above is defined as follows
+                //
+                //  function foo(a, b, c) {
+                //      foo = a*(b + c)
+                //  }
+                //
+                // the full inlined example is
+                //      ll1_ = 2+x
+                //      ll0_ = ll1_*(y + 1)
+                //      a = 2 + ll0_
                 for(auto e=b.begin(); e!=b.end(); ++e) {
                     if(auto ass = (*e)->is_assignment()) {
                         if(ass->rhs()->is_function_call()) {
@@ -167,6 +227,11 @@ bool Module::semantic() {
                         }
                     }
                 }
+
+#ifdef LOGGING
+                std::cout << "body after inlining\n";
+                for(auto& l : b) std::cout << "  " << l->to_string() << " @ " << l->location() << "\n";
+#endif
             }
         }
     }
@@ -223,7 +288,7 @@ bool Module::semantic() {
 
     if(api_init)
     {
-        auto& body = api_init->body()->body();
+        auto& body = api_init->body()->statements();
 
         for(auto& e : *proc_init->body()) {
             body.emplace_back(e->clone());
@@ -288,8 +353,8 @@ bool Module::semantic() {
 
     if( breakpoint ) {
         // helper for making identifiers on the fly
-        auto id = [] (std::string const& name) {
-            return make_expression<IdentifierExpression>(Location(), name);
+        auto id = [] (std::string const& name, Location loc=Location()) {
+            return make_expression<IdentifierExpression>(loc, name);
         };
         //..........................................................
         // nrn_state : The temporal integration of state variables
@@ -306,7 +371,7 @@ bool Module::semantic() {
         if( solve_expression==nullptr ) {
             warning( " there is no SOLVE statement, required to update the"
                      " state variables, in the BREAKPOINT block",
-                     Location());
+                     breakpoint->location());
         }
         else {
             // get the DERIVATIVE block
@@ -314,7 +379,7 @@ bool Module::semantic() {
 
             // body refers to the currently empty body of the APIMethod that
             // will hold the AST for the nrn_state function.
-            auto& body = api_state->body()->body();
+            auto& body = api_state->body()->statements();
 
             auto has_provided_integration_method =
                 solve_expression->method() == solverMethod::cnexp;
@@ -411,10 +476,10 @@ bool Module::semantic() {
                 }
                 body.push_back(e->clone());
             }
-
-            // perform semantic analysis
-            api_state->semantic(symbols_);
         }
+
+        // perform semantic analysis
+        api_state->semantic(symbols_);
 
         //..........................................................
         // nrn_current : update contributions to currents
@@ -604,7 +669,7 @@ void Module::add_variables_to_symbols() {
             // ignore voltage, which is added as an indexed variable by default
             continue;
         }
-        VariableExpression *id = new VariableExpression(Location(), name);
+        VariableExpression *id = new VariableExpression(var.token.location, name);
 
         id->state(false);           // never a state variable
         id->linkage(linkageKind::local);

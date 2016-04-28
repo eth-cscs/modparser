@@ -682,16 +682,16 @@ private:
 
 class BlockExpression : public Expression {
 protected:
-    std::list<expression_ptr> body_;
+    std::list<expression_ptr> statements_;
     bool is_nested_ = false;
 
 public:
     BlockExpression(
         Location loc,
-        std::list<expression_ptr>&& body,
+        std::list<expression_ptr>&& statements,
         bool is_nested)
     :   Expression(loc),
-        body_(std::move(body)),
+        statements_(std::move(statements)),
         is_nested_(is_nested)
     {}
 
@@ -699,24 +699,24 @@ public:
         return this;
     }
 
-    std::list<expression_ptr>& body() {
-        return body_;
+    std::list<expression_ptr>& statements() {
+        return statements_;
     }
 
     expression_ptr clone() const override;
 
-    // provide iterators for easy iteration over body
-    auto begin() -> decltype(body_.begin()) {
-        return body_.begin();
+    // provide iterators for easy iteration over statements
+    auto begin() -> decltype(statements_.begin()) {
+        return statements_.begin();
     }
-    auto end() -> decltype(body_.end()) {
-        return body_.end();
+    auto end() -> decltype(statements_.end()) {
+        return statements_.end();
     }
-    auto back() -> decltype(body_.back()) {
-        return body_.back();
+    auto back() -> decltype(statements_.back()) {
+        return statements_.back();
     }
-    auto front() -> decltype(body_.front()) {
-        return body_.front();
+    auto front() -> decltype(statements_.front()) {
+        return statements_.front();
     }
     bool is_nested() const {
         return is_nested_;
@@ -898,8 +898,8 @@ class InitialBlock : public BlockExpression {
 public:
     InitialBlock(
         Location loc,
-        std::list<expression_ptr>&& body)
-    :   BlockExpression(loc, std::move(body), true)
+        std::list<expression_ptr>&& statements)
+    :   BlockExpression(loc, std::move(statements), true)
     {}
 
     std::string to_string() const override;

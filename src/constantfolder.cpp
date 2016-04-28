@@ -123,7 +123,7 @@ void ConstantFolderVisitor::visit(BinaryExpression *e) {
             case tok::lte    :
             case tok::gt     :
             case tok::gte    :
-            case tok::EQ     :
+            case tok::equality :
                 is_number = false;
                 return;
             default         :
@@ -150,7 +150,7 @@ void ConstantFolderVisitor::visit(CallExpression *e) {
 
 void ConstantFolderVisitor::visit(BlockExpression *e) {
     is_number = false;
-    for(auto &expression : e->body()) {
+    for(auto &expression : e->statements()) {
         expression->accept(this);
     }
 }

@@ -10,6 +10,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wall -Wno-unused-fu
 # this generates a .json file with full compilation command for each file
 set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 
+set( MODCC_LOGGING "OFF" CACHE BOOL "enable debug logging in compiler" )
+if( "${MODCC_LOGGING}" STREQUAL "ON" )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLOGGING")
+endif()
+
 # generated .a and .so go into /lib
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

@@ -163,7 +163,7 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     int num_vars = array_variables.size();
     text_ << "    " + class_name + "(\n";
-    text_ << "        matrix_type &matrix,\n";
+    text_ << "        matrix_type* matrix,\n";
     text_ << "        index_view node_indices)\n";
     text_ << "    :   base(matrix, node_indices)\n";
     text_ << "    {\n";
@@ -392,7 +392,7 @@ void CUDAPrinter::visit(BlockExpression *e) {
     }
 
     // ------------- statements ------------- //
-    for(auto& stmt : e->body()) {
+    for(auto& stmt : e->statements()) {
         if(stmt->is_local_declaration()) continue;
         // these all must be handled
         text_.add_gutter();
@@ -624,7 +624,7 @@ void CUDAPrinter::visit(BinaryExpression *e) {
         case tok::gte    :
             text_ << ">=";
             break;
-        case tok::EQ     :
+        case tok::equality :
             text_ << "==";
             break;
         default :

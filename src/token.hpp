@@ -15,13 +15,13 @@ enum class tok {
     // = + - * / ^
     eq, plus, minus, times, divide, pow,
     // comparison
-    lnot,   // !   named logical not, to avoid clash with C++ not keyword
-    lt,     // <
-    lte,    // <=
-    gt,     // >
-    gte,    // >=
-    EQ,     // ==
-    ne,     // !=
+    lnot,    // !   named logical not, to avoid clash with C++ not keyword
+    lt,      // <
+    lte,     // <=
+    gt,      // >
+    gte,     // >=
+    equality,// ==
+    ne,      // !=
 
     // , '
     comma, prime,
