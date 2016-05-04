@@ -56,7 +56,6 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("using index_type  = typename base::index_type;");
     text_.add_line("using index_view  = typename index_type::view_type;");
     text_.add_line("using indexed_view_type= typename base::indexed_view_type;");
-    text_.add_line("using matrix_type = typename base::matrix_type;");
     text_.add_line("using ion_type = typename base::ion_type;");
     text_.add_line();
 
@@ -84,8 +83,8 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     int num_vars = array_variables.size();
-    text_.add_line(class_name + "(matrix_type* matrix, index_view node_index)");
-    text_.add_line(":   base(matrix, node_index)");
+    text_.add_line(class_name + "(view_type vec_v, view_type vec_i, index_view node_index)");
+    text_.add_line(":   base(vec_v, vec_i, node_index)");
     text_.add_line("{");
     text_.increase_indentation();
     text_.add_gutter() << "size_type num_fields = " << num_vars << ";";
@@ -189,16 +188,19 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("}");
     text_.add_line();
 
-    // bool uses_ion(ionKind k) override
     // return true/false indicating if cell has dependency on k
     auto const& ions = m.neuron_block().ions;
-    auto has_ion = [&ions] (ionKind k) -> bool {
-        return
-            std::find_if(
-                ions.begin(), ions.end(),
-                [k](IonDep const& d) {return d.kind()==k;}
-            ) != ions.end();
+    auto find_ion = [&ions] (ionKind k) {
+        return std::find_if(
+            ions.begin(), ions.end(),
+            [k](IonDep const& d) {return d.kind()==k;}
+        );
     };
+    auto has_ion = [&ions, find_ion] (ionKind k) {
+        return find_ion(k) != ions.end();
+    };
+
+    // bool uses_ion(ionKind k) const override
     text_.add_line("bool uses_ion(ionKind k) const override {");
     text_.increase_indentation();
     text_.add_line("switch(k) {");
@@ -222,31 +224,73 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("}");
     text_.add_line();
 
+    /***************************************************************************
+     *
+     *   ion channels have the following fields :
+     *
+     *       ---------------------------------------------------
+     *       label   Ca      Na      K   name
+     *       ---------------------------------------------------
+     *       iX      ica     ina     ik  current
+     *       eX      eca     ena     ek  reversal_potential
+     *       Xi      cai     nai     ki  internal_concentration
+     *       Xo      cao     nao     ko  external_concentration
+     *       gX      gca     gna     gk  conductance
+     *       ---------------------------------------------------
+     *
+     **************************************************************************/
+
     // void set_ion(ionKind k, ion_type& i) override
-    //      this is tedious...
+    //      TODO: this is done manually, which isn't going to scale
+    auto has_variable = [] (IonDep const& ion, std::string const& name) {
+        if( std::find_if(ion.read.begin(), ion.read.end(),
+                      [&name] (Token const& t) {return t.spelling==name;}
+            ) != ion.read.end()
+        ) return true;
+        if( std::find_if(ion.write.begin(), ion.write.end(),
+                      [&name] (Token const& t) {return t.spelling==name;}
+            ) != ion.write.end()
+        ) return true;
+        return false;
+    };
     text_.add_line("void set_ion(ionKind k, ion_type& i) override {");
     text_.increase_indentation();
     text_.add_line("using nest::mc::algorithms::index_into;");
     if(has_ion(ionKind::Na)) {
+        auto ion = find_ion(ionKind::Na);
         text_.add_line("if(k==ionKind::na) {");
         text_.increase_indentation();
         text_.add_line("ion_na.index = index_into(i.node_index(), node_index_);");
+        if(has_variable(*ion, "ina")) text_.add_line("ion_na.ina = i.current();");
+        if(has_variable(*ion, "ena")) text_.add_line("ion_na.ena = i.reversal_potential();");
+        if(has_variable(*ion, "nai")) text_.add_line("ion_na.nai = i.internal_concentration();");
+        if(has_variable(*ion, "nao")) text_.add_line("ion_na.nao = i.external_concentration();");
         text_.add_line("return;");
         text_.decrease_indentation();
         text_.add_line("}");
     }
     if(has_ion(ionKind::Ca)) {
+        auto ion = find_ion(ionKind::Ca);
         text_.add_line("if(k==ionKind::ca) {");
         text_.increase_indentation();
         text_.add_line("ion_ca.index = index_into(i.node_index(), node_index_);");
+        if(has_variable(*ion, "ica")) text_.add_line("ion_ca.ica = i.current();");
+        if(has_variable(*ion, "eca")) text_.add_line("ion_ca.eca = i.reversal_potential();");
+        if(has_variable(*ion, "cai")) text_.add_line("ion_ca.cai = i.internal_concentration();");
+        if(has_variable(*ion, "cao")) text_.add_line("ion_ca.cao = i.external_concentration();");
         text_.add_line("return;");
         text_.decrease_indentation();
         text_.add_line("}");
     }
     if(has_ion(ionKind::K)) {
+        auto ion = find_ion(ionKind::K);
         text_.add_line("if(k==ionKind::k) {");
         text_.increase_indentation();
         text_.add_line("ion_k.index = index_into(i.node_index(), node_index_);");
+        if(has_variable(*ion, "ik")) text_.add_line("ion_k.ik = i.current();");
+        if(has_variable(*ion, "ek")) text_.add_line("ion_k.ek = i.reversal_potential();");
+        if(has_variable(*ion, "ki")) text_.add_line("ion_k.ki = i.internal_concentration();");
+        if(has_variable(*ion, "ko")) text_.add_line("ion_k.ko = i.external_concentration();");
         text_.add_line("return;");
         text_.decrease_indentation();
         text_.add_line("}");
@@ -298,7 +342,8 @@ CPrinter::CPrinter(Module &m, bool o)
     }
 
     text_.add_line();
-    text_.add_line("using base::matrix_;");
+    text_.add_line("using base::vec_v_;");
+    text_.add_line("using base::vec_i_;");
     text_.add_line("using base::node_index_;");
 
     text_.add_line();
@@ -313,8 +358,8 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("struct helper : public mechanism_helper<T, I> {");
     text_.increase_indentation();
     text_.add_line("using base = mechanism_helper<T, I>;");
-    text_.add_line("using matrix_type = typename base::matrix_type;");
     text_.add_line("using index_view  = typename base::index_view;");
+    text_.add_line("using view_type  = typename base::view_type;");
     text_.add_line("using mechanism_ptr_type  = typename base::mechanism_ptr_type;");
     text_.add_gutter() << "using mechanism_type = " << class_name << "<T, I>;";
     text_.add_line();
@@ -331,10 +376,10 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line();
 
     text_.add_line("mechanism_ptr<T,I>");
-    text_.add_line("new_mechanism(matrix_type* matrix, index_view node_index) const override");
+    text_.add_line("new_mechanism(view_type vec_v, view_type vec_i, index_view node_index) const override");
     text_.add_line("{");
     text_.increase_indentation();
-    text_.add_line("return nest::mc::mechanisms::make_mechanism<mechanism_type>(matrix, node_index);");
+    text_.add_line("return nest::mc::mechanisms::make_mechanism<mechanism_type>(vec_v, vec_i, node_index);");
     text_.decrease_indentation();
     text_.add_line("}");
     text_.add_line();
@@ -465,6 +510,7 @@ void CPrinter::visit(BlockExpression *e) {
     // ------------- statements ------------- //
     for(auto& stmt : e->statements()) {
         if(stmt->is_local_declaration()) continue;
+
         // these all must be handled
         text_.add_gutter();
         stmt->accept(this);
@@ -540,7 +586,7 @@ void CPrinter::visit(APIMethod *e) {
                 text_ << "indexed_view_type " + index_name;
                 auto channel = var->external_variable()->ion_channel();
                 if(channel==ionKind::none) {
-                    text_ << "(matrix_->" + index_name + "(), node_index_);\n";
+                    text_ << "(" + index_name + "_, node_index_);\n";
                 }
                 else {
                     auto iname = ion_store(channel);

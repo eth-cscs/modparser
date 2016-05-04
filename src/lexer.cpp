@@ -203,7 +203,9 @@ Token Lexer::parse() {
                 t.spelling += character();
                 return t;
             default:
-                error_string_ = pprintf("found unexpected character '%' when trying to find next token", *current_);
+                error_string_ =
+                    pprintf( "unexpected character '%' at %",
+                             *current_, location_);
                 status_ = lexerStatus::error;
                 t.spelling += character();
                 t.type = tok::reserved;
