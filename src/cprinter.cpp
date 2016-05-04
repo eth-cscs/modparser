@@ -447,12 +447,15 @@ void CPrinter::visit(IndexedVariable *e) {
 }
 
 void CPrinter::visit(UnaryExpression *e) {
+    auto b = (e->expression()->is_binary()!=nullptr);
     switch(e->op()) {
         case tok::minus :
             // place a space in front of minus sign to avoid invalid
             // expressions of the form : (v[i]--67)
-            text_ << " -";
+            if(b) text_ << " -(";
+            else  text_ << " -";
             e->expression()->accept(this);
+            if(b) text_ << ")";
             return;
         case tok::exp :
             text_ << "exp(";
