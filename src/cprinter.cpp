@@ -825,7 +825,10 @@ void CPrinter::visit(PowBinaryExpression *e) {
 
 void CPrinter::visit(BinaryExpression *e) {
     auto pop = parent_op_;
-    bool use_brackets = Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op());
+    // TODO unit tests for parenthesis and binops
+    bool use_brackets =
+        Lexer::binop_precedence(pop) > Lexer::binop_precedence(e->op())
+        || (pop==tok::divide && e->op()==tok::times);
     parent_op_ = e->op();
 
     auto lhs = e->lhs();
