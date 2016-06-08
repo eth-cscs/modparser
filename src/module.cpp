@@ -534,19 +534,6 @@ bool Module::semantic() {
                     else {
                         block.emplace_back(Parser("current_ = " + lhs->name()).parse_line_expression());
                     }
-
-                    /*
-                    auto g_stmt = has_current_update
-                        ? binary_expression(tok::eq,
-                                            id("conductance_"),
-                                            binary_expression(tok::plus,
-                                                              id("conductance_"),
-                                                              v->linear_coefficient()->clone()))
-                        : binary_expression(tok::eq,
-                                            id("conductance_"),
-                                            v->linear_coefficient()->clone());
-                    block.emplace_back(std::move(g_stmt));
-                    */
                 }
                 else {
                     error("current update functions must be a linear"
@@ -614,13 +601,11 @@ void Module::add_variables_to_symbols() {
             make_symbol<IndexedVariable>(loc, name, indexed_name, acc, op, ch);
     };
 
-    //create_indexed_variable("current_", "vec_rhs", tok::minus,
-                            //accessKind::write, ionKind::none, Location());
-    //create_indexed_variable("conductance_", "vec_d", tok::plus,
-                            //accessKind::write, ionKind::none, Location());
     create_indexed_variable("current_", "vec_i", tok::plus,
                             accessKind::write, ionKind::none, Location());
     create_indexed_variable("v", "vec_v", tok::eq,
+                            accessKind::read,  ionKind::none, Location());
+    create_indexed_variable("area_", "vec_area", tok::eq,
                             accessKind::read,  ionKind::none, Location());
 
     // add state variables

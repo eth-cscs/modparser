@@ -180,7 +180,7 @@ CPrinter::CPrinter(Module &m, bool o)
 
     std::string kind_str = m.kind() == moduleKind::density
                             ? "mechanismKind::density"
-                            : "mechanismKind::point_process";
+                            : "mechanismKind::point";
     text_.add_line("mechanismKind kind() const override {");
     text_.increase_indentation();
     text_.add_line("return " + kind_str + ";");
@@ -303,12 +303,20 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
 
-    auto proctest = [] (procedureKind k) {return k == procedureKind::normal || k == procedureKind::api;};
+    auto proctest = [] (procedureKind k) {
+        return
+            k == procedureKind::normal
+                 || k == procedureKind::api
+                 || k == procedureKind::net_receive;
+    };
     for(auto &var : m.symbols()) {
-        if(   var.second->kind()==symbolKind::procedure
-           && proctest(var.second->is_procedure()->kind()))
+        auto isproc = var.second->kind()==symbolKind::procedure;
+        if(isproc )
         {
-            var.second->accept(this);
+            auto proc = var.second->is_procedure();
+            if(proctest(proc->kind())) {
+                proc->accept(this);
+            }
         }
     }
 
@@ -344,6 +352,7 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line();
     text_.add_line("using base::vec_v_;");
     text_.add_line("using base::vec_i_;");
+    text_.add_line("using base::vec_area_;");
     text_.add_line("using base::node_index_;");
 
     text_.add_line();
@@ -537,12 +546,16 @@ void CPrinter::visit(IfExpression *e) {
 
 void CPrinter::visit(ProcedureExpression *e) {
     // ------------- print prototype ------------- //
-    //set_gutter(0);
-    text_.add_gutter() << "void " << e->name() << "(const int i_";
+    text_.add_gutter() << "void " << e->name() << "(int i_";
     for(auto& arg : e->args()) {
         text_ << ", value_type " << arg->is_argument()->name();
     }
-    text_.end_line(") {");
+    if(e->kind() == procedureKind::net_receive) {
+        text_.end_line(") override {");
+    }
+    else {
+        text_.end_line(") {");
+    }
 
     if(!e->scope()) { // error: semantic analysis has not been performed
         throw compiler_exception(
@@ -564,7 +577,7 @@ void CPrinter::visit(ProcedureExpression *e) {
 
 void CPrinter::visit(APIMethod *e) {
     // ------------- print prototype ------------- //
-    text_.add_gutter() << "void " << e->name() << "() {";
+    text_.add_gutter() << "void " << e->name() << "() override {";
     text_.end_line();
 
     if(!e->scope()) { // error: semantic analysis has not been performed
