@@ -556,6 +556,10 @@ bool Module::semantic() {
                 has_current_update = true;
             }
         }
+        if(has_current_update && kind()==moduleKind::point) {
+            block.emplace_back(Parser("current_ = 100. * current_ / area_").parse_line_expression());
+        }
+
         auto v = make_unique<ConstantFolderVisitor>();
         for(auto& e : block) {
             e->accept(v.get());
