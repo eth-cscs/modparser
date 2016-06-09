@@ -64,3 +64,5 @@ massif.out.*
 vgcore.*
 
 *.log
+
+install_manifest.txt
