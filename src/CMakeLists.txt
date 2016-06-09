@@ -25,3 +25,5 @@ set_target_properties( modcc
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+install(TARGETS modcc RUNTIME DESTINATION bin)
+
