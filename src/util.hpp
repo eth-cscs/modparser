@@ -130,7 +130,7 @@ std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
 // C++11 does not have the std::make_unique helper template function
 //  - Microsoft does
 //  - C++14 does
-#if (__cplusplus < 201402L) || !defined(_MSC_VER)
+#if (__cplusplus < 201402L) && !defined(_MSC_VER)
 namespace std {
     template <typename T, typename... Args>
     std::unique_ptr<T> make_unique(Args&&... args) {
