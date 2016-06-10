@@ -127,10 +127,15 @@ std::ostream& operator<< (std::ostream& os, std::vector<T> const& V) {
     return os << "]";
 }
 
-// just because we aren't using C++14, doesn't mean we shouldn't go
-// without make_unique
-template <typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&&... args) {
-    return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
+// C++11 does not have the std::make_unique helper template function
+//  - Microsoft does
+//  - C++14 does
+#if (__cplusplus < 201402L) || _MSC_VER
+namespace std {
+    template <typename T, typename... Args>
+    std::unique_ptr<T> make_unique(Args&&... args) {
+        return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
+    }
 }
+#endif
 

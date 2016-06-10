@@ -34,7 +34,7 @@ expression_ptr inline_function_call(Expression* e)
                           << " in the expression " << new_e->to_string() << "\n";
 #endif
                 auto v =
-                    make_unique<VariableReplacer>(
+                    std::make_unique<VariableReplacer>(
                         fargs[i]->is_argument()->spelling(),
                         id->spelling()
                     );
@@ -47,7 +47,7 @@ expression_ptr inline_function_call(Expression* e)
                           << " in the expression " << new_e->to_string() << "\n";
 #endif
                 auto v =
-                    make_unique<ValueInliner>(
+                    std::make_unique<ValueInliner>(
                         fargs[i]->is_argument()->spelling(),
                         value->value()
                     );
@@ -62,7 +62,7 @@ expression_ptr inline_function_call(Expression* e)
         }
         new_e->semantic(e->scope());
 
-        auto v = make_unique<ErrorVisitor>("");
+        auto v = std::make_unique<ErrorVisitor>("");
         new_e->accept(v.get());
 #ifdef LOGGING
         std::cout << "inline_function_call result " << new_e->to_string() << "\n\n";

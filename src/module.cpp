@@ -156,7 +156,7 @@ bool Module::semantic() {
             s->semantic(symbols_);
 
             // then use an error visitor to print out all the semantic errors
-            auto v = make_unique<ErrorVisitor>(file_name());
+            auto v = std::make_unique<ErrorVisitor>(file_name());
             s->accept(v.get());
             errors += v->num_errors();
 
@@ -419,7 +419,7 @@ bool Module::semantic() {
                         }
                         else {
                             // create visitor for linear analysis
-                            auto v = make_unique<ExpressionClassifierVisitor>(sym);
+                            auto v = std::make_unique<ExpressionClassifierVisitor>(sym);
                             rhs->accept(v.get());
 
                             // quit if ODE is not linear
@@ -521,9 +521,9 @@ bool Module::semantic() {
                 auto rhs = e->is_assignment()->rhs();
 
                 // analyze the expression for linear terms
-                //auto v = make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
+                //auto v = std::make_unique<ExpressionClassifierVisitor>(symbols_["v"].get());
                 auto v_symbol = breakpoint->scope()->find("v");
-                auto v = make_unique<ExpressionClassifierVisitor>(v_symbol);
+                auto v = std::make_unique<ExpressionClassifierVisitor>(v_symbol);
                 rhs->accept(v.get());
 
                 if(v->classify()==expressionClassification::linear) {
@@ -547,7 +547,7 @@ bool Module::semantic() {
             block.emplace_back(Parser("current_ = 100. * current_ / area_").parse_line_expression());
         }
 
-        auto v = make_unique<ConstantFolderVisitor>();
+        auto v = std::make_unique<ConstantFolderVisitor>();
         for(auto& e : block) {
             e->accept(v.get());
         }
@@ -769,7 +769,7 @@ bool Module::optimize() {
     // how to structure the optimizer
     // loop over APIMethods
     //      - apply optimization to each in turn
-    auto folder = make_unique<ConstantFolderVisitor>();
+    auto folder = std::make_unique<ConstantFolderVisitor>();
     for(auto &symbol : symbols_) {
         auto kind = symbol.second->kind();
         BlockExpression* body;

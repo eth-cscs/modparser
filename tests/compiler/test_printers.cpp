@@ -30,7 +30,7 @@ TEST(CPrinter, statement) {
         if( e==nullptr ) continue;
 
         e->semantic(scope);
-        auto v = make_unique<CPrinter>();
+        auto v = std::make_unique<CPrinter>();
         e->accept(v.get());
 
 #ifdef VERBOSE_TEST
@@ -71,7 +71,7 @@ TEST(CPrinter, proc) {
         globals["trates"] = std::move(e);
 
         e->semantic(globals);
-        auto v = make_unique<CPrinter>();
+        auto v = std::make_unique<CPrinter>();
         e->accept(v.get());
 
 #ifdef VERBOSE_TEST
