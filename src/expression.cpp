@@ -815,6 +815,10 @@ expression_ptr unary_expression( tok op,
                                  expression_ptr&& e
                                )
 {
+    // TODO: Possible recursion
+    // This function is indeed not used anywhere in the code
+    //c:\users\wouter\documents\code\mcnest\modparser\src\expression.cpp(819) : warning C4717 : 'unary_expression' : recursive on all control paths, function will cause runtime stack overflow        
+
     return unary_expression(op, std::move(e));
 }
 

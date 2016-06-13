@@ -109,9 +109,14 @@ CPrinter::CPrinter(Module &m, bool o)
 
     text_.add_line();
     text_.add_line("// asign the sub-arrays");
+    unsigned const max_size_name_str = 128;
     for(int i=0; i<num_vars; ++i) {
-        char namestr[128];
+        char namestr[max_size_name_str];
+#if defined(_MSC_VER)
+        sprintf_s(namestr, max_size_name_str, "%-15s", array_variables[i]->name().c_str());
+#else
         sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
+#endif
         if(optimize_) {
             text_.add_gutter() << namestr << " = data_.data() + "
                                << i << "*field_size;";

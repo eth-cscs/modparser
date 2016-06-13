@@ -22,7 +22,11 @@ Module::Module(std::string const& fname)
     }
 
     // determine size of file
-    std::size_t size = fid.tellg();
+    fpos_t file_position = fid.tellg();
+    // TODO: Static cast smell: there should be a better way to determine the size of this file
+    // tellg() returns a position (not a size)
+    std::size_t size = static_cast<size_t>(file_position);
+
     fid.seekg(0, std::ios::beg);
 
     // allocate space for storage and read

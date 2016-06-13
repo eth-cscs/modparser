@@ -171,9 +171,16 @@ CUDAPrinter::CUDAPrinter(Module &m, bool o)
     text_ << "        size_type n = size();\n";
     text_ << "        data_ = vector_type(n * num_fields);\n";
     text_ << "        data_(memory::all) = std::numeric_limits<value_type>::quiet_NaN();\n";
+    unsigned const max_size_name_str = 128;
+
     for(int i=0; i<num_vars; ++i) {
-        char namestr[128];
+        char namestr[max_size_name_str];
+#if defined(_MSC_VER)
+        sprintf_s(namestr, max_size_name_str, "%-15s", array_variables[i]->name().c_str());
+#else
         sprintf(namestr, "%-15s", array_variables[i]->name().c_str());
+#endif
+
         text_ << "        " << namestr << " = data_(" << i << "*n, " << i+1 << "*n);\n";
     }
     for(auto const& var : array_variables) {

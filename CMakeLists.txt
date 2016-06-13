@@ -5,7 +5,11 @@ project (modparser)
 enable_language(CXX)
 
 # compilation flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -Wno-unused-function -Wno-sign-compare")
+if(MSVC)
+	 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+else ()
+	 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -Wall -Wno-unused-function -Wno-sign-compare ")
+endif()
 
 # this generates a .json file with full compilation command for each file
 set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")

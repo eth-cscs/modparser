@@ -26,7 +26,7 @@ expression_ptr inline_function_call(Expression* e)
 
         auto& fargs = func->args(); // argument names for the function
         auto& cargs = f->args();    // arguments at the call site
-        for(int i=0; i<fargs.size(); ++i) {
+        for(unsigned i=0; i<fargs.size(); ++i) {
             if(auto id = cargs[i]->is_identifier()) {
 #ifdef LOGGING
                 std::cout << "inline_function_call symbol replacement "
