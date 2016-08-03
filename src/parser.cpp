@@ -698,25 +698,25 @@ symbol_ptr Parser::parse_procedure() {
             kind = procedureKind::derivative;
             get_token(); // consume keyword token
             if( !expect( tok::identifier ) ) return nullptr;
-            p = std::move(parse_prototype());
+            p = parse_prototype();
             break;
         case tok::procedure:
             kind = procedureKind::normal;
             get_token(); // consume keyword token
             if( !expect( tok::identifier ) ) return nullptr;
-            p = std::move(parse_prototype());
+            p = parse_prototype();
             break;
         case tok::initial:
             kind = procedureKind::initial;
-            p = std::move(parse_prototype("initial"));
+            p = parse_prototype("initial");
             break;
         case tok::breakpoint:
             kind = procedureKind::breakpoint;
-            p = std::move(parse_prototype("breakpoint"));
+            p = parse_prototype("breakpoint");
             break;
         case tok::net_receive:
             kind = procedureKind::net_receive;
-            p = std::move(parse_prototype("net_receive"));
+            p = parse_prototype("net_receive");
             break;
         default:
             // it is a compiler error if trying to parse_procedure() without

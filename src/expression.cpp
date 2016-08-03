@@ -811,13 +811,6 @@ void ConditionalExpression::accept(Visitor *v) {
     v->visit(this);
 }
 
-expression_ptr unary_expression( tok op,
-                                 expression_ptr&& e
-                               )
-{
-    return unary_expression(op, std::move(e));
-}
-
 expression_ptr unary_expression( Location loc,
                                  tok op,
                                  expression_ptr&& e

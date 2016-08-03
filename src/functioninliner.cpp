@@ -72,7 +72,7 @@ expression_ptr inline_function_call(Expression* e)
                                      e->location());
         }
 
-        return std::move(new_e);
+        return new_e;
     }
 
     return {};
