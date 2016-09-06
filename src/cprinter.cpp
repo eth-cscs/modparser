@@ -54,7 +54,8 @@ CPrinter::CPrinter(Module &m, bool o)
     text_.add_line("using vector_type = typename base::vector_type;");
     text_.add_line("using view_type   = typename base::view_type;");
     text_.add_line("using index_type  = typename base::index_type;");
-    text_.add_line("using index_view  = typename index_type::view_type;");
+    text_.add_line("using index_view  = typename base::index_view;");
+    text_.add_line("using const_index_view  = typename base::const_index_view;");
     text_.add_line("using indexed_view_type= typename base::indexed_view_type;");
     text_.add_line("using ion_type = typename base::ion_type;");
     text_.add_line();
@@ -83,7 +84,7 @@ CPrinter::CPrinter(Module &m, bool o)
     //////////////////////////////////////////////
     //////////////////////////////////////////////
     int num_vars = array_variables.size();
-    text_.add_line(class_name + "(view_type vec_v, view_type vec_i, index_view node_index)");
+    text_.add_line(class_name + "(view_type vec_v, view_type vec_i, const_index_view node_index)");
     text_.add_line(":   base(vec_v, vec_i, node_index)");
     text_.add_line("{");
     text_.increase_indentation();
