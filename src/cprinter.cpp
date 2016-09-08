@@ -345,8 +345,7 @@ CPrinter::CPrinter(Module &m, bool o)
             text_.end_line();
         }
         else {
-            text_.add_line("value_type " + var->name()
-                           + " = std::numeric_limits<value_type>::quiet_NaN();");
+            text_.add_line("value_type " + var->name() + " = 0;");
         }
     }
 
