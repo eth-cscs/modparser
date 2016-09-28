@@ -15,43 +15,35 @@
 /// heavily inspired by the DMD D compiler : github.com/D-Programming-Language/dmd
 class Visitor {
 public:
-    virtual void visit(Expression *e) {
-        throw compiler_exception("unimplemented visitor", Location());
-    }
-    virtual void visit(Symbol *e)               { visit((Expression*) e);       }
-    virtual void visit(LocalVariable *e)        { visit((Expression*) e);       }
-    virtual void visit(IdentifierExpression *e) { visit((Expression*) e);       }
-    virtual void visit(NumberExpression *e)     { visit((Expression*) e);       }
-    virtual void visit(LocalDeclaration *e)     { visit((Expression*) e);       }
-    virtual void visit(ArgumentExpression *e)   { visit((Expression*) e);       }
-    virtual void visit(PrototypeExpression *e)  { visit((Expression*) e);       }
-    virtual void visit(CallExpression *e)       { visit((Expression*) e);       }
-    virtual void visit(VariableExpression *e)   { visit((Expression*) e);       }
-    virtual void visit(IndexedVariable *e)      { visit((Expression*) e);       }
-    virtual void visit(FunctionExpression *e)   { visit((Expression*) e);       }
-    virtual void visit(IfExpression *e)         { visit((Expression*) e);       }
-    virtual void visit(SolveExpression *e)      { visit((Expression*) e);       }
-    virtual void visit(DerivativeExpression *e) { visit((Expression*) e);       }
-
-    virtual void visit(ProcedureExpression *e)  { visit((Expression*) e);       }
+    virtual void visit(Expression *e) = 0;
+    virtual void visit(Symbol *e)               { visit((Expression*) e); }
+    virtual void visit(LocalVariable *e)        { visit((Expression*) e); }
+    virtual void visit(IdentifierExpression *e) { visit((Expression*) e); }
+    virtual void visit(NumberExpression *e)     { visit((Expression*) e); }
+    virtual void visit(LocalDeclaration *e)     { visit((Expression*) e); }
+    virtual void visit(ArgumentExpression *e)   { visit((Expression*) e); }
+    virtual void visit(PrototypeExpression *e)  { visit((Expression*) e); }
+    virtual void visit(CallExpression *e)       { visit((Expression*) e); }
+    virtual void visit(VariableExpression *e)   { visit((Expression*) e); }
+    virtual void visit(IndexedVariable *e)      { visit((Expression*) e); }
+    virtual void visit(FunctionExpression *e)   { visit((Expression*) e); }
+    virtual void visit(IfExpression *e)         { visit((Expression*) e); }
+    virtual void visit(SolveExpression *e)      { visit((Expression*) e); }
+    virtual void visit(DerivativeExpression *e) { visit((Expression*) e); }
+    virtual void visit(ProcedureExpression *e)  { visit((Expression*) e); }
     virtual void visit(NetReceiveExpression *e) { visit((ProcedureExpression*) e); }
-    virtual void visit(APIMethod *e)            { visit((Expression*) e);       }
+    virtual void visit(APIMethod *e)            { visit((Expression*) e); }
+    virtual void visit(BlockExpression *e)      { visit((Expression*) e); }
+    virtual void visit(InitialBlock *e)         { visit((BlockExpression*) e); }
 
-    virtual void visit(BlockExpression *e)      { visit((Expression*) e);       }
-    virtual void visit(InitialBlock *e)         { visit((BlockExpression*) e);  }
+    virtual void visit(UnaryExpression *e) = 0;
+    virtual void visit(NegUnaryExpression *e)   { visit((UnaryExpression*) e); }
+    virtual void visit(ExpUnaryExpression *e)   { visit((UnaryExpression*) e); }
+    virtual void visit(LogUnaryExpression *e)   { visit((UnaryExpression*) e); }
+    virtual void visit(CosUnaryExpression *e)   { visit((UnaryExpression*) e); }
+    virtual void visit(SinUnaryExpression *e)   { visit((UnaryExpression*) e); }
 
-    virtual void visit(UnaryExpression *e) {
-        throw compiler_exception("unimplemented visitor (UnaryExpression)", Location());
-    }
-    virtual void visit(NegUnaryExpression *e)   { visit((UnaryExpression*) e);  }
-    virtual void visit(ExpUnaryExpression *e)   { visit((UnaryExpression*) e);  }
-    virtual void visit(LogUnaryExpression *e)   { visit((UnaryExpression*) e);  }
-    virtual void visit(CosUnaryExpression *e)   { visit((UnaryExpression*) e);  }
-    virtual void visit(SinUnaryExpression *e)   { visit((UnaryExpression*) e);  }
-
-    virtual void visit(BinaryExpression *e) {
-        throw compiler_exception("unimplemented visitor (BinaryExpression)", Location());
-    }
+    virtual void visit(BinaryExpression *e) = 0;
     virtual void visit(AssignmentExpression *e) { visit((BinaryExpression*) e); }
     virtual void visit(AddBinaryExpression *e)  { visit((BinaryExpression*) e); }
     virtual void visit(SubBinaryExpression *e)  { visit((BinaryExpression*) e); }
@@ -61,4 +53,3 @@ public:
 
     virtual ~Visitor() {};
 };
-
