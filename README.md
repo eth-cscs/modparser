@@ -1,3 +1,8 @@
+** THIS PAGE HAS BEEN ARCHIVED **
+
+modparser development was merged into Arbor long ago, and we retain this repo to record the history of the project.
+See: https://github.com/arbor-sim/arbor/
+
 # modparser
 
 A source to source compiler for the NMODL domain specific language.
